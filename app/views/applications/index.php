@@ -1,0 +1,166 @@
+<?php 
+$title = 'Solicitudes';
+ob_start(); 
+?>
+
+<div class="mb-6 flex justify-between items-center">
+    <div>
+        <h2 class="text-3xl font-bold text-gray-800">Solicitudes</h2>
+        <p class="text-gray-600">Gestión de trámites de visas y pasaportes</p>
+    </div>
+    <a href="<?= BASE_URL ?>/solicitudes/crear" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+        <i class="fas fa-plus mr-2"></i>Nueva Solicitud
+    </a>
+</div>
+
+<!-- Filtros -->
+<div class="bg-white rounded-lg shadow p-4 mb-6">
+    <form method="GET" action="<?= BASE_URL ?>/solicitudes" class="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Estatus</label>
+            <select name="status" class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                <option value="">Todos los estatus</option>
+                <option value="<?= STATUS_CREADO ?>" <?= $status === STATUS_CREADO ? 'selected' : '' ?>><?= STATUS_CREADO ?></option>
+                <option value="<?= STATUS_EN_REVISION ?>" <?= $status === STATUS_EN_REVISION ? 'selected' : '' ?>><?= STATUS_EN_REVISION ?></option>
+                <option value="<?= STATUS_INFO_INCOMPLETA ?>" <?= $status === STATUS_INFO_INCOMPLETA ? 'selected' : '' ?>><?= STATUS_INFO_INCOMPLETA ?></option>
+                <option value="<?= STATUS_DOC_VALIDADA ?>" <?= $status === STATUS_DOC_VALIDADA ? 'selected' : '' ?>><?= STATUS_DOC_VALIDADA ?></option>
+                <option value="<?= STATUS_EN_PROCESO ?>" <?= $status === STATUS_EN_PROCESO ? 'selected' : '' ?>><?= STATUS_EN_PROCESO ?></option>
+                <option value="<?= STATUS_APROBADO ?>" <?= $status === STATUS_APROBADO ? 'selected' : '' ?>><?= STATUS_APROBADO ?></option>
+                <option value="<?= STATUS_RECHAZADO ?>" <?= $status === STATUS_RECHAZADO ? 'selected' : '' ?>><?= STATUS_RECHAZADO ?></option>
+                <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
+                <option value="<?= STATUS_FINALIZADO ?>" <?= $status === STATUS_FINALIZADO ? 'selected' : '' ?>><?= STATUS_FINALIZADO ?></option>
+                <?php endif; ?>
+            </select>
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
+            <select name="type" class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                <option value="">Todos los tipos</option>
+                <option value="Visa" <?= $type === 'Visa' ? 'selected' : '' ?>>Visa</option>
+                <option value="Pasaporte" <?= $type === 'Pasaporte' ? 'selected' : '' ?>>Pasaporte</option>
+            </select>
+        </div>
+        
+        <div class="flex items-end">
+            <button type="submit" class="w-full bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition">
+                <i class="fas fa-search mr-2"></i>Filtrar
+            </button>
+        </div>
+    </form>
+</div>
+
+<!-- Tabla de Solicitudes -->
+<div class="bg-white rounded-lg shadow overflow-hidden">
+    <div class="overflow-x-auto">
+        <table class="w-full">
+            <thead class="bg-gray-50 border-b">
+                <tr>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Folio</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtipo</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estatus</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creado por</th>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                    <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Financiero</th>
+                    <?php endif; ?>
+                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-200">
+                <?php foreach ($applications as $app): ?>
+                <tr class="hover:bg-gray-50">
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="font-mono text-sm font-semibold text-blue-600">
+                            <?= htmlspecialchars($app['folio']) ?>
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-sm text-gray-900"><?= htmlspecialchars($app['type']) ?></span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="text-sm text-gray-600"><?= htmlspecialchars($app['subtype'] ?? '-') ?></span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <span class="px-2 py-1 text-xs rounded-full font-medium <?= 
+                            $app['status'] === STATUS_FINALIZADO ? 'bg-green-100 text-green-800' :
+                            ($app['status'] === STATUS_APROBADO ? 'bg-blue-100 text-blue-800' :
+                            ($app['status'] === STATUS_RECHAZADO ? 'bg-red-100 text-red-800' :
+                            ($app['status'] === STATUS_EN_PROCESO ? 'bg-purple-100 text-purple-800' : 'bg-yellow-100 text-yellow-800')))
+                        ?>">
+                            <?= htmlspecialchars($app['status']) ?>
+                        </span>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                        <?= htmlspecialchars($app['creator_name']) ?>
+                    </td>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <?= date('d/m/Y H:i', strtotime($app['created_at'])) ?>
+                    </td>
+                    <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
+                    <td class="px-6 py-4 whitespace-nowrap">
+                        <?php if ($app['financial_status']): ?>
+                        <span class="px-2 py-1 text-xs rounded-full font-medium <?= 
+                            $app['financial_status'] === FINANCIAL_PAGADO ? 'bg-green-100 text-green-800' :
+                            ($app['financial_status'] === FINANCIAL_PARCIAL ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800')
+                        ?>">
+                            <?= htmlspecialchars($app['financial_status']) ?>
+                        </span>
+                        <?php else: ?>
+                        <span class="text-xs text-gray-400">-</span>
+                        <?php endif; ?>
+                    </td>
+                    <?php endif; ?>
+                    <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <a href="<?= BASE_URL ?>/solicitudes/ver/<?= $app['id'] ?>" 
+                           class="text-blue-600 hover:text-blue-800 mr-3">
+                            <i class="fas fa-eye"></i> Ver
+                        </a>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+                
+                <?php if (empty($applications)): ?>
+                <tr>
+                    <td colspan="<?= in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE]) ? '8' : '7' ?>" 
+                        class="px-6 py-12 text-center text-gray-500">
+                        <i class="fas fa-inbox text-4xl mb-3 text-gray-300"></i>
+                        <p>No se encontraron solicitudes</p>
+                    </td>
+                </tr>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    
+    <!-- Paginación -->
+    <?php if ($totalPages > 1): ?>
+    <div class="bg-gray-50 px-6 py-4 flex items-center justify-between border-t">
+        <div class="text-sm text-gray-700">
+            Mostrando página <span class="font-semibold"><?= $page ?></span> de <span class="font-semibold"><?= $totalPages ?></span>
+            (Total: <?= $total ?> registros)
+        </div>
+        <div class="flex gap-2">
+            <?php if ($page > 1): ?>
+            <a href="?page=<?= $page - 1 ?>&status=<?= $status ?>&type=<?= $type ?>" 
+               class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
+                <i class="fas fa-chevron-left"></i> Anterior
+            </a>
+            <?php endif; ?>
+            
+            <?php if ($page < $totalPages): ?>
+            <a href="?page=<?= $page + 1 ?>&status=<?= $status ?>&type=<?= $type ?>" 
+               class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                Siguiente <i class="fas fa-chevron-right"></i>
+            </a>
+            <?php endif; ?>
+        </div>
+    </div>
+    <?php endif; ?>
+</div>
+
+<?php 
+$content = ob_get_clean();
+require ROOT_PATH . '/app/views/layouts/main.php';
+?>
