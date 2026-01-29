@@ -51,13 +51,15 @@
                     <i class="fas fa-shield-alt mr-2"></i>Verificación Humana
                 </label>
                 <?php 
-                // Generate two random numbers for captcha
-                $num1 = rand(1, 10);
-                $num2 = rand(1, 10);
-                $_SESSION['captcha_answer'] = $num1 + $num2;
+                // Generate captcha only if not already set for this session
+                if (!isset($_SESSION['captcha_answer']) || !isset($_SESSION['captcha_num1']) || !isset($_SESSION['captcha_num2'])) {
+                    $_SESSION['captcha_num1'] = rand(1, 10);
+                    $_SESSION['captcha_num2'] = rand(1, 10);
+                    $_SESSION['captcha_answer'] = $_SESSION['captcha_num1'] + $_SESSION['captcha_num2'];
+                }
                 ?>
                 <div class="bg-gray-100 p-3 rounded-lg mb-2 text-center">
-                    <p class="text-lg font-semibold text-gray-700">¿Cuánto es <?= $num1 ?> + <?= $num2 ?>?</p>
+                    <p class="text-lg font-semibold text-gray-700">¿Cuánto es <?= $_SESSION['captcha_num1'] ?> + <?= $_SESSION['captcha_num2'] ?>?</p>
                 </div>
                 <input type="number" id="captcha" name="captcha" required
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"

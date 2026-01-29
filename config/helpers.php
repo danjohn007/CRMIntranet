@@ -29,7 +29,13 @@ function getConfig($key, $default = null) {
  * @return string|null Logo path or null if not configured
  */
 function getSiteLogo() {
-    return getConfig('site_logo', null);
+    $logo = getConfig('site_logo', null);
+    // Validate logo path is relative and doesn't contain protocols
+    if ($logo && (strpos($logo, '://') !== false || strpos($logo, 'javascript:') === 0)) {
+        error_log("Invalid logo path detected: $logo");
+        return null;
+    }
+    return $logo;
 }
 
 /**
