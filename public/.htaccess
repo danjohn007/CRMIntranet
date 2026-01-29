@@ -1,0 +1,19 @@
+<IfModule mod_rewrite.c>
+    RewriteEngine On
+    
+    # Si el archivo o directorio existe, mostrarlo directamente
+    RewriteCond %{REQUEST_FILENAME} !-f
+    RewriteCond %{REQUEST_FILENAME} !-d
+    
+    # Redirigir todas las solicitudes a index.php
+    RewriteRule ^(.*)$ index.php [QSA,L]
+</IfModule>
+
+# Deshabilitar listado de directorios
+Options -Indexes
+
+# Permitir acceso a archivos estáticos
+<FilesMatch "\.(jpg|jpeg|png|gif|css|js|ico|svg|woff|woff2|ttf|eot)$">
+    Order allow,deny
+    Allow from all
+</FilesMatch>
