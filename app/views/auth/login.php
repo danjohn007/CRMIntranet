@@ -10,8 +10,14 @@
 <body class="bg-gradient-to-br from-blue-500 to-blue-700 min-h-screen flex items-center justify-center">
     <div class="bg-white rounded-lg shadow-2xl w-full max-w-md p-8">
         <div class="text-center mb-8">
-            <i class="fas fa-passport text-6xl text-blue-600 mb-4"></i>
-            <h1 class="text-3xl font-bold text-gray-800">CRM Visas y Pasaportes</h1>
+            <?php 
+            $siteLogo = getSiteLogo();
+            if ($siteLogo): ?>
+                <img src="<?= BASE_URL . htmlspecialchars($siteLogo) ?>" alt="Logo" class="h-24 mx-auto mb-4 object-contain">
+            <?php else: ?>
+                <i class="fas fa-passport text-6xl text-blue-600 mb-4"></i>
+            <?php endif; ?>
+            <h1 class="text-3xl font-bold text-gray-800"><?= htmlspecialchars(getSiteName()) ?></h1>
             <p class="text-gray-600 mt-2">Inicie sesión para continuar</p>
         </div>
         
@@ -40,15 +46,28 @@
                     placeholder="Ingrese su contraseña">
             </div>
             
+            <div class="mb-6">
+                <label for="captcha" class="block text-gray-700 font-semibold mb-2">
+                    <i class="fas fa-shield-alt mr-2"></i>Verificación Humana
+                </label>
+                <?php 
+                // Generate two random numbers for captcha
+                $num1 = rand(1, 10);
+                $num2 = rand(1, 10);
+                $_SESSION['captcha_answer'] = $num1 + $num2;
+                ?>
+                <div class="bg-gray-100 p-3 rounded-lg mb-2 text-center">
+                    <p class="text-lg font-semibold text-gray-700">¿Cuánto es <?= $num1 ?> + <?= $num2 ?>?</p>
+                </div>
+                <input type="number" id="captcha" name="captcha" required
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    placeholder="Ingrese el resultado">
+            </div>
+            
             <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-200">
                 <i class="fas fa-sign-in-alt mr-2"></i>Iniciar Sesión
             </button>
         </form>
-        
-        <div class="mt-6 text-center">
-            <p class="text-gray-600 text-sm">Usuario de prueba: <strong>admin</strong></p>
-            <p class="text-gray-600 text-sm">Contraseña: <strong>password123</strong></p>
-        </div>
     </div>
 </body>
 </html>

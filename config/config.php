@@ -58,3 +58,6 @@ define('STATUS_FINALIZADO', 'Finalizado');
 define('FINANCIAL_PENDIENTE', 'Pendiente');
 define('FINANCIAL_PARCIAL', 'Parcial');
 define('FINANCIAL_PAGADO', 'Pagado');
+
+// Load helper functions
+require_once ROOT_PATH . '/config/helpers.php';

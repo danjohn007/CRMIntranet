@@ -18,11 +18,27 @@ class AuthController extends BaseController {
         
         $username = trim($_POST['username'] ?? '');
         $password = $_POST['password'] ?? '';
+        $captcha = trim($_POST['captcha'] ?? '');
         
         if (empty($username) || empty($password)) {
             $_SESSION['error'] = 'Por favor, ingrese usuario y contraseña';
             $this->redirect('/login');
         }
+        
+        // Validate captcha
+        if (empty($captcha) || !isset($_SESSION['captcha_answer'])) {
+            $_SESSION['error'] = 'Por favor, complete la verificación humana';
+            $this->redirect('/login');
+        }
+        
+        if ((int)$captcha !== (int)$_SESSION['captcha_answer']) {
+            $_SESSION['error'] = 'Verificación humana incorrecta. Por favor, intente nuevamente';
+            unset($_SESSION['captcha_answer']); // Clear captcha
+            $this->redirect('/login');
+        }
+        
+        // Clear captcha after successful validation
+        unset($_SESSION['captcha_answer']);
         
         try {
             $stmt = $this->db->prepare("
