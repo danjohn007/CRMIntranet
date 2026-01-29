@@ -19,17 +19,17 @@ class Router {
         // Usuarios
         $this->routes['GET']['/usuarios'] = ['UserController', 'index'];
         $this->routes['GET']['/usuarios/crear'] = ['UserController', 'create'];
-        $this->routes['POST']['/usuarios/crear'] = ['UserController', 'store'];
+        $this->routes['POST']['/usuarios/guardar'] = ['UserController', 'store'];
         $this->routes['GET']['/usuarios/editar/{id}'] = ['UserController', 'edit'];
-        $this->routes['POST']['/usuarios/editar/{id}'] = ['UserController', 'update'];
+        $this->routes['POST']['/usuarios/actualizar/{id}'] = ['UserController', 'update'];
         $this->routes['POST']['/usuarios/eliminar/{id}'] = ['UserController', 'delete'];
         
         // Constructor de Formularios
         $this->routes['GET']['/formularios'] = ['FormController', 'index'];
         $this->routes['GET']['/formularios/crear'] = ['FormController', 'create'];
-        $this->routes['POST']['/formularios/crear'] = ['FormController', 'store'];
+        $this->routes['POST']['/formularios/guardar'] = ['FormController', 'store'];
         $this->routes['GET']['/formularios/editar/{id}'] = ['FormController', 'edit'];
-        $this->routes['POST']['/formularios/editar/{id}'] = ['FormController', 'update'];
+        $this->routes['POST']['/formularios/actualizar/{id}'] = ['FormController', 'update'];
         $this->routes['POST']['/formularios/eliminar/{id}'] = ['FormController', 'delete'];
         $this->routes['POST']['/formularios/publicar/{id}'] = ['FormController', 'publish'];
         
@@ -57,6 +57,8 @@ class Router {
         
         // Logs de Errores
         $this->routes['GET']['/logs'] = ['LogController', 'index'];
+        $this->routes['POST']['/logs/limpiar'] = ['LogController', 'clear'];
+        $this->routes['GET']['/logs/descargar'] = ['LogController', 'download'];
         
         // Test de Conexión
         $this->routes['GET']['/test-conexion'] = ['TestController', 'connection'];
