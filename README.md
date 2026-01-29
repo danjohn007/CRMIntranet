@@ -113,7 +113,21 @@ En Windows, generalmente no es necesario configurar permisos adicionales.
 
 ### 6. Probar la Instalación
 
-Acceda a la página de prueba:
+#### Test Rápido de Conexión
+Acceda al archivo de prueba rápida en la raíz:
+```
+http://localhost/CRMIntranet/test_connection.php
+```
+
+Este archivo verificará:
+- ✅ Conexión a la base de datos
+- ✅ Versión de MySQL
+- ✅ Tablas existentes
+- ✅ Usuarios registrados
+- ✅ Configuración de PHP y PDO
+
+#### Test Completo del Sistema
+Para una verificación más completa:
 ```
 http://localhost/CRMIntranet/test-conexion
 ```
@@ -158,6 +172,12 @@ CRMIntranet/
 ├── public/
 │   ├── css/              # Estilos personalizados
 │   ├── js/               # JavaScript
+│   ├── uploads/          # Archivos subidos
+│   └── index.php         # Punto de entrada
+├── .htaccess             # Configuración Apache
+├── test_connection.php   # Test rápido de conexión DB
+└── README.md             # Este archivo
+```
 │   ├── uploads/          # Archivos subidos
 │   └── index.php         # Punto de entrada
 ├── .htaccess             # Configuración Apache

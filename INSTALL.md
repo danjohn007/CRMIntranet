@@ -31,6 +31,17 @@ chmod -R 755 public/uploads
 ```
 
 ### Step 5: Test Installation
+
+#### Quick Database Test
+Visit: `http://localhost/CRMIntranet/test_connection.php`
+
+This will verify:
+- ✅ Database connection
+- ✅ MySQL version
+- ✅ Database tables
+- ✅ User count
+
+#### Complete System Test
 Visit: `http://localhost/CRMIntranet/test-conexion`
 
 ✅ All checks should pass
