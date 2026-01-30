@@ -54,10 +54,10 @@
     <nav class="bg-blue-600 text-white shadow-lg">
         <div class="container mx-auto px-4">
             <div class="flex justify-between items-center py-4">
-                <div class="flex items-center space-x-4">
+                <div class="flex items-center space-x-2 md:space-x-4 flex-1 min-w-0">
                     <!-- Mobile menu button -->
                     <button id="mobile-menu-button" 
-                            class="md:hidden text-white hover:text-blue-200 focus:outline-none"
+                            class="md:hidden text-white hover:text-blue-200 focus:outline-none flex-shrink-0"
                             aria-label="Abrir menú de navegación"
                             aria-expanded="false"
                             aria-controls="sidebar">
@@ -67,19 +67,19 @@
                     <?php 
                     $siteLogo = getSiteLogo();
                     if ($siteLogo): ?>
-                        <img src="<?= BASE_URL . htmlspecialchars($siteLogo) ?>" alt="Logo" class="h-10 object-contain">
+                        <img src="<?= BASE_URL . htmlspecialchars($siteLogo) ?>" alt="Logo" class="h-8 md:h-10 object-contain flex-shrink-0">
                     <?php else: ?>
-                        <i class="fas fa-passport text-2xl"></i>
+                        <i class="fas fa-passport text-xl md:text-2xl flex-shrink-0"></i>
                     <?php endif; ?>
-                    <h1 class="text-xl font-bold"><?= htmlspecialchars(getSiteName()) ?></h1>
+                    <h1 class="text-sm md:text-xl font-bold truncate"><?= htmlspecialchars(getSiteName()) ?></h1>
                 </div>
-                <div class="flex items-center space-x-4">
-                    <div class="text-sm">
+                <div class="flex items-center space-x-2 md:space-x-4 flex-shrink-0">
+                    <div class="text-sm hidden md:block">
                         <p class="font-semibold"><?= $_SESSION['user_name'] ?? 'Usuario' ?></p>
                         <p class="text-blue-200 text-xs"><?= $_SESSION['user_role'] ?? '' ?></p>
                     </div>
-                    <a href="<?= BASE_URL ?>/logout" class="bg-blue-700 hover:bg-blue-800 px-4 py-2 rounded transition">
-                        <i class="fas fa-sign-out-alt mr-2"></i>Salir
+                    <a href="<?= BASE_URL ?>/logout" class="bg-blue-700 hover:bg-blue-800 px-2 py-2 md:px-4 rounded transition text-sm md:text-base">
+                        <i class="fas fa-sign-out-alt md:mr-2"></i><span class="hidden md:inline">Salir</span>
                     </a>
                 </div>
             </div>
@@ -147,7 +147,7 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 p-6">
+        <main class="flex-1 p-4 md:p-6">
             <?php if (isset($_SESSION['success'])): ?>
             <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded" role="alert">
                 <p><?= htmlspecialchars($_SESSION['success']) ?></p>
