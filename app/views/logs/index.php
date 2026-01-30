@@ -73,7 +73,7 @@ ob_start();
 
 <!-- Tabla de Logs -->
 <div class="bg-white rounded-lg shadow overflow-hidden">
-    <div class="overflow-x-auto">
+    <div class="table-container">
         <?php if (!empty($logs)): ?>
         <table class="w-full">
             <thead class="bg-gray-50 border-b">

@@ -115,7 +115,7 @@ ob_start();
 
 <!-- Tabla de Auditoría -->
 <div class="bg-white rounded-lg shadow overflow-hidden">
-    <div class="overflow-x-auto">
+    <div class="table-container">
         <table class="w-full">
             <thead class="bg-gray-50">
                 <tr>

@@ -82,7 +82,7 @@ ob_start();
         <h3 class="text-xl font-bold text-gray-800">Solicitudes con Información Financiera</h3>
     </div>
     
-    <div class="overflow-x-auto">
+    <div class="table-container">
         <table class="w-full">
             <thead class="bg-gray-50">
                 <tr>

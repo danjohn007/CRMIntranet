@@ -77,31 +77,35 @@ ob_start();
         <!-- Apariencia -->
         <div class="mb-8">
             <h3 class="text-xl font-bold text-gray-800 mb-4 pb-2 border-b">
-                <i class="fas fa-palette text-blue-600"></i> Apariencia
+                <i class="fas fa-palette text-primary"></i> Apariencia
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Color Primario</label>
                     <div class="flex items-center space-x-2">
-                        <input type="color" name="config_primary_color" 
+                        <input type="color" name="config_primary_color" id="primary_color"
                                value="<?= htmlspecialchars($configs['primary_color']['config_value'] ?? '#3b82f6') ?>"
-                               class="h-10 w-20 border border-gray-300 rounded cursor-pointer">
-                        <input type="text" 
+                               class="h-10 w-20 border border-gray-300 rounded cursor-pointer"
+                               onchange="document.getElementById('primary_color_text').value = this.value">
+                        <input type="text" id="primary_color_text"
                                value="<?= htmlspecialchars($configs['primary_color']['config_value'] ?? '#3b82f6') ?>"
                                class="flex-1 border border-gray-300 rounded-lg px-4 py-2" readonly>
                     </div>
+                    <p class="text-xs text-gray-500 mt-1">Este color se aplicará al navbar, botones y enlaces principales</p>
                 </div>
                 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Color Secundario</label>
                     <div class="flex items-center space-x-2">
-                        <input type="color" name="config_secondary_color" 
+                        <input type="color" name="config_secondary_color" id="secondary_color"
                                value="<?= htmlspecialchars($configs['secondary_color']['config_value'] ?? '#1e40af') ?>"
-                               class="h-10 w-20 border border-gray-300 rounded cursor-pointer">
-                        <input type="text" 
+                               class="h-10 w-20 border border-gray-300 rounded cursor-pointer"
+                               onchange="document.getElementById('secondary_color_text').value = this.value">
+                        <input type="text" id="secondary_color_text"
                                value="<?= htmlspecialchars($configs['secondary_color']['config_value'] ?? '#1e40af') ?>"
                                class="flex-1 border border-gray-300 rounded-lg px-4 py-2" readonly>
                     </div>
+                    <p class="text-xs text-gray-500 mt-1">Este color se aplicará al hover de botones y elementos secundarios</p>
                 </div>
             </div>
         </div>
