@@ -158,24 +158,20 @@ php database/migrations/migrate_audit_trail.php</code>
         // Construir consulta con filtros
         $where = ["DATE(created_at) BETWEEN ? AND ?"];
         $params = [$startDate, $endDate];
-        $paramTypes = 'ss';
         
         if (!empty($userId) && $userId !== 'all') {
             $where[] = "user_id = ?";
             $params[] = $userId;
-            $paramTypes .= 'i';
         }
         
         if (!empty($action)) {
             $where[] = "action LIKE ?";
             $params[] = "%$action%";
-            $paramTypes .= 's';
         }
         
         if (!empty($module)) {
             $where[] = "module = ?";
             $params[] = $module;
-            $paramTypes .= 's';
         }
         
         $whereClause = 'WHERE ' . implode(' AND ', $where);
@@ -183,11 +179,8 @@ php database/migrations/migrate_audit_trail.php</code>
         // Contar total de registros
         $countQuery = "SELECT COUNT(*) as total FROM audit_trail $whereClause";
         $stmt = $this->db->prepare($countQuery);
-        if (!empty($params)) {
-            $stmt->bind_param($paramTypes, ...$params);
-        }
-        $stmt->execute();
-        $totalResult = $stmt->get_result()->fetch_assoc();
+        $stmt->execute($params);
+        $totalResult = $stmt->fetch(PDO::FETCH_ASSOC);
         $total = $totalResult['total'];
         
         // Obtener registros de auditoría  
@@ -199,31 +192,27 @@ php database/migrations/migrate_audit_trail.php</code>
                   LIMIT ? OFFSET ?";
         
         $stmt = $this->db->prepare($query);
-        $params[] = $perPage;
-        $params[] = $offset;
-        $paramTypes .= 'ii';
-        $stmt->bind_param($paramTypes, ...$params);
-        $stmt->execute();
-        $result = $stmt->get_result();
+        $allParams = array_merge($params, [$perPage, $offset]);
+        $stmt->execute($allParams);
         
         $auditLogs = [];
-        while ($row = $result->fetch_assoc()) {
+        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
             $auditLogs[] = $row;
         }
         
         // Obtener usuarios para filtro
         $usersQuery = "SELECT id, full_name, email FROM users WHERE is_active = 1 ORDER BY full_name";
-        $usersResult = $this->db->query($usersQuery);
+        $usersStmt = $this->db->query($usersQuery);
         $users = [];
-        while ($row = $usersResult->fetch_assoc()) {
+        while ($row = $usersStmt->fetch(PDO::FETCH_ASSOC)) {
             $users[] = $row;
         }
         
         // Obtener módulos únicos para filtro
         $modulesQuery = "SELECT DISTINCT module FROM audit_trail ORDER BY module";
-        $modulesResult = $this->db->query($modulesQuery);
+        $modulesStmt = $this->db->query($modulesQuery);
         $modules = [];
-        while ($row = $modulesResult->fetch_assoc()) {
+        while ($row = $modulesStmt->fetch(PDO::FETCH_ASSOC)) {
             $modules[] = $row['module'];
         }
         
@@ -235,15 +224,8 @@ php database/migrations/migrate_audit_trail.php</code>
                        FROM audit_trail 
                        $whereClause";
         $stmt = $this->db->prepare($statsQuery);
-        if (!empty($params)) {
-            // Remove last two params (LIMIT and OFFSET)
-            array_pop($params);
-            array_pop($params);
-            $paramTypes = substr($paramTypes, 0, -2);
-            $stmt->bind_param($paramTypes, ...$params);
-        }
-        $stmt->execute();
-        $stats = $stmt->get_result()->fetch_assoc();
+        $stmt->execute($params);
+        $stats = $stmt->fetch(PDO::FETCH_ASSOC);
         
         $totalPages = ceil($total / $perPage);
         
