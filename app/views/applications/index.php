@@ -3,22 +3,22 @@ $title = 'Solicitudes';
 ob_start(); 
 ?>
 
-<div class="mb-6 flex justify-between items-center">
+<div class="mb-4 md:mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
     <div>
-        <h2 class="text-3xl font-bold text-gray-800">Solicitudes</h2>
-        <p class="text-gray-600">Gestión de trámites de visas y pasaportes</p>
+        <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Solicitudes</h2>
+        <p class="text-sm md:text-base text-gray-600">Gestión de trámites de visas y pasaportes</p>
     </div>
-    <a href="<?= BASE_URL ?>/solicitudes/crear" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+    <a href="<?= BASE_URL ?>/solicitudes/crear" class="bg-blue-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg hover:bg-blue-700 transition text-sm md:text-base">
         <i class="fas fa-plus mr-2"></i>Nueva Solicitud
     </a>
 </div>
 
 <!-- Filtros -->
-<div class="bg-white rounded-lg shadow p-4 mb-6">
+<div class="bg-white rounded-lg shadow p-4 mb-4 md:mb-6">
     <form method="GET" action="<?= BASE_URL ?>/solicitudes" class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Estatus</label>
-            <select name="status" class="w-full border border-gray-300 rounded-lg px-4 py-2">
+            <select name="status" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base">
                 <option value="">Todos los estatus</option>
                 <option value="<?= STATUS_CREADO ?>" <?= $status === STATUS_CREADO ? 'selected' : '' ?>><?= STATUS_CREADO ?></option>
                 <option value="<?= STATUS_EN_REVISION ?>" <?= $status === STATUS_EN_REVISION ? 'selected' : '' ?>><?= STATUS_EN_REVISION ?></option>
@@ -35,7 +35,7 @@ ob_start();
         
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
-            <select name="type" class="w-full border border-gray-300 rounded-lg px-4 py-2">
+            <select name="type" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base">
                 <option value="">Todos los tipos</option>
                 <option value="Visa" <?= $type === 'Visa' ? 'selected' : '' ?>>Visa</option>
                 <option value="Pasaporte" <?= $type === 'Pasaporte' ? 'selected' : '' ?>>Pasaporte</option>
@@ -43,7 +43,7 @@ ob_start();
         </div>
         
         <div class="flex items-end">
-            <button type="submit" class="w-full bg-gray-600 text-white px-6 py-2 rounded-lg hover:bg-gray-700 transition">
+            <button type="submit" class="w-full bg-gray-600 text-white px-4 md:px-6 py-2 rounded-lg hover:bg-gray-700 transition text-sm md:text-base">
                 <i class="fas fa-search mr-2"></i>Filtrar
             </button>
         </div>
@@ -56,33 +56,33 @@ ob_start();
         <table class="w-full">
             <thead class="bg-gray-50 border-b">
                 <tr>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Folio</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Tipo</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Subtipo</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estatus</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Creado por</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Fecha</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Folio</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Tipo</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">Subtipo</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Estatus</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Creado por</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Fecha</th>
                     <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Estado Financiero</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden xl:table-cell">Estado Financiero</th>
                     <?php endif; ?>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Acciones</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Acciones</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
                 <?php foreach ($applications as $app): ?>
                 <tr class="hover:bg-gray-50">
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="font-mono text-sm font-semibold text-blue-600">
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap">
+                        <span class="font-mono text-xs md:text-sm font-semibold text-blue-600">
                             <?= htmlspecialchars($app['folio']) ?>
                         </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="text-sm text-gray-900"><?= htmlspecialchars($app['type']) ?></span>
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap">
+                        <span class="text-xs md:text-sm text-gray-900"><?= htmlspecialchars($app['type']) ?></span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="text-sm text-gray-600"><?= htmlspecialchars($app['subtype'] ?? '-') ?></span>
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
+                        <span class="text-xs md:text-sm text-gray-600"><?= htmlspecialchars($app['subtype'] ?? '-') ?></span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap">
                         <span class="px-2 py-1 text-xs rounded-full font-medium <?= 
                             $app['status'] === STATUS_FINALIZADO ? 'bg-green-100 text-green-800' :
                             ($app['status'] === STATUS_APROBADO ? 'bg-blue-100 text-blue-800' :
@@ -92,10 +92,10 @@ ob_start();
                             <?= htmlspecialchars($app['status']) ?>
                         </span>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-700 hidden md:table-cell">
                         <?= htmlspecialchars($app['creator_name']) ?>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-500">
                         <?= date('d/m/Y H:i', strtotime($app['created_at'])) ?>
                     </td>
                     <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
