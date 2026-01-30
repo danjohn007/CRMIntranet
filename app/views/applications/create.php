@@ -31,7 +31,7 @@ ob_start();
         </div>
         
         <div class="mt-8 flex gap-4">
-            <button type="submit" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition">
+            <button type="submit" class="btn-primary text-white px-8 py-3 rounded-lg hover:opacity-90 transition">
                 <i class="fas fa-save mr-2"></i>Crear Solicitud
             </button>
             <a href="<?= BASE_URL ?>/solicitudes" class="bg-gray-500 text-white px-8 py-3 rounded-lg hover:bg-gray-600 transition">

@@ -5,7 +5,7 @@ ob_start();
 
 <div class="mb-6">
     <div class="flex items-center space-x-4 mb-4">
-        <a href="<?= BASE_URL ?>/usuarios" class="text-blue-600 hover:text-blue-800">
+        <a href="<?= BASE_URL ?>/usuarios" class="text-primary hover:opacity-90">
             <i class="fas fa-arrow-left"></i> Volver
         </a>
         <h2 class="text-3xl font-bold text-gray-800">Crear Usuario</h2>
@@ -75,7 +75,7 @@ ob_start();
             <a href="<?= BASE_URL ?>/usuarios" class="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">
                 Cancelar
             </a>
-            <button type="submit" class="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700">
+            <button type="submit" class="btn-primary text-white px-6 py-2 rounded-lg hover:opacity-90">
                 <i class="fas fa-save mr-2"></i>Guardar Usuario
             </button>
         </div>

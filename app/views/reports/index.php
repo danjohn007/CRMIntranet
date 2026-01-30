@@ -46,7 +46,7 @@ ob_start();
         </div>
         
         <div class="flex flex-col md:flex-row justify-between gap-4">
-            <button type="submit" class="bg-blue-600 text-white px-4 md:px-6 py-2 rounded-lg hover:bg-blue-700 text-sm md:text-base">
+            <button type="submit" class="btn-primary text-white px-4 md:px-6 py-2 rounded-lg hover:opacity-90 text-sm md:text-base">
                 <i class="fas fa-search mr-2"></i>Generar Reporte
             </button>
             <div class="flex flex-col sm:flex-row gap-2">
@@ -70,9 +70,9 @@ ob_start();
         <div class="flex items-center justify-between">
             <div class="flex-1 min-w-0">
                 <p class="text-gray-600 text-xs md:text-sm">Total Costos</p>
-                <p class="text-2xl md:text-3xl font-bold text-blue-600 truncate">$<?= number_format($financial['total_costs'] ?? 0, 2) ?></p>
+                <p class="text-2xl md:text-3xl font-bold text-primary truncate">$<?= number_format($financial['total_costs'] ?? 0, 2) ?></p>
             </div>
-            <i class="fas fa-dollar-sign text-3xl md:text-4xl text-blue-200 flex-shrink-0 ml-2"></i>
+            <i class="fas fa-dollar-sign text-3xl md:text-4xl text-gray-200 flex-shrink-0 ml-2"></i>
         </div>
     </div>
     
@@ -132,7 +132,7 @@ ob_start();
                             <span class="text-gray-500"> - </span>
                             <span class="text-xs md:text-sm text-gray-600"><?= htmlspecialchars($item['status']) ?></span>
                         </div>
-                        <span class="bg-blue-600 text-white px-3 py-1 rounded-full text-sm font-bold ml-2 flex-shrink-0">
+                        <span class="bg-primary text-white px-3 py-1 rounded-full text-sm font-bold ml-2 flex-shrink-0">
                             <?= $item['total_applications'] ?>
                         </span>
                     </div>

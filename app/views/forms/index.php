@@ -8,13 +8,13 @@ ob_start();
         <h2 class="text-3xl font-bold text-gray-800">Constructor de Formularios</h2>
         <p class="text-gray-600">Gestión de formularios dinámicos</p>
     </div>
-    <a href="<?= BASE_URL ?>/formularios/crear" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+    <a href="<?= BASE_URL ?>/formularios/crear" class="btn-primary text-white px-6 py-3 rounded-lg hover:opacity-90 transition">
         <i class="fas fa-plus mr-2"></i>Nuevo Formulario
     </a>
 </div>
 
 <div class="bg-white rounded-lg shadow overflow-hidden">
-    <div class="overflow-x-auto">
+    <div class="table-container">
         <table class="w-full">
             <thead class="bg-gray-50 border-b">
                 <tr>
@@ -62,7 +62,7 @@ ob_start();
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                         <div class="flex items-center space-x-3">
                             <a href="<?= BASE_URL ?>/formularios/editar/<?= $form['id'] ?>" 
-                               class="text-blue-600 hover:text-blue-800" title="Editar">
+                               class="text-primary hover:underline" title="Editar">
                                 <i class="fas fa-edit"></i>
                             </a>
                             <form method="POST" action="<?= BASE_URL ?>/formularios/publicar/<?= $form['id'] ?>" class="inline">
@@ -108,7 +108,7 @@ ob_start();
             <?php endif; ?>
             
             <?php if ($page < $totalPages): ?>
-            <a href="?page=<?= $page + 1 ?>" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+            <a href="?page=<?= $page + 1 ?>" class="px-4 py-2 btn-primary text-white rounded-lg hover:opacity-90">
                 Siguiente <i class="fas fa-chevron-right"></i>
             </a>
             <?php endif; ?>

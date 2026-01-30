@@ -82,7 +82,7 @@ ob_start();
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">Documentos</h3>
                 <button onclick="document.getElementById('uploadModal').classList.remove('hidden')" 
-                        class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition">
+                        class="btn-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition">
                     <i class="fas fa-upload mr-2"></i>Subir Documento
                 </button>
             </div>
@@ -103,7 +103,7 @@ ob_start();
                         </div>
                     </div>
                     <a href="<?= BASE_URL . $doc['file_path'] ?>" target="_blank" 
-                       class="text-blue-600 hover:text-blue-800">
+                       class="text-primary hover:underline">
                         <i class="fas fa-download"></i>
                     </a>
                 </div>
@@ -170,7 +170,7 @@ ob_start();
                     <textarea name="comment" rows="3" class="w-full border border-gray-300 rounded-lg px-4 py-2" 
                               placeholder="Opcional (obligatorio para rechazo)"></textarea>
                 </div>
-                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                <button type="submit" class="w-full btn-primary text-white py-2 rounded-lg hover:opacity-90">
                     <i class="fas fa-sync-alt mr-2"></i>Actualizar Estatus
                 </button>
             </form>
@@ -183,7 +183,7 @@ ob_start();
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-bold text-gray-800">Información Financiera</h3>
                 <a href="<?= BASE_URL ?>/financiero/solicitud/<?= $application['id'] ?>" 
-                   class="text-blue-600 hover:text-blue-800">
+                   class="text-primary hover:underline">
                     <i class="fas fa-arrow-right"></i>
                 </a>
             </div>
@@ -232,7 +232,7 @@ ob_start();
                 <p class="text-xs text-gray-500 mt-1">Formatos permitidos: PDF, JPG, PNG, DOC, DOCX (Máx. 10MB)</p>
             </div>
             <div class="flex gap-3">
-                <button type="submit" class="flex-1 bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700">
+                <button type="submit" class="flex-1 btn-primary text-white py-2 rounded-lg hover:opacity-90">
                     <i class="fas fa-upload mr-2"></i>Subir
                 </button>
                 <button type="button" onclick="document.getElementById('uploadModal').classList.add('hidden')" 

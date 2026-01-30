@@ -8,7 +8,7 @@ ob_start();
         <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Solicitudes</h2>
         <p class="text-sm md:text-base text-gray-600">Gestión de trámites de visas y pasaportes</p>
     </div>
-    <a href="<?= BASE_URL ?>/solicitudes/crear" class="bg-blue-600 text-white px-4 md:px-6 py-2 md:py-3 rounded-lg hover:bg-blue-700 transition text-sm md:text-base">
+    <a href="<?= BASE_URL ?>/solicitudes/crear" class="btn-primary text-white px-4 md:px-6 py-2 md:py-3 rounded-lg hover:opacity-90 transition text-sm md:text-base">
         <i class="fas fa-plus mr-2"></i>Nueva Solicitud
     </a>
 </div>
@@ -52,7 +52,7 @@ ob_start();
 
 <!-- Tabla de Solicitudes -->
 <div class="bg-white rounded-lg shadow overflow-hidden">
-    <div class="overflow-x-auto">
+    <div class="table-container">
         <table class="w-full">
             <thead class="bg-gray-50 border-b">
                 <tr>
@@ -72,7 +72,7 @@ ob_start();
                 <?php foreach ($applications as $app): ?>
                 <tr class="hover:bg-gray-50">
                     <td class="px-3 md:px-6 py-4 whitespace-nowrap">
-                        <span class="font-mono text-xs md:text-sm font-semibold text-blue-600">
+                        <span class="font-mono text-xs md:text-sm font-semibold text-primary">
                             <?= htmlspecialchars($app['folio']) ?>
                         </span>
                     </td>
@@ -114,7 +114,7 @@ ob_start();
                     <?php endif; ?>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                         <a href="<?= BASE_URL ?>/solicitudes/ver/<?= $app['id'] ?>" 
-                           class="text-blue-600 hover:text-blue-800 mr-3">
+                           class="text-primary hover:underline mr-3">
                             <i class="fas fa-eye"></i> Ver
                         </a>
                     </td>
@@ -151,7 +151,7 @@ ob_start();
             
             <?php if ($page < $totalPages): ?>
             <a href="?page=<?= $page + 1 ?>&status=<?= $status ?>&type=<?= $type ?>" 
-               class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+               class="px-4 py-2 btn-primary text-white rounded-lg hover:opacity-90">
                 Siguiente <i class="fas fa-chevron-right"></i>
             </a>
             <?php endif; ?>

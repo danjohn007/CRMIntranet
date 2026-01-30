@@ -87,7 +87,56 @@ class DashboardController extends BaseController {
                     LIMIT 5
                 ");
                 $stats['recent_payments'] = $stmt->fetchAll();
+                
+                // Datos para gráfica de pagos por método
+                $stmt = $this->db->query("
+                    SELECT payment_method, COUNT(*) as count, SUM(amount) as total
+                    FROM payments
+                    GROUP BY payment_method
+                ");
+                $stats['payments_by_method'] = $stmt->fetchAll();
             }
+            
+            // Datos para gráfica de solicitudes por mes (últimos 6 meses)
+            if ($role === ROLE_ASESOR) {
+                $stmt = $this->db->prepare("
+                    SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as count
+                    FROM applications
+                    WHERE created_by = ? AND status != ? 
+                    AND created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                    GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+                    ORDER BY month
+                ");
+                $stmt->execute([$userId, STATUS_FINALIZADO]);
+            } else {
+                $stmt = $this->db->query("
+                    SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as count
+                    FROM applications
+                    WHERE created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
+                    GROUP BY DATE_FORMAT(created_at, '%Y-%m')
+                    ORDER BY month
+                ");
+            }
+            $stats['applications_by_month'] = $stmt->fetchAll();
+            
+            // Datos para gráfica de tipos de solicitudes
+            if ($role === ROLE_ASESOR) {
+                $stmt = $this->db->prepare("
+                    SELECT type, COUNT(*) as count
+                    FROM applications
+                    WHERE created_by = ? AND status != ?
+                    GROUP BY type
+                ");
+                $stmt->execute([$userId, STATUS_FINALIZADO]);
+            } else {
+                $stmt = $this->db->query("
+                    SELECT type, COUNT(*) as count
+                    FROM applications
+                    GROUP BY type
+                ");
+            }
+            $stats['applications_by_type'] = $stmt->fetchAll();
+            
             
         } catch (PDOException $e) {
             error_log("Error en dashboard: " . $e->getMessage());

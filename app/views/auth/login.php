@@ -6,16 +6,49 @@
     <title>Login - CRM Visas</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <?php
+    // Get theme colors from configuration
+    $primaryColor = getConfig('primary_color', '#3b82f6');
+    $secondaryColor = getConfig('secondary_color', '#1e40af');
+    ?>
+    <style>
+        :root {
+            --primary-color: <?= $primaryColor ?>;
+            --secondary-color: <?= $secondaryColor ?>;
+        }
+        
+        .bg-gradient-primary {
+            background: linear-gradient(to bottom right, var(--primary-color), var(--secondary-color));
+        }
+        
+        .text-primary {
+            color: var(--primary-color);
+        }
+        
+        .btn-primary {
+            background-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        .focus-ring-primary:focus {
+            outline: none;
+            ring: 2px;
+            ring-color: var(--primary-color);
+        }
+    </style>
 </head>
-<body class="bg-gradient-to-br from-blue-500 to-blue-700 min-h-screen flex items-center justify-center">
-    <div class="bg-white rounded-lg shadow-2xl w-full max-w-md p-8">
+<body class="bg-gradient-primary min-h-screen flex items-center justify-center">
+    <div class="bg-white rounded-lg shadow-2xl w-full max-w-md p-8 m-4">
         <div class="text-center mb-8">
             <?php 
             $siteLogo = getSiteLogo();
             if ($siteLogo): ?>
                 <img src="<?= BASE_URL . htmlspecialchars($siteLogo) ?>" alt="Logo" class="h-24 mx-auto mb-4 object-contain">
             <?php else: ?>
-                <i class="fas fa-passport text-6xl text-blue-600 mb-4"></i>
+                <i class="fas fa-passport text-6xl text-primary mb-4"></i>
             <?php endif; ?>
             <h1 class="text-3xl font-bold text-gray-800"><?= htmlspecialchars(getSiteName()) ?></h1>
             <p class="text-gray-600 mt-2">Inicie sesión para continuar</p>
@@ -33,7 +66,7 @@
                     <i class="fas fa-user mr-2"></i>Usuario o Email
                 </label>
                 <input type="text" id="username" name="username" required
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus-ring-primary"
                     placeholder="Ingrese su usuario">
             </div>
             
@@ -42,7 +75,7 @@
                     <i class="fas fa-lock mr-2"></i>Contraseña
                 </label>
                 <input type="password" id="password" name="password" required
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus-ring-primary"
                     placeholder="Ingrese su contraseña">
             </div>
             
@@ -62,11 +95,11 @@
                     <p class="text-lg font-semibold text-gray-700">¿Cuánto es <?= $_SESSION['captcha_num1'] ?> + <?= $_SESSION['captcha_num2'] ?>?</p>
                 </div>
                 <input type="number" id="captcha" name="captcha" required
-                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus-ring-primary"
                     placeholder="Ingrese el resultado">
             </div>
             
-            <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg font-semibold hover:bg-blue-700 transition duration-200">
+            <button type="submit" class="w-full btn-primary text-white py-3 rounded-lg font-semibold transition duration-200">
                 <i class="fas fa-sign-in-alt mr-2"></i>Iniciar Sesión
             </button>
         </form>
