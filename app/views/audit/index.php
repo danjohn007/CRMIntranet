@@ -4,7 +4,7 @@ ob_start();
 ?>
 
 <div class="mb-6">
-    <a href="<?= BASE_URL ?>/dashboard" class="text-blue-600 hover:text-blue-800 text-sm mb-2 inline-block">
+    <a href="<?= BASE_URL ?>/dashboard" class="text-primary hover:opacity-90 text-sm mb-2 inline-block">
         <i class="fas fa-arrow-left mr-2"></i>Volver a Dashboard
     </a>
     <h2 class="text-3xl font-bold text-gray-800">
@@ -70,7 +70,7 @@ ob_start();
         </div>
         
         <div class="flex items-end">
-            <button type="submit" class="w-full bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition">
+            <button type="submit" class="w-full btn-primary text-white px-6 py-2 rounded-lg hover:opacity-90 transition">
                 <i class="fas fa-filter mr-2"></i>Filtrar
             </button>
         </div>
@@ -83,7 +83,7 @@ ob_start();
         <div class="flex items-center justify-between">
             <div>
                 <p class="text-gray-600 text-sm">Total Registros</p>
-                <p class="text-3xl font-bold text-blue-600"><?= number_format($stats['total_records'] ?? 0) ?></p>
+                <p class="text-3xl font-bold text-primary"><?= number_format($stats['total_records'] ?? 0) ?></p>
                 <p class="text-xs text-gray-500 mt-1">
                     <?= date('d/m/Y', strtotime($startDate)) ?> a <?= date('d/m/Y', strtotime($endDate)) ?>
                 </p>

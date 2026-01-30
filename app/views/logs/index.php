@@ -11,7 +11,7 @@ ob_start();
         </div>
         <div class="space-x-2">
             <a href="<?= BASE_URL ?>/logs/descargar" 
-               class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 inline-block">
+               class="btn-primary text-white px-4 py-2 rounded-lg hover:opacity-90 inline-block">
                 <i class="fas fa-download mr-2"></i>Descargar Log
             </a>
             <form method="POST" action="<?= BASE_URL ?>/logs/limpiar" class="inline"
@@ -135,7 +135,7 @@ ob_start();
             
             <?php if ($page < $totalPages): ?>
             <a href="?page=<?= $page + 1 ?>&search=<?= urlencode($search) ?>&level=<?= urlencode($level) ?>" 
-               class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+               class="px-4 py-2 btn-primary text-white rounded-lg hover:opacity-90">
                 Siguiente <i class="fas fa-chevron-right"></i>
             </a>
             <?php endif; ?>

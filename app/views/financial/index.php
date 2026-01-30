@@ -14,7 +14,7 @@ ob_start();
         <div class="flex items-center justify-between">
             <div class="flex-1 min-w-0">
                 <p class="text-gray-600 text-xs md:text-sm">Total Solicitudes</p>
-                <p class="text-2xl md:text-3xl font-bold text-blue-600"><?= $summary['total_applications'] ?? 0 ?></p>
+                <p class="text-2xl md:text-3xl font-bold text-primary"><?= $summary['total_applications'] ?? 0 ?></p>
             </div>
             <i class="fas fa-file-invoice text-3xl md:text-4xl text-blue-200 flex-shrink-0 ml-2"></i>
         </div>
@@ -100,7 +100,7 @@ ob_start();
                 <?php foreach ($applications as $app): ?>
                 <tr class="hover:bg-gray-50">
                     <td class="px-6 py-4 whitespace-nowrap">
-                        <span class="font-mono text-sm font-semibold text-blue-600">
+                        <span class="font-mono text-sm font-semibold text-primary">
                             <?= htmlspecialchars($app['folio']) ?>
                         </span>
                     </td>
@@ -138,7 +138,7 @@ ob_start();
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <a href="<?= BASE_URL ?>/financiero/solicitud/<?= $app['id'] ?>" 
-                           class="text-blue-600 hover:text-blue-800">
+                           class="text-primary hover:opacity-90">
                             <i class="fas fa-eye mr-1"></i>Ver Detalles
                         </a>
                     </td>
@@ -173,7 +173,7 @@ ob_start();
             
             <?php if ($page < $totalPages): ?>
             <a href="?page=<?= $page + 1 ?>" 
-               class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+               class="px-4 py-2 btn-primary text-white rounded-lg hover:opacity-90">
                 Siguiente <i class="fas fa-chevron-right"></i>
             </a>
             <?php endif; ?>
