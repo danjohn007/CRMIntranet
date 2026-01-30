@@ -472,6 +472,7 @@ After installation, these URLs will be available:
 - **Usuarios:** `/usuarios` (Admin only)
 - **Reportes:** `/reportes` (Admin/Gerente)
 - **Configuración:** `/configuracion` (Admin only)
+- **Auditoría:** `/auditoria` (Admin only)
 - **Logs:** `/logs` (Admin only)
 - **Test:** `/test-conexion`
 
