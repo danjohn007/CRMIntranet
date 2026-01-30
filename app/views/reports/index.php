@@ -72,7 +72,7 @@ ob_start();
                 <p class="text-gray-600 text-xs md:text-sm">Total Costos</p>
                 <p class="text-2xl md:text-3xl font-bold text-primary truncate">$<?= number_format($financial['total_costs'] ?? 0, 2) ?></p>
             </div>
-            <i class="fas fa-dollar-sign text-3xl md:text-4xl text-blue-200 flex-shrink-0 ml-2"></i>
+            <i class="fas fa-dollar-sign text-3xl md:text-4xl text-gray-200 flex-shrink-0 ml-2"></i>
         </div>
     </div>
     

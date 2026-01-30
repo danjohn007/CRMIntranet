@@ -103,7 +103,7 @@ ob_start();
                         </div>
                     </div>
                     <a href="<?= BASE_URL . $doc['file_path'] ?>" target="_blank" 
-                       class="text-primary hover:opacity-90">
+                       class="text-primary hover:underline">
                         <i class="fas fa-download"></i>
                     </a>
                 </div>
@@ -183,7 +183,7 @@ ob_start();
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-bold text-gray-800">Información Financiera</h3>
                 <a href="<?= BASE_URL ?>/financiero/solicitud/<?= $application['id'] ?>" 
-                   class="text-primary hover:opacity-90">
+                   class="text-primary hover:underline">
                     <i class="fas fa-arrow-right"></i>
                 </a>
             </div>

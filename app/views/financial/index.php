@@ -16,7 +16,7 @@ ob_start();
                 <p class="text-gray-600 text-xs md:text-sm">Total Solicitudes</p>
                 <p class="text-2xl md:text-3xl font-bold text-primary"><?= $summary['total_applications'] ?? 0 ?></p>
             </div>
-            <i class="fas fa-file-invoice text-3xl md:text-4xl text-blue-200 flex-shrink-0 ml-2"></i>
+            <i class="fas fa-file-invoice text-3xl md:text-4xl text-gray-200 flex-shrink-0 ml-2"></i>
         </div>
     </div>
     
@@ -138,7 +138,7 @@ ob_start();
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <a href="<?= BASE_URL ?>/financiero/solicitud/<?= $app['id'] ?>" 
-                           class="text-primary hover:opacity-90">
+                           class="text-primary hover:underline">
                             <i class="fas fa-eye mr-1"></i>Ver Detalles
                         </a>
                     </td>

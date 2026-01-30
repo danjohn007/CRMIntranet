@@ -4,7 +4,7 @@ ob_start();
 ?>
 
 <div class="mb-6">
-    <a href="<?= BASE_URL ?>/dashboard" class="text-primary hover:opacity-90 text-sm mb-2 inline-block">
+    <a href="<?= BASE_URL ?>/dashboard" class="text-primary hover:underline text-sm mb-2 inline-block">
         <i class="fas fa-arrow-left mr-2"></i>Volver a Dashboard
     </a>
     <h2 class="text-3xl font-bold text-gray-800">

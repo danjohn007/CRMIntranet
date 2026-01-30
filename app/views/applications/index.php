@@ -114,7 +114,7 @@ ob_start();
                     <?php endif; ?>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                         <a href="<?= BASE_URL ?>/solicitudes/ver/<?= $app['id'] ?>" 
-                           class="text-primary hover:opacity-90 mr-3">
+                           class="text-primary hover:underline mr-3">
                             <i class="fas fa-eye"></i> Ver
                         </a>
                     </td>

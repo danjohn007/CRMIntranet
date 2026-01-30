@@ -5,7 +5,7 @@ ob_start();
 
 <div class="mb-6">
     <div class="flex items-center space-x-4 mb-4">
-        <a href="<?= BASE_URL ?>/formularios" class="text-primary hover:opacity-90">
+        <a href="<?= BASE_URL ?>/formularios" class="text-primary hover:underline">
             <i class="fas fa-arrow-left"></i> Volver
         </a>
         <h2 class="text-3xl font-bold text-gray-800">Crear Formulario</h2>

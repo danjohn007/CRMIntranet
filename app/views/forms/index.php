@@ -62,7 +62,7 @@ ob_start();
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                         <div class="flex items-center space-x-3">
                             <a href="<?= BASE_URL ?>/formularios/editar/<?= $form['id'] ?>" 
-                               class="text-primary hover:opacity-90" title="Editar">
+                               class="text-primary hover:underline" title="Editar">
                                 <i class="fas fa-edit"></i>
                             </a>
                             <form method="POST" action="<?= BASE_URL ?>/formularios/publicar/<?= $form['id'] ?>" class="inline">
