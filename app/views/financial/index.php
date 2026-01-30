@@ -3,67 +3,67 @@ $title = 'Módulo Financiero';
 ob_start(); 
 ?>
 
-<div class="mb-6">
-    <h2 class="text-3xl font-bold text-gray-800">Módulo Financiero</h2>
-    <p class="text-gray-600">Control de costos y pagos de solicitudes</p>
+<div class="mb-4 md:mb-6">
+    <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Módulo Financiero</h2>
+    <p class="text-sm md:text-base text-gray-600">Control de costos y pagos de solicitudes</p>
 </div>
 
 <!-- Resumen Financiero -->
-<div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-6">
-    <div class="bg-white rounded-lg shadow p-6">
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-6">
+    <div class="bg-white rounded-lg shadow p-4 md:p-6">
         <div class="flex items-center justify-between">
-            <div>
-                <p class="text-gray-600 text-sm">Total Solicitudes</p>
-                <p class="text-3xl font-bold text-blue-600"><?= $summary['total_applications'] ?? 0 ?></p>
+            <div class="flex-1 min-w-0">
+                <p class="text-gray-600 text-xs md:text-sm">Total Solicitudes</p>
+                <p class="text-2xl md:text-3xl font-bold text-blue-600"><?= $summary['total_applications'] ?? 0 ?></p>
             </div>
-            <i class="fas fa-file-invoice text-4xl text-blue-200"></i>
+            <i class="fas fa-file-invoice text-3xl md:text-4xl text-blue-200 flex-shrink-0 ml-2"></i>
         </div>
     </div>
     
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="bg-white rounded-lg shadow p-4 md:p-6">
         <div class="flex items-center justify-between">
-            <div>
-                <p class="text-gray-600 text-sm">Total Costos</p>
-                <p class="text-2xl font-bold text-gray-800">$<?= number_format($summary['total_costs'] ?? 0, 2) ?></p>
+            <div class="flex-1 min-w-0">
+                <p class="text-gray-600 text-xs md:text-sm">Total Costos</p>
+                <p class="text-lg md:text-2xl font-bold text-gray-800 truncate">$<?= number_format($summary['total_costs'] ?? 0, 2) ?></p>
             </div>
-            <i class="fas fa-dollar-sign text-4xl text-gray-200"></i>
+            <i class="fas fa-dollar-sign text-3xl md:text-4xl text-gray-200 flex-shrink-0 ml-2"></i>
         </div>
     </div>
     
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="bg-white rounded-lg shadow p-4 md:p-6">
         <div class="flex items-center justify-between">
-            <div>
-                <p class="text-gray-600 text-sm">Total Pagado</p>
-                <p class="text-2xl font-bold text-green-600">$<?= number_format($summary['total_paid'] ?? 0, 2) ?></p>
+            <div class="flex-1 min-w-0">
+                <p class="text-gray-600 text-xs md:text-sm">Total Pagado</p>
+                <p class="text-lg md:text-2xl font-bold text-green-600 truncate">$<?= number_format($summary['total_paid'] ?? 0, 2) ?></p>
             </div>
-            <i class="fas fa-check-circle text-4xl text-green-200"></i>
+            <i class="fas fa-check-circle text-3xl md:text-4xl text-green-200 flex-shrink-0 ml-2"></i>
         </div>
     </div>
     
-    <div class="bg-white rounded-lg shadow p-6">
+    <div class="bg-white rounded-lg shadow p-4 md:p-6">
         <div class="flex items-center justify-between">
-            <div>
-                <p class="text-gray-600 text-sm">Saldo Pendiente</p>
-                <p class="text-2xl font-bold text-red-600">$<?= number_format($summary['total_balance'] ?? 0, 2) ?></p>
+            <div class="flex-1 min-w-0">
+                <p class="text-gray-600 text-xs md:text-sm">Saldo Pendiente</p>
+                <p class="text-lg md:text-2xl font-bold text-red-600 truncate">$<?= number_format($summary['total_balance'] ?? 0, 2) ?></p>
             </div>
-            <i class="fas fa-exclamation-circle text-4xl text-red-200"></i>
+            <i class="fas fa-exclamation-circle text-3xl md:text-4xl text-red-200 flex-shrink-0 ml-2"></i>
         </div>
     </div>
 </div>
 
 <!-- Estadísticas por Estado -->
-<div class="bg-white rounded-lg shadow p-6 mb-6">
-    <h3 class="text-xl font-bold text-gray-800 mb-4">Distribución por Estado Financiero</h3>
+<div class="bg-white rounded-lg shadow p-4 md:p-6 mb-4 md:mb-6">
+    <h3 class="text-lg md:text-xl font-bold text-gray-800 mb-4">Distribución por Estado Financiero</h3>
     <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
         <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg">
-            <span class="font-medium text-gray-700">Pendiente</span>
-            <span class="bg-red-600 text-white px-4 py-2 rounded-full text-lg font-bold">
+            <span class="font-medium text-gray-700 text-sm md:text-base">Pendiente</span>
+            <span class="bg-red-600 text-white px-3 md:px-4 py-1 md:py-2 rounded-full text-base md:text-lg font-bold">
                 <?= $summary['pending_count'] ?? 0 ?>
             </span>
         </div>
         <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
-            <span class="font-medium text-gray-700">Parcial</span>
-            <span class="bg-yellow-600 text-white px-4 py-2 rounded-full text-lg font-bold">
+            <span class="font-medium text-gray-700 text-sm md:text-base">Parcial</span>
+            <span class="bg-yellow-600 text-white px-3 md:px-4 py-1 md:py-2 rounded-full text-base md:text-lg font-bold">
                 <?= $summary['partial_count'] ?? 0 ?>
             </span>
         </div>
