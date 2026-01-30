@@ -14,6 +14,39 @@
             background-color: rgba(59, 130, 246, 0.2);
             border-left: 4px solid #3b82f6;
         }
+        
+        /* Mobile menu styles */
+        #sidebar {
+            transition: transform 0.3s ease-in-out;
+        }
+        
+        #sidebar-overlay {
+            transition: opacity 0.3s ease-in-out;
+        }
+        
+        @media (max-width: 768px) {
+            #sidebar {
+                transform: translateX(-100%);
+                position: fixed;
+                z-index: 40;
+                height: 100vh;
+                overflow-y: auto;
+            }
+            
+            #sidebar.open {
+                transform: translateX(0);
+            }
+            
+            #sidebar-overlay {
+                opacity: 0;
+                pointer-events: none;
+            }
+            
+            #sidebar-overlay.open {
+                opacity: 1;
+                pointer-events: auto;
+            }
+        }
     </style>
 </head>
 <body class="bg-gray-50">
@@ -22,6 +55,15 @@
         <div class="container mx-auto px-4">
             <div class="flex justify-between items-center py-4">
                 <div class="flex items-center space-x-4">
+                    <!-- Mobile menu button -->
+                    <button id="mobile-menu-button" 
+                            class="md:hidden text-white hover:text-blue-200 focus:outline-none"
+                            aria-label="Abrir menú de navegación"
+                            aria-expanded="false"
+                            aria-controls="sidebar">
+                        <i class="fas fa-bars text-2xl"></i>
+                    </button>
+                    
                     <?php 
                     $siteLogo = getSiteLogo();
                     if ($siteLogo): ?>
@@ -43,10 +85,13 @@
             </div>
         </div>
     </nav>
+    
+    <!-- Overlay for mobile -->
+    <div id="sidebar-overlay" class="fixed inset-0 bg-black bg-opacity-50 z-30 md:hidden"></div>
 
     <div class="flex">
         <!-- Sidebar -->
-        <aside class="w-64 bg-white shadow-lg min-h-screen">
+        <aside id="sidebar" class="w-64 bg-white shadow-lg min-h-screen">
             <nav class="py-4">
                 <a href="<?= BASE_URL ?>/dashboard" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-blue-600">
                     <i class="fas fa-home w-6"></i>
@@ -88,6 +133,11 @@
                     <span>Configuración</span>
                 </a>
                 
+                <a href="<?= BASE_URL ?>/auditoria" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-blue-600">
+                    <i class="fas fa-clipboard-list w-6"></i>
+                    <span>Auditoría</span>
+                </a>
+                
                 <a href="<?= BASE_URL ?>/logs" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-blue-600">
                     <i class="fas fa-exclamation-triangle w-6"></i>
                     <span>Logs de Errores</span>
@@ -126,6 +176,51 @@
                     link.classList.add('active');
                 }
             });
+            
+            // Mobile menu toggle
+            const mobileMenuButton = document.getElementById('mobile-menu-button');
+            const sidebar = document.getElementById('sidebar');
+            const overlay = document.getElementById('sidebar-overlay');
+            
+            if (mobileMenuButton) {
+                mobileMenuButton.addEventListener('click', function() {
+                    const isOpen = sidebar.classList.toggle('open');
+                    overlay.classList.toggle('open');
+                    mobileMenuButton.setAttribute('aria-expanded', isOpen);
+                    
+                    // Focus trap: focus first link when menu opens
+                    if (isOpen && links.length > 0) {
+                        links[0].focus();
+                    }
+                });
+                
+                overlay.addEventListener('click', function() {
+                    sidebar.classList.remove('open');
+                    overlay.classList.remove('open');
+                    mobileMenuButton.setAttribute('aria-expanded', 'false');
+                });
+                
+                // Close sidebar when clicking on a link (mobile)
+                links.forEach(link => {
+                    link.addEventListener('click', function() {
+                        if (window.innerWidth < 768) {
+                            sidebar.classList.remove('open');
+                            overlay.classList.remove('open');
+                            mobileMenuButton.setAttribute('aria-expanded', 'false');
+                        }
+                    });
+                });
+                
+                // Close menu on Escape key
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+                        sidebar.classList.remove('open');
+                        overlay.classList.remove('open');
+                        mobileMenuButton.setAttribute('aria-expanded', 'false');
+                        mobileMenuButton.focus();
+                    }
+                });
+            }
         });
     </script>
 </body>

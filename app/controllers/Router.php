@@ -60,6 +60,9 @@ class Router {
         $this->routes['POST']['/logs/limpiar'] = ['LogController', 'clear'];
         $this->routes['GET']['/logs/descargar'] = ['LogController', 'download'];
         
+        // Auditoría
+        $this->routes['GET']['/auditoria'] = ['AuditController', 'index'];
+        
         // Test de Conexión
         $this->routes['GET']['/test-conexion'] = ['TestController', 'connection'];
     }
