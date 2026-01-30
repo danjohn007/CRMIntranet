@@ -273,6 +273,27 @@ CREATE TABLE `shelly_devices` (
   UNIQUE KEY `device_id` (`device_id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Tabla de Auditoría del Sistema
+DROP TABLE IF EXISTS `audit_trail`;
+CREATE TABLE `audit_trail` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) DEFAULT NULL,
+  `user_name` varchar(100) DEFAULT NULL,
+  `user_email` varchar(100) DEFAULT NULL,
+  `action` varchar(100) NOT NULL COMMENT 'login, logout, create, update, delete, etc',
+  `module` varchar(100) NOT NULL COMMENT 'usuarios, solicitudes, formularios, etc',
+  `description` text NOT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `user_agent` text,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `action` (`action`),
+  KEY `module` (`module`),
+  KEY `created_at` (`created_at`),
+  CONSTRAINT `audit_trail_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 SET FOREIGN_KEY_CHECKS = 1;
 
 -- Crear índices adicionales para optimización
