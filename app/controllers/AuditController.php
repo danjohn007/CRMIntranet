@@ -8,8 +8,19 @@ class AuditController extends BaseController {
         
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
         $perPage = 30;
+        
+        // Validate and sanitize dates
         $startDate = $_GET['start_date'] ?? date('Y-m-d', strtotime('-30 days'));
         $endDate = $_GET['end_date'] ?? date('Y-m-d');
+        
+        // Validate date format
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $startDate)) {
+            $startDate = date('Y-m-d', strtotime('-30 days'));
+        }
+        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $endDate)) {
+            $endDate = date('Y-m-d');
+        }
+        
         $userId = $_GET['user_id'] ?? '';
         $action = $_GET['action'] ?? '';
         $module = $_GET['module'] ?? '';
@@ -49,9 +60,10 @@ class AuditController extends BaseController {
         $totalResult = $stmt->get_result()->fetch_assoc();
         $total = $totalResult['total'];
         
-        // Obtener registros de auditoría
+        // Obtener registros de auditoría  
         $offset = ($page - 1) * $perPage;
-        $query = "SELECT * FROM audit_trail 
+        $query = "SELECT id, user_id, user_name, user_email, action, module, description, ip_address, created_at 
+                  FROM audit_trail 
                   $whereClause 
                   ORDER BY created_at DESC 
                   LIMIT ? OFFSET ?";

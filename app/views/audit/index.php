@@ -15,7 +15,7 @@ ob_start();
 
 <!-- Filtros -->
 <div class="bg-white rounded-lg shadow p-6 mb-6">
-    <form method="GET" action="<?= BASE_URL ?>/auditoria" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-5 gap-4">
+    <form method="GET" action="<?= BASE_URL ?>/auditoria" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">
                 <i class="fas fa-calendar mr-1"></i>Fecha Inicio
@@ -53,6 +53,20 @@ ob_start();
             <input type="text" name="action" value="<?= htmlspecialchars($action) ?>" 
                    placeholder="Buscar acción..."
                    class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+        </div>
+        
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                <i class="fas fa-cube mr-1"></i>Módulo
+            </label>
+            <select name="module" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                <option value="">Todos los módulos</option>
+                <?php foreach ($modules as $mod): ?>
+                <option value="<?= htmlspecialchars($mod) ?>" <?= $module === $mod ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($mod) ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
         </div>
         
         <div class="flex items-end">
@@ -171,14 +185,14 @@ ob_start();
             </div>
             <div class="flex space-x-2">
                 <?php if ($page > 1): ?>
-                <a href="?page=<?= $page - 1 ?>&start_date=<?= $startDate ?>&end_date=<?= $endDate ?>&user_id=<?= $userId ?>&action=<?= $action ?>&module=<?= $module ?>" 
+                <a href="?page=<?= $page - 1 ?>&start_date=<?= urlencode($startDate) ?>&end_date=<?= urlencode($endDate) ?>&user_id=<?= urlencode($userId) ?>&action=<?= urlencode($action) ?>&module=<?= urlencode($module) ?>" 
                    class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50">
                     Anterior
                 </a>
                 <?php endif; ?>
                 
                 <?php if ($page < $totalPages): ?>
-                <a href="?page=<?= $page + 1 ?>&start_date=<?= $startDate ?>&end_date=<?= $endDate ?>&user_id=<?= $userId ?>&action=<?= $action ?>&module=<?= $module ?>" 
+                <a href="?page=<?= $page + 1 ?>&start_date=<?= urlencode($startDate) ?>&end_date=<?= urlencode($endDate) ?>&user_id=<?= urlencode($userId) ?>&action=<?= urlencode($action) ?>&module=<?= urlencode($module) ?>" 
                    class="px-3 py-1 bg-white border border-gray-300 rounded hover:bg-gray-50">
                     Siguiente
                 </a>

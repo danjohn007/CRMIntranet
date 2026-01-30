@@ -56,7 +56,11 @@
             <div class="flex justify-between items-center py-4">
                 <div class="flex items-center space-x-4">
                     <!-- Mobile menu button -->
-                    <button id="mobile-menu-button" class="md:hidden text-white hover:text-blue-200 focus:outline-none">
+                    <button id="mobile-menu-button" 
+                            class="md:hidden text-white hover:text-blue-200 focus:outline-none"
+                            aria-label="Abrir menú de navegación"
+                            aria-expanded="false"
+                            aria-controls="sidebar">
                         <i class="fas fa-bars text-2xl"></i>
                     </button>
                     
@@ -180,13 +184,20 @@
             
             if (mobileMenuButton) {
                 mobileMenuButton.addEventListener('click', function() {
-                    sidebar.classList.toggle('open');
+                    const isOpen = sidebar.classList.toggle('open');
                     overlay.classList.toggle('open');
+                    mobileMenuButton.setAttribute('aria-expanded', isOpen);
+                    
+                    // Focus trap: focus first link when menu opens
+                    if (isOpen && links.length > 0) {
+                        links[0].focus();
+                    }
                 });
                 
                 overlay.addEventListener('click', function() {
                     sidebar.classList.remove('open');
                     overlay.classList.remove('open');
+                    mobileMenuButton.setAttribute('aria-expanded', 'false');
                 });
                 
                 // Close sidebar when clicking on a link (mobile)
@@ -195,8 +206,19 @@
                         if (window.innerWidth < 768) {
                             sidebar.classList.remove('open');
                             overlay.classList.remove('open');
+                            mobileMenuButton.setAttribute('aria-expanded', 'false');
                         }
                     });
+                });
+                
+                // Close menu on Escape key
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+                        sidebar.classList.remove('open');
+                        overlay.classList.remove('open');
+                        mobileMenuButton.setAttribute('aria-expanded', 'false');
+                        mobileMenuButton.focus();
+                    }
                 });
             }
         });
