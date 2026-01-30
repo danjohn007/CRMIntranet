@@ -82,9 +82,9 @@ CREATE TABLE `applications` (
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Solicitudes de ejemplo con datos de meses pasados para gráficas mejoradas
--- Se incluyen datos de 8 meses atrás hasta la fecha actual
+-- Se incluyen datos de 6 meses distribuidos (Agosto 2025 - Enero 2026)
 
--- Agosto 2025 (8 meses atrás) - 6 solicitudes
+-- Agosto 2025 - 6 solicitudes
 INSERT INTO `applications` (`folio`, `form_id`, `form_version`, `type`, `subtype`, `status`, `data_json`, `created_by`, `created_at`) VALUES
 ('VISA-2025-000001', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Roberto García Méndez","pasaporte":"M123456789","fecha_nacimiento":"1985-05-15","motivo":"Turismo"}', 3, '2025-08-05 09:30:00'),
 ('VISA-2025-000002', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Laura Hernández Torres","pasaporte":"M987654321","fecha_nacimiento":"1990-08-22","motivo":"Negocios"}', 3, '2025-08-08 10:15:00'),
@@ -93,7 +93,7 @@ INSERT INTO `applications` (`folio`, `form_id`, `form_version`, `type`, `subtype
 ('VISA-2025-000005', 2, 1, 'Pasaporte', 'Renovación', 'Finalizado', '{"nombre":"Miguel Ángel Ortiz","curp":"OIGM920612HQTRTG03","pasaporte_anterior":"M444555666"}', 4, '2025-08-22 15:30:00'),
 ('VISA-2025-000006', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Carmen Sánchez Ruiz","pasaporte":"M234567890","fecha_nacimiento":"1988-11-05","motivo":"Turismo"}', 3, '2025-08-28 09:00:00'),
 
--- Septiembre 2025 (7 meses atrás) - 8 solicitudes
+-- Septiembre 2025 - 8 solicitudes
 ('VISA-2025-000007', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"José Luis Mendoza","pasaporte":"M345678901","fecha_nacimiento":"1992-03-12","motivo":"Negocios"}', 3, '2025-09-03 10:20:00'),
 ('VISA-2025-000008', 2, 1, 'Pasaporte', 'Renovación', 'Finalizado', '{"nombre":"Patricia Jiménez Vega","curp":"JIVP870520MQTMGT08","pasaporte_anterior":"M222333444"}', 4, '2025-09-05 13:40:00'),
 ('VISA-2025-000009', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Fernando Torres Aguilar","pasaporte":"M456789012","fecha_nacimiento":"1986-09-25","motivo":"Turismo"}', 3, '2025-09-10 11:15:00'),
@@ -103,7 +103,7 @@ INSERT INTO `applications` (`folio`, `form_id`, `form_version`, `type`, `subtype
 ('VISA-2025-000013', 2, 1, 'Pasaporte', 'Renovación', 'Finalizado', '{"nombre":"Alberto Ramírez González","curp":"RAGA840225HQTMZL09","pasaporte_anterior":"M444555666"}', 3, '2025-09-24 10:45:00'),
 ('VISA-2025-000014', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Verónica Castro Díaz","pasaporte":"M789012345","fecha_nacimiento":"1991-05-14","motivo":"Turismo"}', 4, '2025-09-28 15:20:00'),
 
--- Octubre 2025 (6 meses atrás) - 10 solicitudes
+-- Octubre 2025 - 10 solicitudes
 ('VISA-2025-000015', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Héctor Gutiérrez Silva","pasaporte":"M890123456","fecha_nacimiento":"1987-01-30","motivo":"Negocios"}', 3, '2025-10-02 09:15:00'),
 ('VISA-2025-000016', 2, 1, 'Pasaporte', 'Renovación', 'Finalizado', '{"nombre":"Monica Fernández Rojas","curp":"FERM880710MQTRNL07","pasaporte_anterior":"M555666777"}', 4, '2025-10-05 11:30:00'),
 ('VISA-2025-000017', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Andrés Pacheco Méndez","pasaporte":"M901234567","fecha_nacimiento":"1994-08-18","motivo":"Turismo"}', 3, '2025-10-08 14:00:00'),
@@ -115,7 +115,7 @@ INSERT INTO `applications` (`folio`, `form_id`, `form_version`, `type`, `subtype
 ('VISA-2025-000023', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Pablo Domínguez Luna","pasaporte":"M345672109","fecha_nacimiento":"1993-09-27","motivo":"Negocios"}', 4, '2025-10-26 16:30:00'),
 ('VISA-2025-000024', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Adriana Paredes Solis","pasaporte":"M456783210","fecha_nacimiento":"1991-02-11","motivo":"Turismo"}', 3, '2025-10-30 10:00:00'),
 
--- Noviembre 2025 (5 meses atrás) - 12 solicitudes
+-- Noviembre 2025 - 12 solicitudes
 ('VISA-2025-000025', 2, 1, 'Pasaporte', 'Renovación', 'Finalizado', '{"nombre":"Rodrigo Maldonado Ortiz","curp":"MAOR850618HQTLRD05","pasaporte_anterior":"M888999000"}', 4, '2025-11-02 09:30:00'),
 ('VISA-2025-000026', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Elena Campos Rojas","pasaporte":"M567894321","fecha_nacimiento":"1989-12-05","motivo":"Estudios"}', 3, '2025-11-05 14:15:00'),
 ('VISA-2025-000027', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Manuel Núñez Castillo","pasaporte":"M678905432","fecha_nacimiento":"1987-10-19","motivo":"Turismo"}', 3, '2025-11-08 10:40:00'),
@@ -129,7 +129,7 @@ INSERT INTO `applications` (`folio`, `form_id`, `form_version`, `type`, `subtype
 ('VISA-2025-000035', 2, 1, 'Pasaporte', 'Renovación', 'Finalizado', '{"nombre":"Guillermo Acosta Peña","curp":"AOPG870522HQTCLL01","pasaporte_anterior":"M111222333"}', 4, '2025-11-28 11:25:00'),
 ('VISA-2025-000036', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Norma Alicia Ruiz Vera","pasaporte":"M234560198","fecha_nacimiento":"1991-01-26","motivo":"Turismo"}', 3, '2025-11-30 15:40:00'),
 
--- Diciembre 2025 (4 meses atrás) - 14 solicitudes
+-- Diciembre 2025 - 14 solicitudes
 ('VISA-2025-000037', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Oscar Téllez Bravo","pasaporte":"M345671209","fecha_nacimiento":"1989-05-09","motivo":"Negocios"}', 4, '2025-12-02 09:45:00'),
 ('VISA-2025-000038', 2, 1, 'Pasaporte', 'Renovación', 'Finalizado', '{"nombre":"Teresa Márquez Gómez","curp":"MAGT840715MQTRML04","pasaporte_anterior":"M222333444"}', 3, '2025-12-04 13:15:00'),
 ('VISA-2025-000039', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Javier Montoya Ramos","pasaporte":"M456782310","fecha_nacimiento":"1992-09-21","motivo":"Turismo"}', 3, '2025-12-06 10:20:00'),
@@ -145,7 +145,7 @@ INSERT INTO `applications` (`folio`, `form_id`, `form_version`, `type`, `subtype
 ('VISA-2025-000049', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Enrique Cortés Díaz","pasaporte":"M123458087","fecha_nacimiento":"1992-04-12","motivo":"Turismo"}', 3, '2025-12-28 15:05:00'),
 ('VISA-2025-000050', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Lucía Escobar Rivas","pasaporte":"M234569198","fecha_nacimiento":"1990-07-31","motivo":"Negocios"}', 4, '2025-12-30 09:25:00'),
 
--- Enero 2026 (actual) - 15 solicitudes con diferentes estados
+-- Enero 2026 - 15 solicitudes con diferentes estados
 ('VISA-2026-000001', 1, 1, 'Visa', 'Primera Vez', 'Finalizado', '{"nombre":"Carlos Ibarra Moreno","pasaporte":"M345670209","fecha_nacimiento":"1987-02-19","motivo":"Turismo"}', 3, '2026-01-02 10:30:00'),
 ('VISA-2026-000002', 2, 1, 'Pasaporte', 'Renovación', 'Finalizado', '{"nombre":"Gloria Contreras Lima","curp":"COLG880912MQTNLR09","pasaporte_anterior":"M666777888"}', 4, '2026-01-04 13:50:00'),
 ('VISA-2026-000003', 1, 1, 'Visa', 'Primera Vez', 'Aprobado', '{"nombre":"Tomás Quintero Vega","pasaporte":"M456781320","fecha_nacimiento":"1994-10-06","motivo":"Negocios"}', 3, '2026-01-06 11:15:00'),
@@ -179,10 +179,9 @@ CREATE TABLE `status_history` (
   CONSTRAINT `status_history_ibfk_2` FOREIGN KEY (`changed_by`) REFERENCES `users` (`id`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
--- Historial de ejemplo con muchos datos distribuidos en el tiempo
--- Incluimos historial para solicitudes finalizadas y en proceso
-
--- Historial para solicitudes finalizadas (ID 1-50, 51-52)
+-- Historial de ejemplo con datos distribuidos en el tiempo
+-- Incluye historial para algunas solicitudes de muestra (no todas las 65 para mantener el archivo conciso)
+-- Las solicitudes 1-6 de agosto tienen historial completo, y las de enero (53-67) tienen historial según su estado
 INSERT INTO `status_history` (`application_id`, `previous_status`, `new_status`, `comment`, `changed_by`) VALUES
 -- Agosto 2025
 (1, NULL, 'Creado', 'Solicitud registrada', 3),
