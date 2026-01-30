@@ -143,7 +143,7 @@ ob_start();
         </div>
         
         <div class="flex justify-end space-x-4">
-            <button type="submit" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700">
+            <button type="submit" class="btn-primary text-white px-8 py-3 rounded-lg hover:opacity-90 transition">
                 <i class="fas fa-save mr-2"></i>Guardar Configuración
             </button>
         </div>

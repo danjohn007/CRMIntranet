@@ -6,22 +6,92 @@
     <title><?= $title ?? 'CRM Visas y Pasaportes' ?></title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+    <?php
+    // Get theme colors from configuration
+    $primaryColor = getConfig('primary_color', '#3b82f6');
+    $secondaryColor = getConfig('secondary_color', '#1e40af');
+    
+    // Convert hex to RGB for alpha transparency
+    function hexToRgb($hex) {
+        $hex = ltrim($hex, '#');
+        return [
+            'r' => hexdec(substr($hex, 0, 2)),
+            'g' => hexdec(substr($hex, 2, 2)),
+            'b' => hexdec(substr($hex, 4, 2))
+        ];
+    }
+    $primaryRgb = hexToRgb($primaryColor);
+    $secondaryRgb = hexToRgb($secondaryColor);
+    ?>
     <style>
-        .sidebar-link:hover {
-            background-color: rgba(59, 130, 246, 0.1);
-        }
-        .sidebar-link.active {
-            background-color: rgba(59, 130, 246, 0.2);
-            border-left: 4px solid #3b82f6;
+        :root {
+            --primary-color: <?= $primaryColor ?>;
+            --secondary-color: <?= $secondaryColor ?>;
+            --primary-rgb: <?= $primaryRgb['r'] ?>, <?= $primaryRgb['g'] ?>, <?= $primaryRgb['b'] ?>;
+            --secondary-rgb: <?= $secondaryRgb['r'] ?>, <?= $secondaryRgb['g'] ?>, <?= $secondaryRgb['b'] ?>;
         }
         
-        /* Mobile menu styles */
+        /* Apply theme colors */
+        .bg-primary {
+            background-color: var(--primary-color) !important;
+        }
+        
+        .bg-secondary {
+            background-color: var(--secondary-color) !important;
+        }
+        
+        .text-primary {
+            color: var(--primary-color) !important;
+        }
+        
+        .border-primary {
+            border-color: var(--primary-color) !important;
+        }
+        
+        .sidebar-link:hover {
+            background-color: rgba(var(--primary-rgb), 0.1);
+        }
+        
+        .sidebar-link.active {
+            background-color: rgba(var(--primary-rgb), 0.2);
+            border-left: 4px solid var(--primary-color);
+        }
+        
+        /* Button theming */
+        .btn-primary {
+            background-color: var(--primary-color);
+        }
+        
+        .btn-primary:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        /* Fixed width sidebar for desktop */
         #sidebar {
             transition: transform 0.3s ease-in-out;
         }
         
+        @media (min-width: 768px) {
+            #sidebar {
+                width: 256px;
+                flex-shrink: 0;
+            }
+        }
+        
         #sidebar-overlay {
             transition: opacity 0.3s ease-in-out;
+        }
+        
+        /* Horizontal scroll only for tables */
+        .table-container {
+            overflow-x: auto;
+            -webkit-overflow-scrolling: touch;
+        }
+        
+        /* Keep table layout fixed */
+        .table-container table {
+            min-width: 600px;
         }
         
         @media (max-width: 768px) {
@@ -31,6 +101,7 @@
                 z-index: 40;
                 height: 100vh;
                 overflow-y: auto;
+                width: 256px;
             }
             
             #sidebar.open {
@@ -51,7 +122,7 @@
 </head>
 <body class="bg-gray-50">
     <!-- Navbar -->
-    <nav class="bg-blue-600 text-white shadow-lg">
+    <nav class="bg-primary text-white shadow-lg">
         <div class="container mx-auto px-4">
             <div class="flex justify-between items-center py-4">
                 <div class="flex items-center space-x-2 md:space-x-4 flex-1 min-w-0">
@@ -78,7 +149,7 @@
                         <p class="font-semibold"><?= $_SESSION['user_name'] ?? 'Usuario' ?></p>
                         <p class="text-blue-200 text-xs"><?= $_SESSION['user_role'] ?? '' ?></p>
                     </div>
-                    <a href="<?= BASE_URL ?>/logout" class="bg-blue-700 hover:bg-blue-800 px-2 py-2 md:px-4 rounded transition text-sm md:text-base">
+                    <a href="<?= BASE_URL ?>/logout" class="bg-secondary hover:opacity-90 px-2 py-2 md:px-4 rounded transition text-sm md:text-base">
                         <i class="fas fa-sign-out-alt md:mr-2"></i><span class="hidden md:inline">Salir</span>
                     </a>
                 </div>
@@ -93,52 +164,52 @@
         <!-- Sidebar -->
         <aside id="sidebar" class="w-64 bg-white shadow-lg min-h-screen">
             <nav class="py-4">
-                <a href="<?= BASE_URL ?>/dashboard" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-blue-600">
+                <a href="<?= BASE_URL ?>/dashboard" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
                     <i class="fas fa-home w-6"></i>
                     <span>Dashboard</span>
                 </a>
                 
-                <a href="<?= BASE_URL ?>/solicitudes" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-blue-600">
+                <a href="<?= BASE_URL ?>/solicitudes" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
                     <i class="fas fa-file-alt w-6"></i>
                     <span>Solicitudes</span>
                 </a>
                 
                 <?php if (in_array($_SESSION['user_role'] ?? '', [ROLE_ADMIN])): ?>
-                <a href="<?= BASE_URL ?>/formularios" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-blue-600">
+                <a href="<?= BASE_URL ?>/formularios" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
                     <i class="fas fa-edit w-6"></i>
                     <span>Constructor de Formularios</span>
                 </a>
                 <?php endif; ?>
                 
                 <?php if (in_array($_SESSION['user_role'] ?? '', [ROLE_ADMIN, ROLE_GERENTE])): ?>
-                <a href="<?= BASE_URL ?>/financiero" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-blue-600">
+                <a href="<?= BASE_URL ?>/financiero" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
                     <i class="fas fa-dollar-sign w-6"></i>
                     <span>Módulo Financiero</span>
                 </a>
                 
-                <a href="<?= BASE_URL ?>/reportes" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-blue-600">
+                <a href="<?= BASE_URL ?>/reportes" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
                     <i class="fas fa-chart-bar w-6"></i>
                     <span>Reportes</span>
                 </a>
                 <?php endif; ?>
                 
                 <?php if (in_array($_SESSION['user_role'] ?? '', [ROLE_ADMIN])): ?>
-                <a href="<?= BASE_URL ?>/usuarios" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-blue-600">
+                <a href="<?= BASE_URL ?>/usuarios" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
                     <i class="fas fa-users w-6"></i>
                     <span>Usuarios</span>
                 </a>
                 
-                <a href="<?= BASE_URL ?>/configuracion" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-blue-600">
+                <a href="<?= BASE_URL ?>/configuracion" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
                     <i class="fas fa-cog w-6"></i>
                     <span>Configuración</span>
                 </a>
                 
-                <a href="<?= BASE_URL ?>/auditoria" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-blue-600">
+                <a href="<?= BASE_URL ?>/auditoria" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
                     <i class="fas fa-clipboard-list w-6"></i>
                     <span>Auditoría</span>
                 </a>
                 
-                <a href="<?= BASE_URL ?>/logs" class="sidebar-link flex items-center px-6 py-3 text-gray-700 hover:text-blue-600">
+                <a href="<?= BASE_URL ?>/logs" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
                     <i class="fas fa-exclamation-triangle w-6"></i>
                     <span>Logs de Errores</span>
                 </a>
