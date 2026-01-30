@@ -22,8 +22,14 @@
         <div class="container mx-auto px-4">
             <div class="flex justify-between items-center py-4">
                 <div class="flex items-center space-x-4">
-                    <i class="fas fa-passport text-2xl"></i>
-                    <h1 class="text-xl font-bold"><?= SITE_NAME ?></h1>
+                    <?php 
+                    $siteLogo = getSiteLogo();
+                    if ($siteLogo): ?>
+                        <img src="<?= BASE_URL . htmlspecialchars($siteLogo) ?>" alt="Logo" class="h-10 object-contain">
+                    <?php else: ?>
+                        <i class="fas fa-passport text-2xl"></i>
+                    <?php endif; ?>
+                    <h1 class="text-xl font-bold"><?= htmlspecialchars(getSiteName()) ?></h1>
                 </div>
                 <div class="flex items-center space-x-4">
                     <div class="text-sm">
