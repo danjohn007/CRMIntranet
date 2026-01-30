@@ -9,7 +9,7 @@ class AuditController extends BaseController {
     private function checkAuditTableExists() {
         try {
             $result = $this->db->query("SHOW TABLES LIKE 'audit_trail'");
-            return $result && $result->num_rows > 0;
+            return $result && $result->fetch() !== false;
         } catch (Exception $e) {
             return false;
         }
