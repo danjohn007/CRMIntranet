@@ -16,6 +16,8 @@ cd CRMIntranet
    - All tables
    - Sample data
 
+**Note:** If you're upgrading from an older version, you may need to run additional migrations. See the [Migration Guide](#database-migrations) below.
+
 ### Step 3: Configure Database Connection
 Edit `config/config.php` lines 15-18:
 ```php
@@ -301,6 +303,45 @@ mysqldump -u root -p crm_visas > backup_$(date +%Y%m%d).sql
 
 ---
 
+## Database Migrations
+
+### Audit Trail Table Migration
+
+If you're upgrading from a previous version and need to add the audit trail feature, follow these steps:
+
+#### Option 1: Automatic Migration (Recommended)
+
+Visit the migration script in your browser:
+```
+http://your-domain/database/migrations/migrate_audit_trail.php
+```
+
+The script will automatically:
+- Check if the table exists
+- Create the `audit_trail` table
+- Insert sample data
+- Verify the installation
+
+#### Option 2: Manual Migration (phpMyAdmin)
+
+1. Open phpMyAdmin
+2. Select your database
+3. Go to SQL tab
+4. Execute the file: `database/migrations/create_audit_trail_table.sql`
+
+#### Option 3: Command Line
+
+```bash
+cd /path/to/CRMIntranet
+php database/migrations/migrate_audit_trail.php
+```
+
+**Important:** After running the migration, the Auditoría module will be accessible from the admin sidebar menu.
+
+For more details, see: `database/migrations/README.md`
+
+---
+
 ## Troubleshooting
 
 ### Problem: 404 Error on all pages
@@ -326,6 +367,42 @@ sudo systemctl restart apache2
 ```bash
 mysql -u root -p
 SHOW DATABASES;
+```
+
+### Problem: audit_trail table doesn't exist
+
+**Error Message:**
+```
+SQLSTATE[42S02]: Base table or view not found: 1146 Table 'recursos_visas.audit_trail' doesn't exist
+```
+
+**Solution:**
+1. Run the migration script (see [Database Migrations](#database-migrations) section above)
+2. Or access: `http://your-domain/database/migrations/migrate_audit_trail.php`
+3. The Auditoría module will guide you through the setup if the table is missing
+
+**Quick Fix:**
+```sql
+-- Run this SQL in phpMyAdmin
+CREATE TABLE `audit_trail` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) DEFAULT NULL,
+  `user_name` varchar(100) DEFAULT NULL,
+  `user_email` varchar(100) DEFAULT NULL,
+  `action` varchar(100) NOT NULL,
+  `module` varchar(100) NOT NULL,
+  `description` text NOT NULL,
+  `ip_address` varchar(45) DEFAULT NULL,
+  `user_agent` text,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `user_id` (`user_id`),
+  KEY `action` (`action`),
+  KEY `module` (`module`),
+  KEY `created_at` (`created_at`),
+  CONSTRAINT `audit_trail_ibfk_1` FOREIGN KEY (`user_id`) 
+    REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
 ### Problem: Blank page after login
