@@ -51,13 +51,17 @@ ob_start();
             
             <div class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Campos del Formulario (JSON) <span class="text-red-500">*</span>
+                    Campos del Formulario <span class="text-red-500">*</span>
                 </label>
-                <textarea name="fields_json" rows="15" required
-                          class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 font-mono text-sm"
-                          placeholder='{"fields":[{"id":"nombre","type":"text","label":"Nombre Completo","required":true}]}'></textarea>
+                
+                <!-- Visual Form Builder -->
+                <div id="form-builder-container" data-initial-data=""></div>
+                
+                <!-- Hidden field to store JSON -->
+                <input type="hidden" name="fields_json" id="fields_json_hidden" required>
+                
                 <p class="text-sm text-gray-500 mt-2">
-                    <i class="fas fa-info-circle"></i> Formato: JSON con estructura de campos del formulario
+                    <i class="fas fa-info-circle"></i> Arrastra y suelta campos para construir tu formulario
                 </p>
             </div>
         </div>
@@ -72,6 +76,8 @@ ob_start();
         </div>
     </form>
 </div>
+
+<script src="<?= BASE_URL ?>/js/form-builder.js"></script>
 
 <?php 
 $content = ob_get_clean();
