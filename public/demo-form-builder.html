@@ -112,8 +112,12 @@
             const preview = document.getElementById('json-preview');
             
             if (jsonField.value) {
-                const formatted = JSON.stringify(JSON.parse(jsonField.value), null, 2);
-                preview.textContent = formatted;
+                try {
+                    const formatted = JSON.stringify(JSON.parse(jsonField.value), null, 2);
+                    preview.textContent = formatted;
+                } catch (e) {
+                    preview.textContent = '// Error al parsear JSON: ' + e.message;
+                }
             } else {
                 preview.textContent = '// No hay campos definidos aún';
             }

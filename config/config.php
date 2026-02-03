@@ -14,7 +14,7 @@ define('ROOT_PATH', dirname(__DIR__));
 
 // Configuración de Base de Datos
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'crm_visas');
+define('DB_NAME', 'recursos_visas');
 define('DB_USER', 'recursos_visas');
 define('DB_PASS', '}hwFM2gahfZ%');
 define('DB_CHARSET', 'utf8mb4');

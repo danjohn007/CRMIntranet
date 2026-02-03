@@ -168,10 +168,7 @@ class FormBuilder {
                         </div>
                     </div>
                     <div class="flex items-center space-x-2">
-                        <button type="button" class="text-blue-600 hover:text-blue-800" onclick="formBuilder.editField(${index})">
-                            <i class="fas fa-edit"></i>
-                        </button>
-                        <button type="button" class="text-red-600 hover:text-red-800" onclick="formBuilder.deleteField(${index})">
+                        <button type="button" class="btn-delete-field text-red-600 hover:text-red-800" data-index="${index}">
                             <i class="fas fa-trash"></i>
                         </button>
                     </div>
@@ -181,34 +178,80 @@ class FormBuilder {
                     <div>
                         <label class="block text-xs text-gray-600 mb-1">Etiqueta</label>
                         <input type="text" value="${field.label}" 
-                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                               onchange="formBuilder.updateFieldProperty(${index}, 'label', this.value)">
+                               class="field-label-input w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                               data-index="${index}">
                     </div>
                     <div>
                         <label class="block text-xs text-gray-600 mb-1">ID del campo</label>
                         <input type="text" value="${field.id}" 
-                               class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                               onchange="formBuilder.updateFieldProperty(${index}, 'id', this.value)">
+                               class="field-id-input w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                               data-index="${index}">
                     </div>
                     ${field.type === 'select' ? `
                         <div class="col-span-2">
                             <label class="block text-xs text-gray-600 mb-1">Opciones (separadas por coma)</label>
                             <input type="text" value="${(field.options || []).join(', ')}" 
-                                   class="w-full border border-gray-300 rounded px-2 py-1 text-sm"
-                                   onchange="formBuilder.updateFieldProperty(${index}, 'options', this.value.split(',').map(o => o.trim()))">
+                                   class="field-options-input w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                   data-index="${index}">
                         </div>
                     ` : ''}
                     <div class="col-span-2">
                         <label class="flex items-center">
                             <input type="checkbox" ${field.required ? 'checked' : ''} 
-                                   class="mr-2"
-                                   onchange="formBuilder.updateFieldProperty(${index}, 'required', this.checked)">
+                                   class="field-required-input mr-2"
+                                   data-index="${index}">
                             <span class="text-xs text-gray-700">Campo obligatorio</span>
                         </label>
                     </div>
                 </div>
             </div>
         `).join('');
+        
+        // Attach event listeners after rendering
+        this.attachFieldEventListeners();
+    }
+    
+    attachFieldEventListeners() {
+        // Label inputs
+        document.querySelectorAll('.field-label-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                this.updateFieldProperty(index, 'label', e.target.value);
+            });
+        });
+        
+        // ID inputs
+        document.querySelectorAll('.field-id-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                this.updateFieldProperty(index, 'id', e.target.value);
+            });
+        });
+        
+        // Options inputs
+        document.querySelectorAll('.field-options-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                const options = e.target.value.split(',').map(o => o.trim());
+                this.updateFieldProperty(index, 'options', options);
+            });
+        });
+        
+        // Required checkboxes
+        document.querySelectorAll('.field-required-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                this.updateFieldProperty(index, 'required', e.target.checked);
+            });
+        });
+        
+        // Delete buttons
+        document.querySelectorAll('.btn-delete-field').forEach(button => {
+            button.addEventListener('click', (e) => {
+                const index = parseInt(e.currentTarget.dataset.index);
+                this.deleteField(index);
+            });
+        });
     }
     
     updateFieldProperty(index, property, value) {
@@ -216,11 +259,6 @@ class FormBuilder {
             this.fields[index][property] = value;
             this.updateJSON();
         }
-    }
-    
-    editField(index) {
-        // The inline editing is already available, this could show a modal in future
-        console.log('Editing field:', index);
     }
     
     deleteField(index) {
