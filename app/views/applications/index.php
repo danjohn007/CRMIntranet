@@ -62,6 +62,7 @@ ob_start();
                     <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Estatus</th>
                     <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Creado por</th>
                     <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Fecha</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden xl:table-cell">Progreso</th>
                     <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
                     <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden xl:table-cell">Estado Financiero</th>
                     <?php endif; ?>
@@ -97,6 +98,18 @@ ob_start();
                     </td>
                     <td class="px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-500">
                         <?= date('d/m/Y H:i', strtotime($app['created_at'])) ?>
+                    </td>
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap hidden xl:table-cell">
+                        <?php if ($app['progress_percentage'] > 0): ?>
+                        <div class="flex items-center space-x-2">
+                            <div class="w-16 bg-gray-200 rounded-full h-2">
+                                <div class="bg-blue-600 h-2 rounded-full" style="width: <?= $app['progress_percentage'] ?>%"></div>
+                            </div>
+                            <span class="text-xs text-gray-600"><?= number_format($app['progress_percentage'], 0) ?>%</span>
+                        </div>
+                        <?php else: ?>
+                        <span class="text-xs text-gray-400">-</span>
+                        <?php endif; ?>
                     </td>
                     <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
                     <td class="px-6 py-4 whitespace-nowrap">

@@ -62,8 +62,14 @@ class AuthController extends BaseController {
                 $stmt = $this->db->prepare("UPDATE users SET updated_at = NOW() WHERE id = ?");
                 $stmt->execute([$user['id']]);
                 
+                // Log audit trail
+                logAudit('login', 'autenticacion', "Usuario {$user['full_name']} inició sesión");
+                
                 $this->redirect('/dashboard');
             } else {
+                // Log failed login attempt
+                logAudit('login_failed', 'autenticacion', "Intento de inicio de sesión fallido para: $username");
+                
                 $_SESSION['error'] = 'Usuario o contraseña incorrectos';
                 $this->redirect('/login');
             }
@@ -75,6 +81,11 @@ class AuthController extends BaseController {
     }
     
     public function logout() {
+        // Log audit trail before destroying session
+        if (isset($_SESSION['user_name'])) {
+            logAudit('logout', 'autenticacion', "Usuario {$_SESSION['user_name']} cerró sesión");
+        }
+        
         session_destroy();
         $this->redirect('/login');
     }
