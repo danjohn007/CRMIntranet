@@ -139,11 +139,18 @@ HAVING COUNT(*) > 1;
 
 4. Si hay duplicados, actualícelos manualmente:
 ```sql
+-- Primero, identificar los IDs con tokens duplicados
+CREATE TEMPORARY TABLE temp_duplicate_ids AS
+SELECT id FROM forms WHERE public_token IN 
+    (SELECT public_token FROM forms GROUP BY public_token HAVING COUNT(*) > 1);
+
+-- Luego, actualizar cada uno con un token único
 UPDATE forms 
 SET public_token = CONCAT(MD5(RAND()), MD5(RAND()))
-WHERE id IN (SELECT id FROM (SELECT id FROM forms WHERE public_token IN 
-    (SELECT public_token FROM forms GROUP BY public_token HAVING COUNT(*) > 1)
-) AS temp);
+WHERE id IN (SELECT id FROM temp_duplicate_ids);
+
+-- Limpiar tabla temporal
+DROP TEMPORARY TABLE temp_duplicate_ids;
 ```
 
 5. Cree el índice único:
