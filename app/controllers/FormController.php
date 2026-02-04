@@ -216,7 +216,7 @@ class FormController extends BaseController {
         
         try {
             // Obtener estado actual
-            $stmt = $this->db->prepare("SELECT is_published FROM forms WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT is_published, name FROM forms WHERE id = ?");
             $stmt->execute([$id]);
             $form = $stmt->fetch();
             
@@ -227,8 +227,16 @@ class FormController extends BaseController {
             
             // Toggle estado
             $newStatus = $form['is_published'] ? 0 : 1;
-            $stmt = $this->db->prepare("UPDATE forms SET is_published = ? WHERE id = ?");
-            $stmt->execute([$newStatus, $id]);
+            $stmt = $this->db->prepare("
+                UPDATE forms 
+                SET is_published = ?, public_enabled = ? 
+                WHERE id = ?
+            ");
+            $stmt->execute([$newStatus, $newStatus, $id]);
+            
+            // Log audit
+            $action = $newStatus ? 'publicado' : 'despublicado';
+            logAudit('update', 'formularios', "Formulario '{$form['name']}' $action");
             
             $_SESSION['success'] = $newStatus ? 'Formulario publicado' : 'Formulario despublicado';
             $this->redirect('/formularios');
