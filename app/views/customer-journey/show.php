@@ -1,5 +1,31 @@
 <?php 
 $title = 'Customer Journey - ' . $application['folio'];
+
+// Helper function for touchpoint CSS classes
+function getTouchpointColor($type) {
+    $colors = [
+        'status_change' => 'bg-blue-500 border-blue-500',
+        'payment' => 'bg-green-500 border-green-500',
+        'email' => 'bg-purple-500 border-purple-500',
+        'call' => 'bg-orange-500 border-orange-500',
+        'meeting' => 'bg-indigo-500 border-indigo-500'
+    ];
+    return $colors[$type] ?? 'bg-gray-500 border-gray-500';
+}
+
+// Helper function for touchpoint icons
+function getTouchpointIcon($type) {
+    $icons = [
+        'status_change' => 'fa-exchange-alt',
+        'payment' => 'fa-dollar-sign',
+        'email' => 'fa-envelope',
+        'call' => 'fa-phone',
+        'meeting' => 'fa-users',
+        'document_upload' => 'fa-file-upload'
+    ];
+    return $icons[$type] ?? 'fa-circle';
+}
+
 ob_start(); 
 ?>
 
@@ -142,31 +168,12 @@ ob_start();
             <?php foreach ($touchpoints as $index => $touchpoint): ?>
             <div class="relative pl-12">
                 <!-- Timeline dot -->
-                <div class="absolute left-0 w-8 h-8 rounded-full flex items-center justify-center <?= 
-                    $touchpoint['touchpoint_type'] === 'status_change' ? 'bg-blue-500' :
-                    ($touchpoint['touchpoint_type'] === 'payment' ? 'bg-green-500' :
-                    ($touchpoint['touchpoint_type'] === 'email' ? 'bg-purple-500' :
-                    ($touchpoint['touchpoint_type'] === 'call' ? 'bg-orange-500' :
-                    ($touchpoint['touchpoint_type'] === 'meeting' ? 'bg-indigo-500' : 'bg-gray-500'))))
-                ?>">
-                    <i class="fas <?= 
-                        $touchpoint['touchpoint_type'] === 'status_change' ? 'fa-exchange-alt' :
-                        ($touchpoint['touchpoint_type'] === 'payment' ? 'fa-dollar-sign' :
-                        ($touchpoint['touchpoint_type'] === 'email' ? 'fa-envelope' :
-                        ($touchpoint['touchpoint_type'] === 'call' ? 'fa-phone' :
-                        ($touchpoint['touchpoint_type'] === 'meeting' ? 'fa-users' :
-                        ($touchpoint['touchpoint_type'] === 'document_upload' ? 'fa-file-upload' : 'fa-circle')))))
-                    ?> text-white text-sm"></i>
+                <div class="absolute left-0 w-8 h-8 rounded-full flex items-center justify-center <?= getTouchpointColor($touchpoint['touchpoint_type']) ?>">
+                    <i class="fas <?= getTouchpointIcon($touchpoint['touchpoint_type']) ?> text-white text-sm"></i>
                 </div>
                 
                 <!-- Content card -->
-                <div class="bg-gray-50 rounded-lg p-4 border-l-4 <?= 
-                    $touchpoint['touchpoint_type'] === 'status_change' ? 'border-blue-500' :
-                    ($touchpoint['touchpoint_type'] === 'payment' ? 'border-green-500' :
-                    ($touchpoint['touchpoint_type'] === 'email' ? 'border-purple-500' :
-                    ($touchpoint['touchpoint_type'] === 'call' ? 'border-orange-500' :
-                    ($touchpoint['touchpoint_type'] === 'meeting' ? 'border-indigo-500' : 'border-gray-500'))))
-                ?>">
+                <div class="bg-gray-50 rounded-lg p-4 border-l-4 <?= getTouchpointColor($touchpoint['touchpoint_type']) ?>">
                     <div class="flex justify-between items-start mb-2">
                         <h4 class="font-bold text-gray-800"><?= htmlspecialchars($touchpoint['touchpoint_title']) ?></h4>
                         <span class="text-xs text-gray-500"><?= date('d/m/Y H:i', strtotime($touchpoint['created_at'])) ?></span>

@@ -153,7 +153,8 @@ function copyPublicLink(url) {
             message.remove();
         }, 3000);
     }, function(err) {
-        alert('Error al copiar: ' + err);
+        console.error('Error copying to clipboard:', err);
+        alert('No se pudo copiar el enlace. Por favor, cópielo manualmente.');
     });
 }
 </script>

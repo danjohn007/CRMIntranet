@@ -195,12 +195,15 @@
         const successMessage = document.getElementById('success-message');
         const submissionIdInput = document.getElementById('submission-id');
         
+        // Configuration
+        const AUTOSAVE_DELAY_MS = 3000; // Auto-save after 3 seconds of no input
+        
         let autosaveTimeout;
         
         // Auto-save on input change
         form.addEventListener('input', function() {
             clearTimeout(autosaveTimeout);
-            autosaveTimeout = setTimeout(autoSave, 3000); // Auto-save after 3 seconds of no input
+            autosaveTimeout = setTimeout(autoSave, AUTOSAVE_DELAY_MS);
         });
         
         // Save draft manually

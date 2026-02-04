@@ -145,8 +145,11 @@ class PublicFormController extends BaseController {
             if ($isCompleted) {
                 // Generate folio
                 $year = date('Y');
-                $stmt = $this->db->query("SELECT MAX(CAST(SUBSTRING(folio, -6) AS UNSIGNED)) as max_num 
-                                          FROM applications WHERE folio LIKE 'VISA-$year-%'");
+                $stmt = $this->db->prepare("
+                    SELECT MAX(CAST(SUBSTRING(folio, -6) AS UNSIGNED)) as max_num 
+                    FROM applications WHERE folio LIKE ?
+                ");
+                $stmt->execute(["VISA-$year-%"]);
                 $result = $stmt->fetch();
                 $nextNum = ($result['max_num'] ?? 0) + 1;
                 $folio = sprintf('VISA-%s-%06d', $year, $nextNum);
@@ -181,11 +184,12 @@ class PublicFormController extends BaseController {
                 $stmt->execute([$applicationId, $submissionId]);
                 
                 // Log customer journey
+                $formName = htmlspecialchars($form['name'], ENT_QUOTES, 'UTF-8');
                 logCustomerJourney(
                     $applicationId,
                     'form_submission',
                     'Formulario público completado',
-                    "Formulario '$form[name]' completado vía enlace público",
+                    "Formulario '$formName' completado vía enlace público",
                     'online'
                 );
             }
