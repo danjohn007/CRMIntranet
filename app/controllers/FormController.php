@@ -76,8 +76,30 @@ class FormController extends BaseController {
         }
         
         try {
-            // Generate unique public token
-            $publicToken = bin2hex(random_bytes(32));
+            // Generate unique public token with retry logic
+            $maxRetries = 5;
+            $publicToken = null;
+            
+            for ($i = 0; $i < $maxRetries; $i++) {
+                $publicToken = bin2hex(random_bytes(32));
+                
+                // Check if token already exists
+                $checkStmt = $this->db->prepare("SELECT id FROM forms WHERE public_token = ?");
+                $checkStmt->execute([$publicToken]);
+                
+                if (!$checkStmt->fetch()) {
+                    // Token is unique, break the loop
+                    break;
+                }
+                
+                // If we're on the last retry and still have a duplicate, log it
+                if ($i === $maxRetries - 1) {
+                    error_log("Failed to generate unique public_token after $maxRetries attempts");
+                    $_SESSION['error'] = 'Error al generar token único. Por favor, intente nuevamente.';
+                    $this->redirect('/formularios/crear');
+                    return;
+                }
+            }
             
             $stmt = $this->db->prepare("
                 INSERT INTO forms (name, description, type, subtype, fields_json, cost, paypal_enabled, 
@@ -107,7 +129,13 @@ class FormController extends BaseController {
             
         } catch (PDOException $e) {
             error_log("Error al crear formulario: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al crear formulario';
+            
+            // Check if it's a duplicate entry error
+            if ($e->getCode() == 23000 && strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                $_SESSION['error'] = 'Error: Token duplicado detectado. Por favor, intente nuevamente.';
+            } else {
+                $_SESSION['error'] = 'Error al crear formulario';
+            }
             $this->redirect('/formularios/crear');
         }
     }

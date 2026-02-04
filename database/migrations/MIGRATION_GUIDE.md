@@ -101,12 +101,84 @@ SELECT COUNT(*) as touchpoints FROM customer_journey;
    - Ir a Solicitudes
    - Verificar columna "Progreso" con barras de porcentaje
 
+## Solución de Problemas Comunes
+
+### Error: "Duplicate entry '' for key 'voucher_code'" o "Duplicate entry for key 'public_token'"
+
+**Síntoma**: Al ejecutar la migración o crear formularios, aparece el error:
+```
+SQLSTATE[23000]: Integrity constraint violation: 1062 Duplicate entry '' for key 'public_token'
+```
+
+**Causa**: El índice único en `public_token` se creó antes de generar tokens únicos para formularios existentes, o múltiples formularios tienen el mismo token.
+
+**Solución**:
+
+1. Elimine el índice único si existe:
+```sql
+DROP INDEX IF EXISTS idx_forms_public_token ON forms;
+```
+
+2. Actualice todos los tokens vacíos o NULL:
+```sql
+UPDATE `forms` 
+SET `public_token` = LOWER(CONCAT(
+    MD5(CONCAT(id, name, COALESCE(created_at, NOW()), RAND())),
+    MD5(CONCAT(created_by, COALESCE(updated_at, NOW()), id * 1000))
+))
+WHERE `public_token` IS NULL OR `public_token` = '';
+```
+
+3. Verifique que no haya duplicados:
+```sql
+SELECT public_token, COUNT(*) 
+FROM forms 
+GROUP BY public_token 
+HAVING COUNT(*) > 1;
+```
+
+4. Si hay duplicados, actualícelos manualmente:
+```sql
+UPDATE forms 
+SET public_token = CONCAT(MD5(RAND()), MD5(RAND()))
+WHERE id IN (SELECT id FROM (SELECT id FROM forms WHERE public_token IN 
+    (SELECT public_token FROM forms GROUP BY public_token HAVING COUNT(*) > 1)
+) AS temp);
+```
+
+5. Cree el índice único:
+```sql
+CREATE UNIQUE INDEX idx_forms_public_token ON forms(public_token);
+```
+
+### Error al crear formularios después de la migración
+
+Si después de la migración no puede crear formularios, verifique:
+
+1. Que el índice único existe:
+```sql
+SHOW INDEX FROM forms WHERE Key_name = 'idx_forms_public_token';
+```
+
+2. Que no hay tokens vacíos:
+```sql
+SELECT COUNT(*) FROM forms WHERE public_token IS NULL OR public_token = '';
+```
+
+3. Revise el log de errores:
+```bash
+tail -50 /ruta/al/proyecto/error.log
+```
+
 ## Rollback (Si Hay Problemas)
 
 Si necesita revertir la migración:
 
 ```sql
 USE recursos_visas;
+
+-- Eliminar índice único
+DROP INDEX IF EXISTS idx_forms_public_token ON forms;
 
 -- Eliminar nuevas tablas
 DROP TABLE IF EXISTS public_form_submissions;

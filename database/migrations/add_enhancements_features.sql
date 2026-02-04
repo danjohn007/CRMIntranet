@@ -19,9 +19,6 @@ ADD COLUMN `pages_json` LONGTEXT NULL COMMENT 'Page structure in JSON format if 
 ADD COLUMN `public_token` VARCHAR(64) NULL COMMENT 'Unique token for public form access' AFTER `pages_json`,
 ADD COLUMN `public_enabled` TINYINT(1) DEFAULT 0 COMMENT 'Allow public access to this form' AFTER `public_token`;
 
--- Create unique index on public_token
-CREATE UNIQUE INDEX idx_forms_public_token ON forms(public_token);
-
 -- ====================
 -- 2. Enhancements to applications table
 -- ====================
@@ -86,12 +83,17 @@ CREATE TABLE `public_form_submissions` (
 -- 5. Generate public tokens for existing forms
 -- ====================
 
+-- Generate unique tokens for each form individually to avoid duplicates
+-- Using MD5 hash of id, name, created_at, and a unique salt per row
 UPDATE `forms` 
-SET `public_token` = CONCAT(
-    LOWER(SUBSTRING(MD5(CONCAT(id, name, UNIX_TIMESTAMP())), 1, 32)),
-    LOWER(SUBSTRING(MD5(CONCAT(created_by, created_at)), 1, 32))
-)
-WHERE `public_token` IS NULL;
+SET `public_token` = LOWER(CONCAT(
+    MD5(CONCAT(id, name, COALESCE(created_at, NOW()), RAND())),
+    MD5(CONCAT(created_by, COALESCE(updated_at, NOW()), id * 1000))
+))
+WHERE `public_token` IS NULL OR `public_token` = '';
+
+-- Create unique index on public_token AFTER generating tokens
+CREATE UNIQUE INDEX IF NOT EXISTS idx_forms_public_token ON forms(public_token);
 
 -- ====================
 -- 6. Insert sample customer journey data
