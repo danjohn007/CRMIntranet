@@ -59,6 +59,9 @@ class FormController extends BaseController {
         $type = $_POST['type'] ?? '';
         $subtype = trim($_POST['subtype'] ?? '');
         $fieldsJson = $_POST['fields_json'] ?? '';
+        $cost = floatval($_POST['cost'] ?? 0);
+        $paypalEnabled = isset($_POST['paypal_enabled']) ? 1 : 0;
+        $paginationEnabled = isset($_POST['pagination_enabled']) ? 1 : 0;
         
         if (empty($name) || empty($type) || empty($fieldsJson)) {
             $_SESSION['error'] = 'Todos los campos obligatorios deben estar completos';
@@ -73,9 +76,13 @@ class FormController extends BaseController {
         }
         
         try {
+            // Generate unique public token
+            $publicToken = bin2hex(random_bytes(32));
+            
             $stmt = $this->db->prepare("
-                INSERT INTO forms (name, description, type, subtype, fields_json, created_by)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO forms (name, description, type, subtype, fields_json, cost, paypal_enabled, 
+                                   pagination_enabled, public_token, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name,
@@ -83,8 +90,17 @@ class FormController extends BaseController {
                 $type,
                 $subtype,
                 $fieldsJson,
+                $cost,
+                $paypalEnabled,
+                $paginationEnabled,
+                $publicToken,
                 $_SESSION['user_id']
             ]);
+            
+            $formId = $this->db->lastInsertId();
+            
+            // Log audit trail
+            logAudit('create', 'formularios', "Formulario creado: $name (ID: $formId)");
             
             $_SESSION['success'] = 'Formulario creado exitosamente';
             $this->redirect('/formularios');

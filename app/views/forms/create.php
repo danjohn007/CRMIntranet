@@ -49,6 +49,67 @@ ob_start();
                        placeholder="Ej: Primera Vez, Renovación">
             </div>
             
+            <!-- Cost and PayPal Section -->
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Costo del Servicio <span class="text-gray-400">(Opcional)</span>
+                </label>
+                <div class="relative">
+                    <span class="absolute left-3 top-2 text-gray-500">$</span>
+                    <input type="number" name="cost" step="0.01" min="0" value="0.00"
+                           class="w-full border border-gray-300 rounded-lg pl-8 pr-4 py-2 focus:ring-2 focus:ring-blue-500"
+                           placeholder="0.00">
+                </div>
+                <p class="text-xs text-gray-500 mt-1">
+                    <i class="fas fa-info-circle"></i> Deja en 0 si no aplica
+                </p>
+            </div>
+            
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">
+                    Enlace de Pago PayPal
+                </label>
+                <div class="flex items-center space-x-3">
+                    <input type="checkbox" name="paypal_enabled" id="paypal_enabled" value="1"
+                           class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+                    <label for="paypal_enabled" class="text-sm text-gray-700">
+                        Habilitar pago con PayPal para este formulario
+                    </label>
+                </div>
+                <p class="text-xs text-gray-500 mt-1">
+                    <i class="fas fa-info-circle"></i> Usa la configuración de PayPal del sistema
+                </p>
+            </div>
+            
+            <!-- Pagination Section -->
+            <div class="md:col-span-2 border-t pt-6">
+                <div class="flex items-center justify-between mb-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">
+                            Insertar Paginación
+                        </label>
+                        <p class="text-xs text-gray-500">
+                            Divide el formulario en secciones para guardar el avance
+                        </p>
+                    </div>
+                    <input type="checkbox" name="pagination_enabled" id="pagination_enabled" value="1"
+                           class="w-5 h-5 text-blue-600 rounded focus:ring-blue-500">
+                </div>
+                
+                <div id="pagination-config" style="display: none;" class="bg-gray-50 rounded-lg p-4 mt-3">
+                    <p class="text-sm text-gray-600 mb-3">
+                        <i class="fas fa-layer-group mr-1"></i> 
+                        Al habilitar paginación, podrás dividir tus campos en secciones. 
+                        Los solicitantes podrán guardar su progreso y continuar después.
+                    </p>
+                    <div class="bg-blue-50 border-l-4 border-blue-500 p-3 text-sm text-blue-700">
+                        <i class="fas fa-lightbulb mr-1"></i>
+                        <strong>Tip:</strong> Después de crear el formulario, podrás editar las páginas 
+                        y asignar campos a cada sección.
+                    </div>
+                </div>
+            </div>
+            
             <div class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                     Campos del Formulario <span class="text-red-500">*</span>
@@ -78,6 +139,13 @@ ob_start();
 </div>
 
 <script src="<?= BASE_URL ?>/js/form-builder.js"></script>
+<script>
+// Toggle pagination configuration visibility
+document.getElementById('pagination_enabled').addEventListener('change', function() {
+    const paginationConfig = document.getElementById('pagination-config');
+    paginationConfig.style.display = this.checked ? 'block' : 'none';
+});
+</script>
 
 <?php 
 $content = ob_get_clean();

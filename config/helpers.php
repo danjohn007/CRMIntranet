@@ -45,3 +45,90 @@ function getSiteLogo() {
 function getSiteName() {
     return getConfig('site_name', SITE_NAME);
 }
+
+/**
+ * Log audit trail event
+ * @param string $action Action performed (login, logout, create, update, delete, etc)
+ * @param string $module Module name (usuarios, solicitudes, formularios, etc)
+ * @param string $description Detailed description of the action
+ * @param array $metadata Additional metadata (optional)
+ * @return bool Success status
+ */
+function logAudit($action, $module, $description, $metadata = []) {
+    try {
+        $db = Database::getInstance()->getConnection();
+        
+        // Get current user info
+        $userId = $_SESSION['user_id'] ?? null;
+        $userName = $_SESSION['user_name'] ?? null;
+        $userEmail = $_SESSION['user_email'] ?? null;
+        
+        // Get IP and User Agent
+        $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
+        
+        // Prepare statement
+        $stmt = $db->prepare("
+            INSERT INTO audit_trail 
+            (user_id, user_name, user_email, action, module, description, ip_address, user_agent)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $stmt->execute([
+            $userId,
+            $userName,
+            $userEmail,
+            $action,
+            $module,
+            $description,
+            $ipAddress,
+            $userAgent
+        ]);
+        
+        return true;
+    } catch (PDOException $e) {
+        // Don't throw exception, just log error
+        error_log("Error logging audit: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Log customer journey touchpoint
+ * @param int $applicationId Application ID
+ * @param string $touchpointType Type of touchpoint (email, call, meeting, status_change, etc)
+ * @param string $title Short title of the touchpoint
+ * @param string $description Detailed description
+ * @param string|null $contactMethod How contact was made (email, phone, in-person, online)
+ * @param array $metadata Additional metadata in array format
+ * @return bool Success status
+ */
+function logCustomerJourney($applicationId, $touchpointType, $title, $description = '', $contactMethod = null, $metadata = []) {
+    try {
+        $db = Database::getInstance()->getConnection();
+        
+        $userId = $_SESSION['user_id'] ?? null;
+        $metadataJson = !empty($metadata) ? json_encode($metadata) : null;
+        
+        $stmt = $db->prepare("
+            INSERT INTO customer_journey 
+            (application_id, touchpoint_type, touchpoint_title, touchpoint_description, contact_method, user_id, metadata_json)
+            VALUES (?, ?, ?, ?, ?, ?, ?)
+        ");
+        
+        $stmt->execute([
+            $applicationId,
+            $touchpointType,
+            $title,
+            $description,
+            $contactMethod,
+            $userId,
+            $metadataJson
+        ]);
+        
+        return true;
+    } catch (PDOException $e) {
+        error_log("Error logging customer journey: " . $e->getMessage());
+        return false;
+    }
+}
