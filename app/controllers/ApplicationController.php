@@ -330,6 +330,19 @@ class ApplicationController extends BaseController {
                 $_SESSION['user_id']
             ]);
             
+            // Log audit trail
+            logAudit('update', 'solicitudes', 
+                "Cambio de estatus de solicitud #$id: $previousStatus → $newStatus");
+            
+            // Log customer journey
+            logCustomerJourney(
+                $id,
+                'status_change',
+                "Cambio de estatus: $newStatus",
+                $comment,
+                'online'
+            );
+            
             $_SESSION['success'] = 'Estatus actualizado correctamente';
             $this->redirect('/solicitudes/ver/' . $id);
             

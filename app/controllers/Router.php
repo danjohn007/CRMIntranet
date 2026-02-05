@@ -63,6 +63,14 @@ class Router {
         // Auditoría
         $this->routes['GET']['/auditoria'] = ['AuditController', 'index'];
         
+        // Customer Journey
+        $this->routes['GET']['/customer-journey/{id}'] = ['CustomerJourneyController', 'show'];
+        $this->routes['POST']['/customer-journey/agregar/{id}'] = ['CustomerJourneyController', 'addTouchpoint'];
+        
+        // Public Forms (no authentication required)
+        $this->routes['GET']['/public/form/{token}'] = ['PublicFormController', 'show'];
+        $this->routes['POST']['/public/form/{token}/submit'] = ['PublicFormController', 'submit'];
+        
         // Test de Conexión
         $this->routes['GET']['/test-conexion'] = ['TestController', 'connection'];
     }

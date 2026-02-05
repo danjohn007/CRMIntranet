@@ -9,9 +9,15 @@ ob_start();
             <h2 class="text-3xl font-bold text-gray-800"><?= htmlspecialchars($application['folio']) ?></h2>
             <p class="text-gray-600"><?= htmlspecialchars($application['form_name']) ?></p>
         </div>
-        <a href="<?= BASE_URL ?>/solicitudes" class="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition">
-            <i class="fas fa-arrow-left mr-2"></i>Volver
-        </a>
+        <div class="flex space-x-3">
+            <a href="<?= BASE_URL ?>/customer-journey/<?= $application['id'] ?>" 
+               class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition">
+                <i class="fas fa-route mr-2"></i>Customer Journey
+            </a>
+            <a href="<?= BASE_URL ?>/solicitudes" class="bg-gray-500 text-white px-6 py-3 rounded-lg hover:bg-gray-600 transition">
+                <i class="fas fa-arrow-left mr-2"></i>Volver
+            </a>
+        </div>
     </div>
 </div>
 

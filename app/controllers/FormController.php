@@ -59,6 +59,9 @@ class FormController extends BaseController {
         $type = $_POST['type'] ?? '';
         $subtype = trim($_POST['subtype'] ?? '');
         $fieldsJson = $_POST['fields_json'] ?? '';
+        $cost = floatval($_POST['cost'] ?? 0);
+        $paypalEnabled = isset($_POST['paypal_enabled']) ? 1 : 0;
+        $paginationEnabled = isset($_POST['pagination_enabled']) ? 1 : 0;
         
         if (empty($name) || empty($type) || empty($fieldsJson)) {
             $_SESSION['error'] = 'Todos los campos obligatorios deben estar completos';
@@ -73,9 +76,35 @@ class FormController extends BaseController {
         }
         
         try {
+            // Generate unique public token with retry logic
+            $maxRetries = 5;
+            $publicToken = null;
+            
+            for ($i = 0; $i < $maxRetries; $i++) {
+                $publicToken = bin2hex(random_bytes(32));
+                
+                // Check if token already exists
+                $checkStmt = $this->db->prepare("SELECT id FROM forms WHERE public_token = ?");
+                $checkStmt->execute([$publicToken]);
+                
+                if (!$checkStmt->fetch()) {
+                    // Token is unique, break the loop
+                    break;
+                }
+                
+                // If we're on the last retry and still have a duplicate, log it
+                if ($i === $maxRetries - 1) {
+                    error_log("Failed to generate unique public_token after $maxRetries attempts");
+                    $_SESSION['error'] = 'Error al generar token único. Por favor, intente nuevamente.';
+                    $this->redirect('/formularios/crear');
+                    return;
+                }
+            }
+            
             $stmt = $this->db->prepare("
-                INSERT INTO forms (name, description, type, subtype, fields_json, created_by)
-                VALUES (?, ?, ?, ?, ?, ?)
+                INSERT INTO forms (name, description, type, subtype, fields_json, cost, paypal_enabled, 
+                                   pagination_enabled, public_token, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name,
@@ -83,15 +112,30 @@ class FormController extends BaseController {
                 $type,
                 $subtype,
                 $fieldsJson,
+                $cost,
+                $paypalEnabled,
+                $paginationEnabled,
+                $publicToken,
                 $_SESSION['user_id']
             ]);
+            
+            $formId = $this->db->lastInsertId();
+            
+            // Log audit trail
+            logAudit('create', 'formularios', "Formulario creado: $name (ID: $formId)");
             
             $_SESSION['success'] = 'Formulario creado exitosamente';
             $this->redirect('/formularios');
             
         } catch (PDOException $e) {
             error_log("Error al crear formulario: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al crear formulario';
+            
+            // Check if it's a duplicate entry error
+            if ($e->getCode() == 23000 && strpos($e->getMessage(), 'Duplicate entry') !== false) {
+                $_SESSION['error'] = 'Error: Token duplicado detectado. Por favor, intente nuevamente.';
+            } else {
+                $_SESSION['error'] = 'Error al crear formulario';
+            }
             $this->redirect('/formularios/crear');
         }
     }
@@ -200,7 +244,7 @@ class FormController extends BaseController {
         
         try {
             // Obtener estado actual
-            $stmt = $this->db->prepare("SELECT is_published FROM forms WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT is_published, name FROM forms WHERE id = ?");
             $stmt->execute([$id]);
             $form = $stmt->fetch();
             
@@ -211,8 +255,16 @@ class FormController extends BaseController {
             
             // Toggle estado
             $newStatus = $form['is_published'] ? 0 : 1;
-            $stmt = $this->db->prepare("UPDATE forms SET is_published = ? WHERE id = ?");
-            $stmt->execute([$newStatus, $id]);
+            $stmt = $this->db->prepare("
+                UPDATE forms 
+                SET is_published = ?, public_enabled = ? 
+                WHERE id = ?
+            ");
+            $stmt->execute([$newStatus, $newStatus, $id]);
+            
+            // Log audit
+            $action = $newStatus ? 'publicado' : 'despublicado';
+            logAudit('update', 'formularios', "Formulario '{$form['name']}' $action");
             
             $_SESSION['success'] = $newStatus ? 'Formulario publicado' : 'Formulario despublicado';
             $this->redirect('/formularios');

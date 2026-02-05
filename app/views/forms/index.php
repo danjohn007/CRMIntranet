@@ -35,6 +35,23 @@ ob_start();
                         <?php if ($form['description']): ?>
                         <p class="text-sm text-gray-500"><?= htmlspecialchars($form['description']) ?></p>
                         <?php endif; ?>
+                        <div class="flex items-center space-x-2 mt-1">
+                            <?php if ($form['cost'] > 0): ?>
+                            <span class="text-xs bg-green-100 text-green-800 px-2 py-1 rounded">
+                                <i class="fas fa-dollar-sign"></i> $<?= number_format($form['cost'], 2) ?>
+                            </span>
+                            <?php endif; ?>
+                            <?php if ($form['pagination_enabled']): ?>
+                            <span class="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded">
+                                <i class="fas fa-layer-group"></i> Paginado
+                            </span>
+                            <?php endif; ?>
+                            <?php if ($form['paypal_enabled']): ?>
+                            <span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
+                                <i class="fab fa-paypal"></i> PayPal
+                            </span>
+                            <?php endif; ?>
+                        </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="text-sm text-gray-900"><?= htmlspecialchars($form['type']) ?></span>
@@ -61,6 +78,12 @@ ob_start();
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
                         <div class="flex items-center space-x-3">
+                            <?php if ($form['public_token'] && $form['is_published']): ?>
+                            <button onclick="copyPublicLink('<?= BASE_URL ?>/public/form/<?= htmlspecialchars($form['public_token']) ?>')"
+                                    class="text-blue-600 hover:text-blue-800" title="Copiar enlace público">
+                                <i class="fas fa-link"></i>
+                            </button>
+                            <?php endif; ?>
                             <a href="<?= BASE_URL ?>/formularios/editar/<?= $form['id'] ?>" 
                                class="text-primary hover:underline" title="Editar">
                                 <i class="fas fa-edit"></i>
@@ -116,6 +139,25 @@ ob_start();
     </div>
     <?php endif; ?>
 </div>
+
+<script>
+function copyPublicLink(url) {
+    navigator.clipboard.writeText(url).then(function() {
+        // Show success message
+        const message = document.createElement('div');
+        message.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+        message.innerHTML = '<i class="fas fa-check-circle mr-2"></i>Enlace copiado al portapapeles';
+        document.body.appendChild(message);
+        
+        setTimeout(function() {
+            message.remove();
+        }, 3000);
+    }, function(err) {
+        console.error('Error copying to clipboard:', err);
+        alert('No se pudo copiar el enlace. Por favor, cópielo manualmente.');
+    });
+}
+</script>
 
 <?php 
 $content = ob_get_clean();
