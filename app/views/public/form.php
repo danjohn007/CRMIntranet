@@ -232,8 +232,8 @@
         
         // Configuration
         const AUTOSAVE_DELAY_MS = 3000; // Auto-save after 3 seconds of no input
-        const paginationEnabled = <?= htmlspecialchars(json_encode($form['pagination_enabled'] ?? false), ENT_QUOTES, 'UTF-8') ?>;
-        const pages = <?= htmlspecialchars(json_encode($pages ?? []), ENT_QUOTES, 'UTF-8') ?>;
+        const paginationEnabled = <?= json_encode($form['pagination_enabled'] ?? false, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const pages = <?= json_encode($pages ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const totalPages = pages.length || 1;
         
         let currentPage = 1;
@@ -352,20 +352,22 @@
         function calculateProgress() {
             if (!paginationEnabled || pages.length === 0) return;
             
-            // Get all fields across all pages
-            const allFieldIds = [];
+            // Get all unique field IDs across all pages
+            const uniqueFieldIds = new Set();
             pages.forEach(page => {
-                allFieldIds.push(...page.fieldIds);
+                page.fieldIds.forEach(fieldId => uniqueFieldIds.add(fieldId));
             });
             
-            // Count filled fields
+            // Count filled fields and track radio groups
             let filledCount = 0;
+            let totalCountableFields = 0;
             const processedRadioGroups = new Set(); // Track radio groups to count only once
             
-            allFieldIds.forEach(fieldId => {
+            uniqueFieldIds.forEach(fieldId => {
                 const field = document.getElementById(`field_${fieldId}`);
                 if (field) {
                     let isFilled = false;
+                    let shouldCount = true;
                     
                     if (field.type === 'checkbox') {
                         isFilled = field.checked;
@@ -379,20 +381,23 @@
                             isFilled = Array.from(radioGroup).some(radio => radio.checked);
                         } else {
                             // Skip this field as we already processed this radio group
-                            return;
+                            shouldCount = false;
                         }
                     } else {
                         // For text inputs, selects, textareas, etc.
                         isFilled = field.value && field.value.trim() !== '';
                     }
                     
-                    if (isFilled) {
-                        filledCount++;
+                    if (shouldCount) {
+                        totalCountableFields++;
+                        if (isFilled) {
+                            filledCount++;
+                        }
                     }
                 }
             });
             
-            const percentage = allFieldIds.length > 0 ? (filledCount / allFieldIds.length) * 100 : 0;
+            const percentage = totalCountableFields > 0 ? (filledCount / totalCountableFields) * 100 : 0;
             updateProgress(percentage);
         }
         

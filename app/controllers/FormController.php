@@ -90,14 +90,39 @@ class FormController extends BaseController {
                 $this->redirect('/formularios/crear');
             }
             
+            // Get valid field IDs from fields_json
+            $validFieldIds = array_column($fields['fields'], 'id');
+            
             foreach ($pages as $page) {
                 if (!isset($page['id']) || !isset($page['name']) || !isset($page['fieldIds'])) {
                     $_SESSION['error'] = 'Cada página debe tener id, name y fieldIds';
                     $this->redirect('/formularios/crear');
                 }
+                
+                // Validate page id is a positive integer
+                if (!is_int($page['id']) || $page['id'] < 1) {
+                    $_SESSION['error'] = 'El id de la página debe ser un entero positivo';
+                    $this->redirect('/formularios/crear');
+                }
+                
+                // Validate page name is non-empty string
+                if (!is_string($page['name']) || trim($page['name']) === '') {
+                    $_SESSION['error'] = 'El nombre de la página debe ser una cadena no vacía';
+                    $this->redirect('/formularios/crear');
+                }
+                
+                // Validate fieldIds is an array
                 if (!is_array($page['fieldIds'])) {
                     $_SESSION['error'] = 'fieldIds debe ser un arreglo';
                     $this->redirect('/formularios/crear');
+                }
+                
+                // Validate that all fieldIds exist in fields_json
+                foreach ($page['fieldIds'] as $fieldId) {
+                    if (!in_array($fieldId, $validFieldIds)) {
+                        $_SESSION['error'] = "Campo inválido '$fieldId' encontrado en páginas";
+                        $this->redirect('/formularios/crear');
+                    }
                 }
             }
         }

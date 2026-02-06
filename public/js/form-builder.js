@@ -96,7 +96,9 @@ class FormBuilder {
                         ${this.pages.map(page => `
                             <button type="button" 
                                     class="page-tab px-4 py-2 rounded text-sm whitespace-nowrap ${page.id === this.currentPage ? 'bg-blue-600 text-white' : 'bg-white text-blue-800 border border-blue-300'}"
-                                    data-page-id="${page.id}">
+                                    data-page-id="${page.id}"
+                                    aria-label="${page.name} con ${page.fieldIds.length} campo${page.fieldIds.length !== 1 ? 's' : ''}"
+                                    ${page.id === this.currentPage ? 'aria-current="page"' : ''}>
                                 <i class="fas fa-file-alt mr-1"></i>${page.name} (${page.fieldIds.length})
                             </button>
                         `).join('')}
@@ -155,13 +157,15 @@ class FormBuilder {
     switchPage(pageId) {
         this.currentPage = pageId;
         this.renderFields();
-        // Update tabs styling
+        // Update tabs styling and aria attributes
         document.querySelectorAll('.page-tab').forEach(tab => {
             const tabPageId = parseInt(tab.dataset.pageId);
             if (tabPageId === pageId) {
                 tab.className = 'page-tab px-4 py-2 rounded text-sm whitespace-nowrap bg-blue-600 text-white';
+                tab.setAttribute('aria-current', 'page');
             } else {
                 tab.className = 'page-tab px-4 py-2 rounded text-sm whitespace-nowrap bg-white text-blue-800 border border-blue-300';
+                tab.removeAttribute('aria-current');
             }
         });
     }
