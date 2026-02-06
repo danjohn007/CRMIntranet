@@ -70,7 +70,25 @@
                 <input type="hidden" id="current-page" name="currentPage" value="1">
                 
                 <?php foreach ($fields['fields'] as $field): ?>
-                <div class="form-field" data-field-id="<?= htmlspecialchars($field['id']) ?>">
+                <div class="form-field" data-field-id="<?= htmlspecialchars($field['id']) ?>" data-page="<?php
+                    // Find which page this field belongs to
+                    $pageAssigned = false;
+                    if (!empty($form['pagination_enabled']) && !empty($pages)) {
+                        foreach ($pages as $page) {
+                            if (in_array($field['id'], $page['fieldIds'])) {
+                                echo $page['id'];
+                                $pageAssigned = true;
+                                break;
+                            }
+                        }
+                        // If not assigned to any page, default to page 1
+                        if (!$pageAssigned) {
+                            echo '1';
+                        }
+                    } else {
+                        echo '1';
+                    }
+                ?>">
                     <label class="block text-sm font-medium text-gray-700 mb-2 <?= !empty($field['required']) ? 'form-field-required' : '' ?>">
                         <?= htmlspecialchars($field['label']) ?>
                     </label>
@@ -149,15 +167,29 @@
                 
                 <!-- Action Buttons -->
                 <div class="flex flex-col md:flex-row justify-between items-center gap-4 pt-6 border-t">
-                    <button type="button" id="save-draft-btn" 
-                            class="w-full md:w-auto px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
-                        <i class="fas fa-save mr-2"></i>Guardar Borrador
-                    </button>
+                    <div class="flex gap-4">
+                        <button type="button" id="prev-page-btn" 
+                                class="hidden px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+                            <i class="fas fa-arrow-left mr-2"></i>Anterior
+                        </button>
+                        
+                        <button type="button" id="save-draft-btn" 
+                                class="w-full md:w-auto px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition">
+                            <i class="fas fa-save mr-2"></i>Guardar Borrador
+                        </button>
+                    </div>
                     
-                    <button type="submit" id="submit-btn"
-                            class="w-full md:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
-                        <i class="fas fa-paper-plane mr-2"></i>Enviar Formulario
-                    </button>
+                    <div class="flex gap-4">
+                        <button type="button" id="next-page-btn"
+                                class="hidden px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            <i class="fas fa-arrow-right mr-2"></i>Siguiente
+                        </button>
+                        
+                        <button type="submit" id="submit-btn"
+                                class="w-full md:w-auto px-6 py-3 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition">
+                            <i class="fas fa-paper-plane mr-2"></i>Enviar Formulario
+                        </button>
+                    </div>
                 </div>
             </form>
         </div>
@@ -190,15 +222,28 @@
         const form = document.getElementById('public-form');
         const submitBtn = document.getElementById('submit-btn');
         const saveDraftBtn = document.getElementById('save-draft-btn');
+        const prevPageBtn = document.getElementById('prev-page-btn');
+        const nextPageBtn = document.getElementById('next-page-btn');
         const autosaveStatus = document.getElementById('autosave-status');
         const autosaveText = document.getElementById('autosave-text');
         const successMessage = document.getElementById('success-message');
         const submissionIdInput = document.getElementById('submission-id');
+        const currentPageInput = document.getElementById('current-page');
         
         // Configuration
         const AUTOSAVE_DELAY_MS = 3000; // Auto-save after 3 seconds of no input
+        const paginationEnabled = <?= json_encode($form['pagination_enabled'] ?? false, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const pages = <?= json_encode($pages ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const totalPages = pages.length || 1;
         
+        let currentPage = 1;
         let autosaveTimeout;
+        
+        // Initialize pagination
+        if (paginationEnabled && pages.length > 0) {
+            initializePagination();
+            showPage(1);
+        }
         
         // Auto-save on input change
         form.addEventListener('input', function() {
@@ -217,11 +262,150 @@
             saveForm(true);
         });
         
+        // Previous page button
+        prevPageBtn.addEventListener('click', function() {
+            if (currentPage > 1) {
+                const targetPage = currentPage - 1;
+                saveForm(false, false, () => {
+                    showPage(targetPage);
+                }, () => {
+                    // On error, stay on current page
+                    console.error('Failed to save before navigation');
+                });
+            }
+        });
+        
+        // Next page button
+        nextPageBtn.addEventListener('click', function() {
+            if (currentPage < totalPages) {
+                const targetPage = currentPage + 1;
+                saveForm(false, false, () => {
+                    showPage(targetPage);
+                }, () => {
+                    // On error, stay on current page
+                    console.error('Failed to save before navigation');
+                });
+            }
+        });
+        
+        function initializePagination() {
+            // No additional initialization needed for now
+        }
+        
+        function showPage(pageNum) {
+            currentPage = pageNum;
+            currentPageInput.value = pageNum;
+            
+            // Hide all fields first
+            const allFields = document.querySelectorAll('.form-field');
+            allFields.forEach(field => {
+                field.style.display = 'none';
+            });
+            
+            // Show fields for current page
+            const currentPageData = pages.find(p => p.id === pageNum);
+            if (currentPageData) {
+                currentPageData.fieldIds.forEach(fieldId => {
+                    const fieldElement = document.querySelector(`.form-field[data-field-id="${fieldId}"]`);
+                    if (fieldElement) {
+                        fieldElement.style.display = 'block';
+                    }
+                });
+            }
+            
+            // Update page indicator
+            const pageIndicator = document.getElementById('page-indicator');
+            if (pageIndicator) {
+                pageIndicator.textContent = `Página ${pageNum} de ${totalPages}`;
+            }
+            
+            // Update button visibility
+            updateNavigationButtons();
+            
+            // Calculate and update progress
+            calculateProgress();
+            
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+        
+        function updateNavigationButtons() {
+            // Previous button
+            if (currentPage > 1) {
+                prevPageBtn.classList.remove('hidden');
+            } else {
+                prevPageBtn.classList.add('hidden');
+            }
+            
+            // Next button and Submit button
+            if (currentPage < totalPages) {
+                nextPageBtn.classList.remove('hidden');
+                submitBtn.classList.add('hidden');
+                saveDraftBtn.classList.add('hidden');
+            } else {
+                nextPageBtn.classList.add('hidden');
+                submitBtn.classList.remove('hidden');
+                saveDraftBtn.classList.remove('hidden');
+            }
+        }
+        
+        function calculateProgress() {
+            if (!paginationEnabled || pages.length === 0) return;
+            
+            // Get all unique field IDs across all pages
+            const uniqueFieldIds = new Set();
+            pages.forEach(page => {
+                page.fieldIds.forEach(fieldId => uniqueFieldIds.add(fieldId));
+            });
+            
+            // Count filled fields and track radio groups
+            let filledCount = 0;
+            let totalCountableFields = 0;
+            const processedRadioGroups = new Set(); // Track radio groups to count only once
+            
+            uniqueFieldIds.forEach(fieldId => {
+                const field = document.getElementById(`field_${fieldId}`);
+                if (field) {
+                    let isFilled = false;
+                    let shouldCount = true;
+                    
+                    if (field.type === 'checkbox') {
+                        isFilled = field.checked;
+                    } else if (field.type === 'radio') {
+                        // For radio buttons, check if any in the group is selected
+                        // Only count each radio group once
+                        const radioName = field.name;
+                        if (!processedRadioGroups.has(radioName)) {
+                            processedRadioGroups.add(radioName);
+                            const radioGroup = document.querySelectorAll(`input[name="${radioName}"]`);
+                            isFilled = Array.from(radioGroup).some(radio => radio.checked);
+                        } else {
+                            // Skip this field as we already processed this radio group
+                            shouldCount = false;
+                        }
+                    } else {
+                        // For text inputs, selects, textareas, etc.
+                        isFilled = field.value && field.value.trim() !== '';
+                    }
+                    
+                    if (shouldCount) {
+                        totalCountableFields++;
+                        if (isFilled) {
+                            filledCount++;
+                        }
+                    }
+                }
+            });
+            
+            const percentage = totalCountableFields > 0 ? (filledCount / totalCountableFields) * 100 : 0;
+            updateProgress(percentage);
+        }
+        
         function autoSave() {
             saveForm(false, true);
         }
         
-        function saveForm(isCompleted = false, isAutoSave = false) {
+        function saveForm(isCompleted = false, isAutoSave = false, callback = null, errorCallback = null) {
             if (!isAutoSave) {
                 submitBtn.disabled = true;
                 saveDraftBtn.disabled = true;
@@ -273,14 +457,35 @@
                     // Update progress if available
                     if (result.progressPercentage) {
                         updateProgress(result.progressPercentage);
+                    } else if (paginationEnabled) {
+                        calculateProgress();
+                    }
+                    
+                    // Execute callback if provided
+                    if (callback) {
+                        callback();
                     }
                 } else {
-                    alert('Error: ' + (result.error || 'No se pudo guardar el formulario'));
+                    if (!isAutoSave) {
+                        alert('Error: ' + (result.error || 'No se pudo guardar el formulario'));
+                    }
+                    
+                    // Execute error callback if provided
+                    if (errorCallback) {
+                        errorCallback();
+                    }
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error al guardar el formulario. Por favor, intenta de nuevo.');
+                if (!isAutoSave) {
+                    alert('Error al guardar el formulario. Por favor, intenta de nuevo.');
+                }
+                
+                // Execute error callback if provided
+                if (errorCallback) {
+                    errorCallback();
+                }
             })
             .finally(() => {
                 if (!isAutoSave) {

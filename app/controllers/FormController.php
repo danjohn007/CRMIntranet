@@ -62,6 +62,7 @@ class FormController extends BaseController {
         $cost = floatval($_POST['cost'] ?? 0);
         $paypalEnabled = isset($_POST['paypal_enabled']) ? 1 : 0;
         $paginationEnabled = isset($_POST['pagination_enabled']) ? 1 : 0;
+        $pagesJson = $paginationEnabled ? ($_POST['pages_json'] ?? null) : null;
         
         if (empty($name) || empty($type) || empty($fieldsJson)) {
             $_SESSION['error'] = 'Todos los campos obligatorios deben estar completos';
@@ -73,6 +74,57 @@ class FormController extends BaseController {
         if (json_last_error() !== JSON_ERROR_NONE) {
             $_SESSION['error'] = 'El JSON de campos no es válido';
             $this->redirect('/formularios/crear');
+        }
+        
+        // Validar pages JSON si está habilitada la paginación
+        if ($paginationEnabled && !empty($pagesJson)) {
+            $pages = json_decode($pagesJson, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $_SESSION['error'] = 'El JSON de páginas no es válido';
+                $this->redirect('/formularios/crear');
+            }
+            
+            // Validate pages structure
+            if (!is_array($pages) || empty($pages)) {
+                $_SESSION['error'] = 'El JSON de páginas debe ser un arreglo no vacío';
+                $this->redirect('/formularios/crear');
+            }
+            
+            // Get valid field IDs from fields_json
+            $validFieldIds = array_column($fields['fields'], 'id');
+            
+            foreach ($pages as $page) {
+                if (!isset($page['id']) || !isset($page['name']) || !isset($page['fieldIds'])) {
+                    $_SESSION['error'] = 'Cada página debe tener id, name y fieldIds';
+                    $this->redirect('/formularios/crear');
+                }
+                
+                // Validate page id is a positive integer
+                if (!is_int($page['id']) || $page['id'] < 1) {
+                    $_SESSION['error'] = 'El id de la página debe ser un entero positivo';
+                    $this->redirect('/formularios/crear');
+                }
+                
+                // Validate page name is non-empty string
+                if (!is_string($page['name']) || trim($page['name']) === '') {
+                    $_SESSION['error'] = 'El nombre de la página debe ser una cadena no vacía';
+                    $this->redirect('/formularios/crear');
+                }
+                
+                // Validate fieldIds is an array
+                if (!is_array($page['fieldIds'])) {
+                    $_SESSION['error'] = 'fieldIds debe ser un arreglo';
+                    $this->redirect('/formularios/crear');
+                }
+                
+                // Validate that all fieldIds exist in fields_json
+                foreach ($page['fieldIds'] as $fieldId) {
+                    if (!in_array($fieldId, $validFieldIds)) {
+                        $_SESSION['error'] = "Campo inválido '$fieldId' encontrado en páginas";
+                        $this->redirect('/formularios/crear');
+                    }
+                }
+            }
         }
         
         try {
@@ -103,8 +155,8 @@ class FormController extends BaseController {
             
             $stmt = $this->db->prepare("
                 INSERT INTO forms (name, description, type, subtype, fields_json, cost, paypal_enabled, 
-                                   pagination_enabled, public_token, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                   pagination_enabled, pages_json, public_token, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name,
@@ -115,6 +167,7 @@ class FormController extends BaseController {
                 $cost,
                 $paypalEnabled,
                 $paginationEnabled,
+                $pagesJson,
                 $publicToken,
                 $_SESSION['user_id']
             ]);
