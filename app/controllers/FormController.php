@@ -62,6 +62,7 @@ class FormController extends BaseController {
         $cost = floatval($_POST['cost'] ?? 0);
         $paypalEnabled = isset($_POST['paypal_enabled']) ? 1 : 0;
         $paginationEnabled = isset($_POST['pagination_enabled']) ? 1 : 0;
+        $pagesJson = $paginationEnabled ? ($_POST['pages_json'] ?? null) : null;
         
         if (empty($name) || empty($type) || empty($fieldsJson)) {
             $_SESSION['error'] = 'Todos los campos obligatorios deben estar completos';
@@ -73,6 +74,15 @@ class FormController extends BaseController {
         if (json_last_error() !== JSON_ERROR_NONE) {
             $_SESSION['error'] = 'El JSON de campos no es válido';
             $this->redirect('/formularios/crear');
+        }
+        
+        // Validar pages JSON si está habilitada la paginación
+        if ($paginationEnabled && !empty($pagesJson)) {
+            $pages = json_decode($pagesJson, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $_SESSION['error'] = 'El JSON de páginas no es válido';
+                $this->redirect('/formularios/crear');
+            }
         }
         
         try {
@@ -103,8 +113,8 @@ class FormController extends BaseController {
             
             $stmt = $this->db->prepare("
                 INSERT INTO forms (name, description, type, subtype, fields_json, cost, paypal_enabled, 
-                                   pagination_enabled, public_token, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                                   pagination_enabled, pages_json, public_token, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $name,
@@ -115,6 +125,7 @@ class FormController extends BaseController {
                 $cost,
                 $paypalEnabled,
                 $paginationEnabled,
+                $pagesJson,
                 $publicToken,
                 $_SESSION['user_id']
             ]);
