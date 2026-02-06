@@ -148,6 +148,10 @@ class FormBuilder {
         this.updateJSON();
     }
     
+    isShowingAllPages() {
+        return !this.paginationEnabled || this.currentPage === 0;
+    }
+    
     switchPage(pageId) {
         this.currentPage = pageId;
         this.renderFields();
@@ -263,7 +267,7 @@ class FormBuilder {
         
         // Determine which fields to show
         let fieldsToShow = this.fields;
-        if (this.paginationEnabled && this.currentPage > 0) {
+        if (!this.isShowingAllPages()) {
             const page = this.pages.find(p => p.id === this.currentPage);
             if (page) {
                 fieldsToShow = this.fields.filter(f => page.fieldIds.includes(f.id));
@@ -274,7 +278,7 @@ class FormBuilder {
             fieldsList.innerHTML = `
                 <div class="empty-state text-center py-12 text-gray-400">
                     <i class="fas fa-arrow-up text-4xl mb-3"></i>
-                    <p class="text-sm">${this.paginationEnabled && this.currentPage > 0 ? 'Arrastra campos aquí para agregarlos a esta página' : 'Arrastra campos aquí para construir tu formulario'}</p>
+                    <p class="text-sm">${!this.isShowingAllPages() ? 'Arrastra campos aquí para agregarlos a esta página' : 'Arrastra campos aquí para construir tu formulario'}</p>
                 </div>
             `;
             return;

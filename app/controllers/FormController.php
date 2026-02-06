@@ -83,6 +83,23 @@ class FormController extends BaseController {
                 $_SESSION['error'] = 'El JSON de páginas no es válido';
                 $this->redirect('/formularios/crear');
             }
+            
+            // Validate pages structure
+            if (!is_array($pages) || empty($pages)) {
+                $_SESSION['error'] = 'El JSON de páginas debe ser un arreglo no vacío';
+                $this->redirect('/formularios/crear');
+            }
+            
+            foreach ($pages as $page) {
+                if (!isset($page['id']) || !isset($page['name']) || !isset($page['fieldIds'])) {
+                    $_SESSION['error'] = 'Cada página debe tener id, name y fieldIds';
+                    $this->redirect('/formularios/crear');
+                }
+                if (!is_array($page['fieldIds'])) {
+                    $_SESSION['error'] = 'fieldIds debe ser un arreglo';
+                    $this->redirect('/formularios/crear');
+                }
+            }
         }
         
         try {

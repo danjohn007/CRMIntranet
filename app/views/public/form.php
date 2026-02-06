@@ -232,8 +232,8 @@
         
         // Configuration
         const AUTOSAVE_DELAY_MS = 3000; // Auto-save after 3 seconds of no input
-        const paginationEnabled = <?= json_encode($form['pagination_enabled'] ?? false) ?>;
-        const pages = <?= json_encode($pages ?? []) ?>;
+        const paginationEnabled = <?= htmlspecialchars(json_encode($form['pagination_enabled'] ?? false), ENT_QUOTES, 'UTF-8') ?>;
+        const pages = <?= htmlspecialchars(json_encode($pages ?? []), ENT_QUOTES, 'UTF-8') ?>;
         const totalPages = pages.length || 1;
         
         let currentPage = 1;
@@ -360,6 +360,8 @@
             
             // Count filled fields
             let filledCount = 0;
+            const processedRadioGroups = new Set(); // Track radio groups to count only once
+            
             allFieldIds.forEach(fieldId => {
                 const field = document.getElementById(`field_${fieldId}`);
                 if (field) {
@@ -369,8 +371,16 @@
                         isFilled = field.checked;
                     } else if (field.type === 'radio') {
                         // For radio buttons, check if any in the group is selected
-                        const radioGroup = document.querySelectorAll(`input[name="${field.name}"]`);
-                        isFilled = Array.from(radioGroup).some(radio => radio.checked);
+                        // Only count each radio group once
+                        const radioName = field.name;
+                        if (!processedRadioGroups.has(radioName)) {
+                            processedRadioGroups.add(radioName);
+                            const radioGroup = document.querySelectorAll(`input[name="${radioName}"]`);
+                            isFilled = Array.from(radioGroup).some(radio => radio.checked);
+                        } else {
+                            // Skip this field as we already processed this radio group
+                            return;
+                        }
                     } else {
                         // For text inputs, selects, textareas, etc.
                         isFilled = field.value && field.value.trim() !== '';
