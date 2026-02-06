@@ -220,7 +220,7 @@ class FormBuilder {
             const showAllBtn = document.getElementById('show-all-fields-btn');
             if (showAllBtn) {
                 showAllBtn.addEventListener('click', () => {
-                    this.currentPage = null;
+                    this.currentPage = 0; // Use 0 to indicate "show all"
                     this.renderFields();
                 });
             }
@@ -263,7 +263,7 @@ class FormBuilder {
         
         // Determine which fields to show
         let fieldsToShow = this.fields;
-        if (this.paginationEnabled && this.currentPage) {
+        if (this.paginationEnabled && this.currentPage > 0) {
             const page = this.pages.find(p => p.id === this.currentPage);
             if (page) {
                 fieldsToShow = this.fields.filter(f => page.fieldIds.includes(f.id));
@@ -274,7 +274,7 @@ class FormBuilder {
             fieldsList.innerHTML = `
                 <div class="empty-state text-center py-12 text-gray-400">
                     <i class="fas fa-arrow-up text-4xl mb-3"></i>
-                    <p class="text-sm">${this.paginationEnabled && this.currentPage ? 'Arrastra campos aquí para agregarlos a esta página' : 'Arrastra campos aquí para construir tu formulario'}</p>
+                    <p class="text-sm">${this.paginationEnabled && this.currentPage > 0 ? 'Arrastra campos aquí para agregarlos a esta página' : 'Arrastra campos aquí para construir tu formulario'}</p>
                 </div>
             `;
             return;
@@ -294,7 +294,9 @@ class FormBuilder {
                     </div>
                     <div class="flex items-center space-x-2">
                         ${this.paginationEnabled ? `
-                            <select class="field-page-select text-xs border border-gray-300 rounded px-2 py-1" data-field-id="${field.id}">
+                            <select class="field-page-select text-xs border border-gray-300 rounded px-2 py-1" 
+                                    data-field-id="${field.id}"
+                                    aria-label="Asignar campo a página">
                                 ${this.pages.map(page => `
                                     <option value="${page.id}" ${page.fieldIds.includes(field.id) ? 'selected' : ''}>
                                         ${page.name}
@@ -359,7 +361,24 @@ class FormBuilder {
             input.addEventListener('change', (e) => {
                 const index = parseInt(e.target.dataset.index);
                 const oldId = this.fields[index].id;
-                const newId = e.target.value;
+                const newId = e.target.value.trim();
+                
+                // Validate for duplicate IDs
+                const isDuplicate = this.fields.some((field, idx) => 
+                    idx !== index && field.id === newId
+                );
+                
+                if (isDuplicate) {
+                    alert('Ya existe un campo con ese ID. Por favor, elige un ID único.');
+                    e.target.value = oldId; // Reset to old value
+                    return;
+                }
+                
+                if (!newId) {
+                    alert('El ID no puede estar vacío.');
+                    e.target.value = oldId; // Reset to old value
+                    return;
+                }
                 
                 // Update field ID in pages
                 if (this.paginationEnabled) {

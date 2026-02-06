@@ -72,12 +72,18 @@
                 <?php foreach ($fields['fields'] as $field): ?>
                 <div class="form-field" data-field-id="<?= htmlspecialchars($field['id']) ?>" data-page="<?php
                     // Find which page this field belongs to
+                    $pageAssigned = false;
                     if (!empty($form['pagination_enabled']) && !empty($pages)) {
                         foreach ($pages as $page) {
                             if (in_array($field['id'], $page['fieldIds'])) {
                                 echo $page['id'];
+                                $pageAssigned = true;
                                 break;
                             }
+                        }
+                        // If not assigned to any page, default to page 1
+                        if (!$pageAssigned) {
+                            echo '1';
                         }
                     } else {
                         echo '1';
@@ -259,8 +265,12 @@
         // Previous page button
         prevPageBtn.addEventListener('click', function() {
             if (currentPage > 1) {
+                const targetPage = currentPage - 1;
                 saveForm(false, false, () => {
-                    showPage(currentPage - 1);
+                    showPage(targetPage);
+                }, () => {
+                    // On error, stay on current page
+                    console.error('Failed to save before navigation');
                 });
             }
         });
@@ -268,8 +278,12 @@
         // Next page button
         nextPageBtn.addEventListener('click', function() {
             if (currentPage < totalPages) {
+                const targetPage = currentPage + 1;
                 saveForm(false, false, () => {
-                    showPage(currentPage + 1);
+                    showPage(targetPage);
+                }, () => {
+                    // On error, stay on current page
+                    console.error('Failed to save before navigation');
                 });
             }
         });
@@ -349,8 +363,20 @@
             allFieldIds.forEach(fieldId => {
                 const field = document.getElementById(`field_${fieldId}`);
                 if (field) {
-                    const value = field.type === 'checkbox' ? field.checked : field.value;
-                    if (value) {
+                    let isFilled = false;
+                    
+                    if (field.type === 'checkbox') {
+                        isFilled = field.checked;
+                    } else if (field.type === 'radio') {
+                        // For radio buttons, check if any in the group is selected
+                        const radioGroup = document.querySelectorAll(`input[name="${field.name}"]`);
+                        isFilled = Array.from(radioGroup).some(radio => radio.checked);
+                    } else {
+                        // For text inputs, selects, textareas, etc.
+                        isFilled = field.value && field.value.trim() !== '';
+                    }
+                    
+                    if (isFilled) {
                         filledCount++;
                     }
                 }
@@ -364,7 +390,7 @@
             saveForm(false, true);
         }
         
-        function saveForm(isCompleted = false, isAutoSave = false, callback = null) {
+        function saveForm(isCompleted = false, isAutoSave = false, callback = null, errorCallback = null) {
             if (!isAutoSave) {
                 submitBtn.disabled = true;
                 saveDraftBtn.disabled = true;
@@ -425,12 +451,26 @@
                         callback();
                     }
                 } else {
-                    alert('Error: ' + (result.error || 'No se pudo guardar el formulario'));
+                    if (!isAutoSave) {
+                        alert('Error: ' + (result.error || 'No se pudo guardar el formulario'));
+                    }
+                    
+                    // Execute error callback if provided
+                    if (errorCallback) {
+                        errorCallback();
+                    }
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error al guardar el formulario. Por favor, intenta de nuevo.');
+                if (!isAutoSave) {
+                    alert('Error al guardar el formulario. Por favor, intenta de nuevo.');
+                }
+                
+                // Execute error callback if provided
+                if (errorCallback) {
+                    errorCallback();
+                }
             })
             .finally(() => {
                 if (!isAutoSave) {
