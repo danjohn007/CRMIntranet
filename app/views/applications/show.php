@@ -74,7 +74,7 @@ ob_start();
                 <?php foreach ($formData as $key => $value): ?>
                 <div class="border-l-4 border-blue-500 pl-4">
                     <p class="text-sm text-gray-600 capitalize"><?= htmlspecialchars(str_replace('_', ' ', $key)) ?></p>
-                    <p class="text-lg"><?= htmlspecialchars($value) ?></p>
+                    <p class="text-lg"><?= is_array($value) ? htmlspecialchars(json_encode($value)) : htmlspecialchars($value) ?></p>
                 </div>
                 <?php endforeach; ?>
             </div>

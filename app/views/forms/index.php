@@ -46,11 +46,6 @@ ob_start();
                                 <i class="fas fa-layer-group"></i> Paginado
                             </span>
                             <?php endif; ?>
-                            <?php if ($form['paypal_enabled']): ?>
-                            <span class="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded">
-                                <i class="fab fa-paypal"></i> PayPal
-                            </span>
-                            <?php endif; ?>
                         </div>
                     </td>
                     <td class="px-6 py-4 whitespace-nowrap">
