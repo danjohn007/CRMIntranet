@@ -49,8 +49,8 @@ ob_start();
                        placeholder="Ej: Primera Vez, Renovación">
             </div>
             
-            <!-- Cost and PayPal Section -->
-            <div>
+            <!-- Cost Section -->
+            <div class="md:col-span-2">
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                     Costo del Servicio <span class="text-gray-400">(Opcional)</span>
                 </label>
@@ -62,22 +62,6 @@ ob_start();
                 </div>
                 <p class="text-xs text-gray-500 mt-1">
                     <i class="fas fa-info-circle"></i> Deja en 0 si no aplica
-                </p>
-            </div>
-            
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">
-                    Enlace de Pago PayPal
-                </label>
-                <div class="flex items-center space-x-3">
-                    <input type="checkbox" name="paypal_enabled" id="paypal_enabled" value="1"
-                           class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
-                    <label for="paypal_enabled" class="text-sm text-gray-700">
-                        Habilitar pago con PayPal para este formulario
-                    </label>
-                </div>
-                <p class="text-xs text-gray-500 mt-1">
-                    <i class="fas fa-info-circle"></i> Usa la configuración de PayPal del sistema
                 </p>
             </div>
             

@@ -194,23 +194,6 @@
             </form>
         </div>
 
-        <!-- PayPal Payment Section (if enabled and cost > 0) -->
-        <?php if ($form['paypal_enabled'] && $form['cost'] > 0): ?>
-        <div class="bg-white rounded-lg shadow-lg p-6 md:p-8 mt-6">
-            <h3 class="text-xl font-bold text-gray-800 mb-4">
-                <i class="fas fa-credit-card text-blue-600 mr-2"></i>Información de Pago
-            </h3>
-            <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
-                <p class="text-blue-800">
-                    <strong>Costo del servicio:</strong> $<?= number_format($form['cost'], 2) ?> MXN
-                </p>
-                <p class="text-sm text-blue-700 mt-2">
-                    Después de enviar el formulario, recibirás un enlace de pago de PayPal en tu correo electrónico.
-                </p>
-            </div>
-        </div>
-        <?php endif; ?>
-
         <!-- Footer Info -->
         <div class="text-center mt-8 text-sm text-gray-600">
             <p><i class="fas fa-lock mr-1"></i>Tus datos están protegidos y serán utilizados únicamente para procesar tu solicitud</p>
@@ -235,9 +218,14 @@
         const paginationEnabled = <?= json_encode($form['pagination_enabled'] ?? false, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const pages = <?= json_encode($pages ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const totalPages = pages.length || 1;
+        const FORM_TOKEN = '<?= $token ?>';
+        const LOCALSTORAGE_KEY = `form_draft_${FORM_TOKEN}`;
         
         let currentPage = 1;
         let autosaveTimeout;
+        
+        // Load draft from localStorage on page load
+        loadDraftFromLocalStorage();
         
         // Initialize pagination
         if (paginationEnabled && pages.length > 0) {
@@ -253,7 +241,7 @@
         
         // Save draft manually
         saveDraftBtn.addEventListener('click', function() {
-            saveForm(false);
+            saveDraftToLocalStorage();
         });
         
         // Submit form
@@ -266,12 +254,8 @@
         prevPageBtn.addEventListener('click', function() {
             if (currentPage > 1) {
                 const targetPage = currentPage - 1;
-                saveForm(false, false, () => {
-                    showPage(targetPage);
-                }, () => {
-                    // On error, stay on current page
-                    console.error('Failed to save before navigation');
-                });
+                saveDraftToLocalStorage();
+                showPage(targetPage);
             }
         });
         
@@ -279,14 +263,62 @@
         nextPageBtn.addEventListener('click', function() {
             if (currentPage < totalPages) {
                 const targetPage = currentPage + 1;
-                saveForm(false, false, () => {
-                    showPage(targetPage);
-                }, () => {
-                    // On error, stay on current page
-                    console.error('Failed to save before navigation');
-                });
+                saveDraftToLocalStorage();
+                showPage(targetPage);
             }
         });
+        
+        function loadDraftFromLocalStorage() {
+            try {
+                const savedDraft = localStorage.getItem(LOCALSTORAGE_KEY);
+                if (savedDraft) {
+                    const draftData = JSON.parse(savedDraft);
+                    
+                    // Restore form field values
+                    Object.keys(draftData).forEach(fieldId => {
+                        const field = document.getElementById(`field_${fieldId}`);
+                        if (field) {
+                            if (field.type === 'checkbox') {
+                                field.checked = draftData[fieldId] === 'on' || draftData[fieldId] === true;
+                            } else {
+                                field.value = draftData[fieldId];
+                            }
+                        }
+                    });
+                    
+                    console.log('Draft loaded from localStorage');
+                }
+            } catch (error) {
+                console.error('Error loading draft from localStorage:', error);
+            }
+        }
+        
+        function saveDraftToLocalStorage() {
+            try {
+                const formData = new FormData(form);
+                const data = {};
+                
+                for (let [key, value] of formData.entries()) {
+                    if (key !== 'submissionId' && key !== 'currentPage') {
+                        data[key] = value;
+                    }
+                }
+                
+                localStorage.setItem(LOCALSTORAGE_KEY, JSON.stringify(data));
+                
+                // Show feedback
+                autosaveStatus.classList.remove('hidden');
+                autosaveText.textContent = '✓ Borrador guardado localmente';
+                setTimeout(() => {
+                    autosaveStatus.classList.add('hidden');
+                }, 2000);
+                
+                console.log('Draft saved to localStorage');
+            } catch (error) {
+                console.error('Error saving draft to localStorage:', error);
+                alert('Error al guardar el borrador localmente');
+            }
+        }
         
         function initializePagination() {
             // No additional initialization needed for now
@@ -402,7 +434,8 @@
         }
         
         function autoSave() {
-            saveForm(false, true);
+            // Auto-save to localStorage instead of server
+            saveDraftToLocalStorage();
         }
         
         function saveForm(isCompleted = false, isAutoSave = false, callback = null, errorCallback = null) {
@@ -444,6 +477,14 @@
                     }
                     
                     if (isCompleted) {
+                        // Clear localStorage when form is successfully submitted
+                        try {
+                            localStorage.removeItem(LOCALSTORAGE_KEY);
+                            console.log('Draft cleared from localStorage after successful submission');
+                        } catch (error) {
+                            console.error('Error clearing localStorage:', error);
+                        }
+                        
                         form.style.display = 'none';
                         successMessage.classList.remove('hidden');
                         window.scrollTo(0, 0);
