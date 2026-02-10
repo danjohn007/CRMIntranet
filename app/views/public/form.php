@@ -281,6 +281,20 @@
                         if (field) {
                             if (field.type === 'checkbox') {
                                 field.checked = draftData[fieldName] === 'on' || draftData[fieldName] === true;
+                            } else if (field.type === 'radio') {
+                                // For radio buttons, check if this radio's value matches the saved value
+                                const radioButtons = document.getElementsByName(fieldName);
+                                radioButtons.forEach(radio => {
+                                    if (radio.value === draftData[fieldName]) {
+                                        radio.checked = true;
+                                    }
+                                });
+                            } else if (field.tagName === 'SELECT') {
+                                // For select elements, verify option exists before setting
+                                const optionExists = Array.from(field.options).some(option => option.value === draftData[fieldName]);
+                                if (optionExists) {
+                                    field.value = draftData[fieldName];
+                                }
                             } else {
                                 field.value = draftData[fieldName];
                             }
