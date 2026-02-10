@@ -23,9 +23,8 @@ class ApplicationController extends BaseController {
             
             if ($role === ROLE_ASESOR) {
                 // REGLA CRÍTICA: Asesor NO puede ver solicitudes finalizadas ni rechazadas
-                $where[] = "a.status != ?";
+                $where[] = "a.status NOT IN (?, ?)";
                 $params[] = STATUS_FINALIZADO;
-                $where[] = "a.status != ?";
                 $params[] = STATUS_RECHAZADO;
             }
             
