@@ -15,12 +15,12 @@ class DashboardController extends BaseController {
         try {
             // Total de solicitudes (según rol)
             if ($role === ROLE_ASESOR) {
-                // Asesor solo ve solicitudes NO finalizadas
+                // Asesor solo ve solicitudes finalizadas
                 $stmt = $this->db->prepare("
                     SELECT COUNT(*) as total FROM applications 
-                    WHERE created_by = ? AND status != ?
+                    WHERE status = ?
                 ");
-                $stmt->execute([$userId, STATUS_FINALIZADO]);
+                $stmt->execute([STATUS_FINALIZADO]);
             } else {
                 // Admin y Gerente ven todas
                 $stmt = $this->db->query("SELECT COUNT(*) as total FROM applications");
@@ -32,10 +32,10 @@ class DashboardController extends BaseController {
                 $stmt = $this->db->prepare("
                     SELECT status, COUNT(*) as count 
                     FROM applications 
-                    WHERE created_by = ? AND status != ?
+                    WHERE status = ?
                     GROUP BY status
                 ");
-                $stmt->execute([$userId, STATUS_FINALIZADO]);
+                $stmt->execute([STATUS_FINALIZADO]);
             } else {
                 $stmt = $this->db->query("
                     SELECT status, COUNT(*) as count 
@@ -51,11 +51,11 @@ class DashboardController extends BaseController {
                     SELECT a.*, u.full_name as creator_name 
                     FROM applications a
                     LEFT JOIN users u ON a.created_by = u.id
-                    WHERE a.created_by = ? AND a.status != ?
+                    WHERE a.status = ?
                     ORDER BY a.created_at DESC
                     LIMIT 10
                 ");
-                $stmt->execute([$userId, STATUS_FINALIZADO]);
+                $stmt->execute([STATUS_FINALIZADO]);
             } else {
                 $stmt = $this->db->query("
                     SELECT a.*, u.full_name as creator_name 
@@ -102,12 +102,12 @@ class DashboardController extends BaseController {
                 $stmt = $this->db->prepare("
                     SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as count
                     FROM applications
-                    WHERE created_by = ? AND status != ? 
+                    WHERE status = ? 
                     AND created_at >= DATE_SUB(NOW(), INTERVAL 6 MONTH)
                     GROUP BY DATE_FORMAT(created_at, '%Y-%m')
                     ORDER BY month
                 ");
-                $stmt->execute([$userId, STATUS_FINALIZADO]);
+                $stmt->execute([STATUS_FINALIZADO]);
             } else {
                 $stmt = $this->db->query("
                     SELECT DATE_FORMAT(created_at, '%Y-%m') as month, COUNT(*) as count
@@ -124,10 +124,10 @@ class DashboardController extends BaseController {
                 $stmt = $this->db->prepare("
                     SELECT type, COUNT(*) as count
                     FROM applications
-                    WHERE created_by = ? AND status != ?
+                    WHERE status = ?
                     GROUP BY type
                 ");
-                $stmt->execute([$userId, STATUS_FINALIZADO]);
+                $stmt->execute([STATUS_FINALIZADO]);
             } else {
                 $stmt = $this->db->query("
                     SELECT type, COUNT(*) as count

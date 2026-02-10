@@ -22,11 +22,9 @@ class ApplicationController extends BaseController {
             $params = [];
             
             if ($role === ROLE_ASESOR) {
-                // REGLA CRÍTICA: Asesor NO puede ver solicitudes finalizadas
-                $where[] = "a.status != ?";
+                // REGLA CRÍTICA: Asesor SOLAMENTE puede ver solicitudes finalizadas
+                $where[] = "a.status = ?";
                 $params[] = STATUS_FINALIZADO;
-                $where[] = "a.created_by = ?";
-                $params[] = $userId;
             }
             
             if (!empty($status)) {
@@ -211,8 +209,8 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
             
-            // REGLA CRÍTICA: Verificar que Asesor no pueda ver solicitudes finalizadas
-            if ($role === ROLE_ASESOR && $application['status'] === STATUS_FINALIZADO) {
+            // REGLA CRÍTICA: Verificar que Asesor solo pueda ver solicitudes finalizadas
+            if ($role === ROLE_ASESOR && $application['status'] !== STATUS_FINALIZADO) {
                 $_SESSION['error'] = 'No tiene permisos para ver esta solicitud';
                 $this->redirect('/solicitudes');
             }
@@ -372,8 +370,8 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
             
-            // REGLA: Asesor no puede acceder a solicitudes finalizadas
-            if ($role === ROLE_ASESOR && $application['status'] === STATUS_FINALIZADO) {
+            // REGLA: Asesor solo puede acceder a solicitudes finalizadas
+            if ($role === ROLE_ASESOR && $application['status'] !== STATUS_FINALIZADO) {
                 $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                 $this->redirect('/solicitudes');
             }

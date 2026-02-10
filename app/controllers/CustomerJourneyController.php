@@ -30,8 +30,7 @@ class CustomerJourneyController extends BaseController {
             // Check permissions for Asesor role
             $role = $this->getUserRole();
             if ($role === ROLE_ASESOR) {
-                if ($application['status'] === STATUS_FINALIZADO || 
-                    $application['created_by'] != $_SESSION['user_id']) {
+                if ($application['status'] !== STATUS_FINALIZADO) {
                     $_SESSION['error'] = 'No tienes permiso para ver esta solicitud';
                     $this->redirect('/solicitudes');
                     return;
@@ -116,7 +115,7 @@ class CustomerJourneyController extends BaseController {
             }
             
             $role = $this->getUserRole();
-            if ($role === ROLE_ASESOR && ($app['status'] === STATUS_FINALIZADO || $app['created_by'] != $_SESSION['user_id'])) {
+            if ($role === ROLE_ASESOR && $app['status'] !== STATUS_FINALIZADO) {
                 $_SESSION['error'] = 'No tienes permiso para modificar esta solicitud';
                 $this->redirect('/solicitudes');
                 return;
