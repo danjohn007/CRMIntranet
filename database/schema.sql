@@ -67,7 +67,7 @@ CREATE TABLE `applications` (
   `form_version` int(11) NOT NULL,
   `type` enum('Visa','Pasaporte') NOT NULL,
   `subtype` varchar(50) DEFAULT NULL,
-  `status` enum('Creado','En revisión','Información incompleta','Documentación validada','En proceso','Aprobado','Rechazado','Finalizado') DEFAULT 'Creado',
+  `status` enum('Creado','Recepción de información y pago','En revisión','Información incompleta','Documentación validada','En proceso','Aprobado','Rechazado','Finalizado (Trámite Entregado)') DEFAULT 'Creado',
   `data_json` longtext NOT NULL COMMENT 'Datos del formulario en JSON',
   `created_by` int(11) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
