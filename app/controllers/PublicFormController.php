@@ -223,7 +223,7 @@ class PublicFormController extends BaseController {
                     }
                     
                     foreach ($uploadedFiles as $fieldId => $fileInfo) {
-                        $newFileName = uniqid() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $fileInfo['name']);
+                        $newFileName = bin2hex(random_bytes(16)) . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $fileInfo['name']);
                         $filePath = $uploadDir . '/' . $newFileName;
                         
                         if (move_uploaded_file($fileInfo['tmp_name'], $filePath)) {

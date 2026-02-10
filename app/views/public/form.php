@@ -468,7 +468,8 @@
             // Separate file inputs from regular inputs
             for (let [key, value] of formData.entries()) {
                 if (key !== 'submissionId' && key !== 'currentPage') {
-                    const field = document.getElementById(`field_${key}`);
+                    // Try to find field element - support both standard form.elements and field_ prefix
+                    const field = form.elements[key] || document.getElementById(`field_${key}`);
                     if (field && field.type === 'file') {
                         // Add file directly to payload
                         if (field.files && field.files[0]) {
