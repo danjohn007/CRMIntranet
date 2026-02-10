@@ -46,13 +46,14 @@ define('ROLE_ASESOR', 'Asesor');
 
 // Estatus de Solicitudes
 define('STATUS_CREADO', 'Creado');
+define('STATUS_RECEPCION_INFO_PAGO', 'Recepción de información y pago');
 define('STATUS_EN_REVISION', 'En revisión');
 define('STATUS_INFO_INCOMPLETA', 'Información incompleta');
 define('STATUS_DOC_VALIDADA', 'Documentación validada');
 define('STATUS_EN_PROCESO', 'En proceso');
 define('STATUS_APROBADO', 'Aprobado');
 define('STATUS_RECHAZADO', 'Rechazado');
-define('STATUS_FINALIZADO', 'Finalizado');
+define('STATUS_FINALIZADO', 'Finalizado (Trámite Entregado)');
 
 // Estados Financieros
 define('FINANCIAL_PENDIENTE', 'Pendiente');

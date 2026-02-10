@@ -184,13 +184,14 @@ ob_start();
                     <select name="status" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
                         <option value="">-- Seleccione --</option>
                         <option value="<?= STATUS_CREADO ?>">Creado</option>
+                        <option value="<?= STATUS_RECEPCION_INFO_PAGO ?>">Recepción de información y pago</option>
                         <option value="<?= STATUS_EN_REVISION ?>">En revisión</option>
                         <option value="<?= STATUS_INFO_INCOMPLETA ?>">Información incompleta</option>
                         <option value="<?= STATUS_DOC_VALIDADA ?>">Documentación validada</option>
                         <option value="<?= STATUS_EN_PROCESO ?>">En proceso</option>
                         <option value="<?= STATUS_APROBADO ?>">Aprobado</option>
                         <option value="<?= STATUS_RECHAZADO ?>">Rechazado</option>
-                        <option value="<?= STATUS_FINALIZADO ?>">Finalizado</option>
+                        <option value="<?= STATUS_FINALIZADO ?>">Finalizado (Trámite Entregado)</option>
                     </select>
                 </div>
                 <div class="mb-4">

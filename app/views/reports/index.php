@@ -38,8 +38,13 @@ ob_start();
                 <select name="status" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base">
                     <option value="">Todos</option>
                     <option value="<?= STATUS_CREADO ?>" <?= $status === STATUS_CREADO ? 'selected' : '' ?>><?= STATUS_CREADO ?></option>
+                    <option value="<?= STATUS_RECEPCION_INFO_PAGO ?>" <?= $status === STATUS_RECEPCION_INFO_PAGO ? 'selected' : '' ?>><?= STATUS_RECEPCION_INFO_PAGO ?></option>
                     <option value="<?= STATUS_EN_REVISION ?>" <?= $status === STATUS_EN_REVISION ? 'selected' : '' ?>><?= STATUS_EN_REVISION ?></option>
+                    <option value="<?= STATUS_INFO_INCOMPLETA ?>" <?= $status === STATUS_INFO_INCOMPLETA ? 'selected' : '' ?>><?= STATUS_INFO_INCOMPLETA ?></option>
+                    <option value="<?= STATUS_DOC_VALIDADA ?>" <?= $status === STATUS_DOC_VALIDADA ? 'selected' : '' ?>><?= STATUS_DOC_VALIDADA ?></option>
+                    <option value="<?= STATUS_EN_PROCESO ?>" <?= $status === STATUS_EN_PROCESO ? 'selected' : '' ?>><?= STATUS_EN_PROCESO ?></option>
                     <option value="<?= STATUS_APROBADO ?>" <?= $status === STATUS_APROBADO ? 'selected' : '' ?>><?= STATUS_APROBADO ?></option>
+                    <option value="<?= STATUS_RECHAZADO ?>" <?= $status === STATUS_RECHAZADO ? 'selected' : '' ?>><?= STATUS_RECHAZADO ?></option>
                     <option value="<?= STATUS_FINALIZADO ?>" <?= $status === STATUS_FINALIZADO ? 'selected' : '' ?>><?= STATUS_FINALIZADO ?></option>
                 </select>
             </div>
