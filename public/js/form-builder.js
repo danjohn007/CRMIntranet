@@ -6,8 +6,12 @@ class FormBuilder {
     constructor(containerId, initialData = null) {
         this.container = document.getElementById(containerId);
         this.fields = [];
+        this.pages = [{ id: 1, name: 'Página 1', fieldIds: [] }];
+        this.currentPage = 1;
+        this.paginationEnabled = false;
         this.draggedElement = null;
         this.nextId = 1;
+        this.nextPageId = 2;
         
         // Field types available
         this.fieldTypes = [
@@ -35,7 +39,22 @@ class FormBuilder {
             }
         }
         
+        // Check if pagination is enabled
+        this.checkPaginationEnabled();
+        
         this.render();
+    }
+    
+    checkPaginationEnabled() {
+        const paginationCheckbox = document.getElementById('pagination_enabled');
+        if (paginationCheckbox) {
+            this.paginationEnabled = paginationCheckbox.checked;
+            paginationCheckbox.addEventListener('change', (e) => {
+                this.paginationEnabled = e.target.checked;
+                this.render();
+                this.updateJSON();
+            });
+        }
     }
     
     render() {
@@ -62,9 +81,42 @@ class FormBuilder {
                     </p>
                 </div>
                 
+                <!-- Page Management (shown only when pagination is enabled) -->
+                ${this.paginationEnabled ? `
+                <div class="page-management bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-semibold text-blue-900">
+                            <i class="fas fa-layer-group mr-2"></i>Gestión de Páginas
+                        </h3>
+                        <button type="button" id="add-page-btn" class="bg-blue-600 text-white px-3 py-1 rounded text-xs hover:bg-blue-700">
+                            <i class="fas fa-plus mr-1"></i>Agregar Página
+                        </button>
+                    </div>
+                    <div class="flex space-x-2 overflow-x-auto pb-2" id="pages-tabs">
+                        ${this.pages.map(page => `
+                            <button type="button" 
+                                    class="page-tab px-4 py-2 rounded text-sm whitespace-nowrap ${page.id === this.currentPage ? 'bg-blue-600 text-white' : 'bg-white text-blue-800 border border-blue-300'}"
+                                    data-page-id="${page.id}"
+                                    aria-label="${page.name} con ${page.fieldIds.length} campo${page.fieldIds.length !== 1 ? 's' : ''}"
+                                    ${page.id === this.currentPage ? 'aria-current="page"' : ''}>
+                                <i class="fas fa-file-alt mr-1"></i>${page.name} (${page.fieldIds.length})
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+                ` : ''}
+                
                 <!-- Form Fields Area -->
                 <div class="fields-area bg-white border-2 border-dashed border-gray-300 rounded-lg p-4 min-h-[300px]"
                      id="fields-drop-area">
+                    ${this.paginationEnabled ? `
+                        <div class="text-sm text-blue-700 mb-3 flex items-center justify-between">
+                            <span><i class="fas fa-info-circle mr-1"></i>Mostrando campos de: <strong>${this.getPageName(this.currentPage)}</strong></span>
+                            <button type="button" id="show-all-fields-btn" class="text-blue-600 hover:underline text-xs">
+                                Ver todos los campos
+                            </button>
+                        </div>
+                    ` : ''}
                     <div class="fields-list" id="fields-list">
                         ${this.fields.length === 0 ? `
                             <div class="empty-state text-center py-12 text-gray-400">
@@ -79,6 +131,43 @@ class FormBuilder {
         
         this.attachEventListeners();
         this.renderFields();
+    }
+    
+    getPageName(pageId) {
+        const page = this.pages.find(p => p.id === pageId);
+        return page ? page.name : 'Página desconocida';
+    }
+    
+    addPage() {
+        const newPage = {
+            id: this.nextPageId++,
+            name: `Página ${this.pages.length + 1}`,
+            fieldIds: []
+        };
+        this.pages.push(newPage);
+        this.currentPage = newPage.id;
+        this.render();
+        this.updateJSON();
+    }
+    
+    isShowingAllPages() {
+        return !this.paginationEnabled || this.currentPage === 0;
+    }
+    
+    switchPage(pageId) {
+        this.currentPage = pageId;
+        this.renderFields();
+        // Update tabs styling and aria attributes
+        document.querySelectorAll('.page-tab').forEach(tab => {
+            const tabPageId = parseInt(tab.dataset.pageId);
+            if (tabPageId === pageId) {
+                tab.className = 'page-tab px-4 py-2 rounded text-sm whitespace-nowrap bg-blue-600 text-white';
+                tab.setAttribute('aria-current', 'page');
+            } else {
+                tab.className = 'page-tab px-4 py-2 rounded text-sm whitespace-nowrap bg-white text-blue-800 border border-blue-300';
+                tab.removeAttribute('aria-current');
+            }
+        });
     }
     
     attachEventListeners() {
@@ -120,6 +209,30 @@ class FormBuilder {
                 this.addField(fieldType);
             }
         });
+        
+        // Page management buttons
+        if (this.paginationEnabled) {
+            const addPageBtn = document.getElementById('add-page-btn');
+            if (addPageBtn) {
+                addPageBtn.addEventListener('click', () => this.addPage());
+            }
+            
+            const pageTabs = document.querySelectorAll('.page-tab');
+            pageTabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    const pageId = parseInt(tab.dataset.pageId);
+                    this.switchPage(pageId);
+                });
+            });
+            
+            const showAllBtn = document.getElementById('show-all-fields-btn');
+            if (showAllBtn) {
+                showAllBtn.addEventListener('click', () => {
+                    this.currentPage = 0; // Use 0 to indicate "show all"
+                    this.renderFields();
+                });
+            }
+        }
     }
     
     addField(type) {
@@ -139,6 +252,15 @@ class FormBuilder {
         }
         
         this.fields.push(newField);
+        
+        // If pagination is enabled, add field to current page
+        if (this.paginationEnabled && this.currentPage) {
+            const page = this.pages.find(p => p.id === this.currentPage);
+            if (page) {
+                page.fieldIds.push(newField.id);
+            }
+        }
+        
         this.renderFields();
         this.updateJSON();
     }
@@ -147,17 +269,28 @@ class FormBuilder {
         const fieldsList = document.getElementById('fields-list');
         if (!fieldsList) return;
         
-        if (this.fields.length === 0) {
+        // Determine which fields to show
+        let fieldsToShow = this.fields;
+        if (!this.isShowingAllPages()) {
+            const page = this.pages.find(p => p.id === this.currentPage);
+            if (page) {
+                fieldsToShow = this.fields.filter(f => page.fieldIds.includes(f.id));
+            }
+        }
+        
+        if (fieldsToShow.length === 0) {
             fieldsList.innerHTML = `
                 <div class="empty-state text-center py-12 text-gray-400">
                     <i class="fas fa-arrow-up text-4xl mb-3"></i>
-                    <p class="text-sm">Arrastra campos aquí para construir tu formulario</p>
+                    <p class="text-sm">${!this.isShowingAllPages() ? 'Arrastra campos aquí para agregarlos a esta página' : 'Arrastra campos aquí para construir tu formulario'}</p>
                 </div>
             `;
             return;
         }
         
-        fieldsList.innerHTML = this.fields.map((field, index) => `
+        fieldsList.innerHTML = fieldsToShow.map((field) => {
+            const index = this.fields.indexOf(field);
+            return `
             <div class="field-item bg-gray-50 border border-gray-300 rounded-lg p-4 mb-3" data-index="${index}">
                 <div class="flex items-start justify-between mb-3">
                     <div class="flex items-center flex-1">
@@ -168,6 +301,17 @@ class FormBuilder {
                         </div>
                     </div>
                     <div class="flex items-center space-x-2">
+                        ${this.paginationEnabled ? `
+                            <select class="field-page-select text-xs border border-gray-300 rounded px-2 py-1" 
+                                    data-field-id="${field.id}"
+                                    aria-label="Asignar campo a página">
+                                ${this.pages.map(page => `
+                                    <option value="${page.id}" ${page.fieldIds.includes(field.id) ? 'selected' : ''}>
+                                        ${page.name}
+                                    </option>
+                                `).join('')}
+                            </select>
+                        ` : ''}
                         <button type="button" class="btn-delete-field text-red-600 hover:text-red-800" data-index="${index}">
                             <i class="fas fa-trash"></i>
                         </button>
@@ -205,7 +349,7 @@ class FormBuilder {
                     </div>
                 </div>
             </div>
-        `).join('');
+        `}).join('');
         
         // Attach event listeners after rendering
         this.attachFieldEventListeners();
@@ -224,7 +368,37 @@ class FormBuilder {
         document.querySelectorAll('.field-id-input').forEach(input => {
             input.addEventListener('change', (e) => {
                 const index = parseInt(e.target.dataset.index);
-                this.updateFieldProperty(index, 'id', e.target.value);
+                const oldId = this.fields[index].id;
+                const newId = e.target.value.trim();
+                
+                // Validate for duplicate IDs
+                const isDuplicate = this.fields.some((field, idx) => 
+                    idx !== index && field.id === newId
+                );
+                
+                if (isDuplicate) {
+                    alert('Ya existe un campo con ese ID. Por favor, elige un ID único.');
+                    e.target.value = oldId; // Reset to old value
+                    return;
+                }
+                
+                if (!newId) {
+                    alert('El ID no puede estar vacío.');
+                    e.target.value = oldId; // Reset to old value
+                    return;
+                }
+                
+                // Update field ID in pages
+                if (this.paginationEnabled) {
+                    this.pages.forEach(page => {
+                        const idIndex = page.fieldIds.indexOf(oldId);
+                        if (idIndex !== -1) {
+                            page.fieldIds[idIndex] = newId;
+                        }
+                    });
+                }
+                
+                this.updateFieldProperty(index, 'id', newId);
             });
         });
         
@@ -242,6 +416,29 @@ class FormBuilder {
             input.addEventListener('change', (e) => {
                 const index = parseInt(e.target.dataset.index);
                 this.updateFieldProperty(index, 'required', e.target.checked);
+            });
+        });
+        
+        // Page assignment dropdown
+        document.querySelectorAll('.field-page-select').forEach(select => {
+            select.addEventListener('change', (e) => {
+                const fieldId = e.target.dataset.fieldId;
+                const newPageId = parseInt(e.target.value);
+                
+                // Remove field from all pages
+                this.pages.forEach(page => {
+                    page.fieldIds = page.fieldIds.filter(id => id !== fieldId);
+                });
+                
+                // Add field to selected page
+                const targetPage = this.pages.find(p => p.id === newPageId);
+                if (targetPage && !targetPage.fieldIds.includes(fieldId)) {
+                    targetPage.fieldIds.push(fieldId);
+                }
+                
+                this.updateJSON();
+                // Update page tabs to show field counts
+                this.render();
             });
         });
         
@@ -263,6 +460,15 @@ class FormBuilder {
     
     deleteField(index) {
         if (confirm('¿Estás seguro de eliminar este campo?')) {
+            const fieldId = this.fields[index].id;
+            
+            // Remove from pages if pagination enabled
+            if (this.paginationEnabled) {
+                this.pages.forEach(page => {
+                    page.fieldIds = page.fieldIds.filter(id => id !== fieldId);
+                });
+            }
+            
             this.fields.splice(index, 1);
             this.renderFields();
             this.updateJSON();
@@ -278,6 +484,19 @@ class FormBuilder {
         const hiddenField = document.getElementById('fields_json_hidden');
         if (hiddenField) {
             hiddenField.value = JSON.stringify(jsonOutput);
+        }
+        
+        // Also save pages JSON to a separate hidden field
+        if (this.paginationEnabled) {
+            let pagesInput = document.getElementById('pages_json_hidden');
+            if (!pagesInput) {
+                pagesInput = document.createElement('input');
+                pagesInput.type = 'hidden';
+                pagesInput.id = 'pages_json_hidden';
+                pagesInput.name = 'pages_json';
+                hiddenField.parentNode.appendChild(pagesInput);
+            }
+            pagesInput.value = JSON.stringify(this.pages);
         }
         
         // Dispatch event for other components
