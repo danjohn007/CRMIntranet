@@ -60,7 +60,7 @@ class FormController extends BaseController {
         $subtype = trim($_POST['subtype'] ?? '');
         $fieldsJson = $_POST['fields_json'] ?? '';
         $cost = floatval($_POST['cost'] ?? 0);
-        $paypalEnabled = isset($_POST['paypal_enabled']) ? 1 : 0;
+        $paypalEnabled = 0; // PayPal disabled as per requirements
         $paginationEnabled = isset($_POST['pagination_enabled']) ? 1 : 0;
         $pagesJson = $paginationEnabled ? ($_POST['pages_json'] ?? null) : null;
         
