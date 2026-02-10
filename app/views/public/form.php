@@ -275,13 +275,14 @@
                     const draftData = JSON.parse(savedDraft);
                     
                     // Restore form field values
-                    Object.keys(draftData).forEach(fieldId => {
-                        const field = document.getElementById(`field_${fieldId}`);
+                    Object.keys(draftData).forEach(fieldName => {
+                        // Field names don't have the 'field_' prefix, but IDs do
+                        const field = document.getElementById(`field_${fieldName}`);
                         if (field) {
                             if (field.type === 'checkbox') {
-                                field.checked = draftData[fieldId] === 'on' || draftData[fieldId] === true;
+                                field.checked = draftData[fieldName] === 'on' || draftData[fieldName] === true;
                             } else {
-                                field.value = draftData[fieldId];
+                                field.value = draftData[fieldName];
                             }
                         }
                     });
@@ -298,6 +299,7 @@
                 const formData = new FormData(form);
                 const data = {};
                 
+                // Store field values using their field names (without 'field_' prefix)
                 for (let [key, value] of formData.entries()) {
                     if (key !== 'submissionId' && key !== 'currentPage') {
                         data[key] = value;
@@ -438,11 +440,9 @@
             saveDraftToLocalStorage();
         }
         
-        function saveForm(isCompleted = false, isAutoSave = false, callback = null, errorCallback = null) {
-            if (!isAutoSave) {
-                submitBtn.disabled = true;
-                saveDraftBtn.disabled = true;
-            }
+        function saveForm(isCompleted = false, callback = null, errorCallback = null) {
+            submitBtn.disabled = true;
+            saveDraftBtn.disabled = true;
             
             autosaveStatus.classList.remove('hidden');
             autosaveText.textContent = isCompleted ? 'Enviando...' : 'Guardando...';
@@ -507,9 +507,7 @@
                         callback();
                     }
                 } else {
-                    if (!isAutoSave) {
-                        alert('Error: ' + (result.error || 'No se pudo guardar el formulario'));
-                    }
+                    alert('Error: ' + (result.error || 'No se pudo guardar el formulario'));
                     
                     // Execute error callback if provided
                     if (errorCallback) {
@@ -519,9 +517,7 @@
             })
             .catch(error => {
                 console.error('Error:', error);
-                if (!isAutoSave) {
-                    alert('Error al guardar el formulario. Por favor, intenta de nuevo.');
-                }
+                alert('Error al guardar el formulario. Por favor, intenta de nuevo.');
                 
                 // Execute error callback if provided
                 if (errorCallback) {
@@ -529,10 +525,8 @@
                 }
             })
             .finally(() => {
-                if (!isAutoSave) {
-                    submitBtn.disabled = false;
-                    saveDraftBtn.disabled = false;
-                }
+                submitBtn.disabled = false;
+                saveDraftBtn.disabled = false;
             });
         }
         
