@@ -22,11 +22,10 @@ class ApplicationController extends BaseController {
             $params = [];
             
             if ($role === ROLE_ASESOR) {
-                // REGLA CRÍTICA: Asesor NO puede ver solicitudes finalizadas
-                $where[] = "a.status != ?";
+                // REGLA CRÍTICA: Asesor NO puede ver solicitudes finalizadas ni rechazadas
+                $where[] = "a.status NOT IN (?, ?)";
                 $params[] = STATUS_FINALIZADO;
-                $where[] = "a.created_by = ?";
-                $params[] = $userId;
+                $params[] = STATUS_RECHAZADO;
             }
             
             if (!empty($status)) {
@@ -211,8 +210,8 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
             
-            // REGLA CRÍTICA: Verificar que Asesor no pueda ver solicitudes finalizadas
-            if ($role === ROLE_ASESOR && $application['status'] === STATUS_FINALIZADO) {
+            // REGLA CRÍTICA: Verificar que Asesor no pueda ver solicitudes finalizadas ni rechazadas
+            if ($role === ROLE_ASESOR && ($application['status'] === STATUS_FINALIZADO || $application['status'] === STATUS_RECHAZADO)) {
                 $_SESSION['error'] = 'No tiene permisos para ver esta solicitud';
                 $this->redirect('/solicitudes');
             }
@@ -372,8 +371,8 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
             
-            // REGLA: Asesor no puede acceder a solicitudes finalizadas
-            if ($role === ROLE_ASESOR && $application['status'] === STATUS_FINALIZADO) {
+            // REGLA: Asesor no puede acceder a solicitudes finalizadas ni rechazadas
+            if ($role === ROLE_ASESOR && ($application['status'] === STATUS_FINALIZADO || $application['status'] === STATUS_RECHAZADO)) {
                 $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                 $this->redirect('/solicitudes');
             }
