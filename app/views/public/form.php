@@ -463,14 +463,26 @@
             
             const formData = new FormData(form);
             const data = {};
+            const payload = new FormData();
             
+            // Separate file inputs from regular inputs
             for (let [key, value] of formData.entries()) {
                 if (key !== 'submissionId' && key !== 'currentPage') {
-                    data[key] = value;
+                    const field = document.getElementById(`field_${key}`);
+                    if (field && field.type === 'file') {
+                        // Add file directly to payload
+                        if (field.files && field.files[0]) {
+                            payload.append(key, field.files[0]);
+                            // Store filename in data for JSON
+                            data[key] = field.files[0].name;
+                        }
+                    } else {
+                        // Regular field
+                        data[key] = value;
+                    }
                 }
             }
             
-            const payload = new FormData();
             payload.append('formData', JSON.stringify(data));
             payload.append('currentPage', document.getElementById('current-page').value);
             payload.append('isCompleted', isCompleted);

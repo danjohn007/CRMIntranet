@@ -143,6 +143,46 @@ class PublicFormController extends BaseController {
             
             // If completed, optionally create an application
             if ($isCompleted) {
+                // Process file uploads
+                $uploadedFiles = [];
+                if (!empty($_FILES)) {
+                    $fields = json_decode($form['fields_json'], true);
+                    $fileFields = array_filter($fields['fields'] ?? [], function($field) {
+                        return $field['type'] === 'file';
+                    });
+                    
+                    foreach ($fileFields as $field) {
+                        $fieldId = $field['id'];
+                        if (isset($_FILES[$fieldId]) && $_FILES[$fieldId]['error'] === UPLOAD_ERR_OK) {
+                            $file = $_FILES[$fieldId];
+                            $fileName = $file['name'];
+                            $fileSize = $file['size'];
+                            $fileTmpName = $file['tmp_name'];
+                            $fileType = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+                            
+                            // Validate file
+                            if ($fileSize <= MAX_FILE_SIZE && in_array($fileType, ALLOWED_EXTENSIONS)) {
+                                // Store file info for later
+                                $uploadedFiles[$fieldId] = [
+                                    'name' => $fileName,
+                                    'tmp_name' => $fileTmpName,
+                                    'size' => $fileSize,
+                                    'type' => $fileType,
+                                    'label' => $field['label']
+                                ];
+                                
+                                // Update data JSON to store only filename
+                                $data[$fieldId] = $fileName;
+                            }
+                        }
+                    }
+                    
+                    // Update submission data with filenames
+                    if (!empty($uploadedFiles)) {
+                        $submissionData = json_encode($data, JSON_UNESCAPED_UNICODE);
+                    }
+                }
+                
                 // Generate folio
                 $year = date('Y');
                 $stmt = $this->db->prepare("
@@ -175,6 +215,36 @@ class PublicFormController extends BaseController {
                 
                 $applicationId = $this->db->lastInsertId();
                 
+                // Save uploaded files as documents
+                if (!empty($uploadedFiles)) {
+                    $uploadDir = ROOT_PATH . '/public/uploads/applications/' . $applicationId;
+                    if (!file_exists($uploadDir)) {
+                        mkdir($uploadDir, 0755, true);
+                    }
+                    
+                    foreach ($uploadedFiles as $fieldId => $fileInfo) {
+                        $newFileName = uniqid() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $fileInfo['name']);
+                        $filePath = $uploadDir . '/' . $newFileName;
+                        
+                        if (move_uploaded_file($fileInfo['tmp_name'], $filePath)) {
+                            // Save document record
+                            $relativePath = '/uploads/applications/' . $applicationId . '/' . $newFileName;
+                            $stmt = $this->db->prepare("
+                                INSERT INTO documents (application_id, name, file_path, file_type, file_size, uploaded_by)
+                                VALUES (?, ?, ?, ?, ?, ?)
+                            ");
+                            $stmt->execute([
+                                $applicationId,
+                                $fileInfo['label'] . ' - ' . $fileInfo['name'],
+                                $relativePath,
+                                $fileInfo['type'],
+                                $fileInfo['size'],
+                                $form['created_by']
+                            ]);
+                        }
+                    }
+                }
+                
                 // Link submission to application
                 $stmt = $this->db->prepare("
                     UPDATE public_form_submissions 
@@ -182,6 +252,25 @@ class PublicFormController extends BaseController {
                     WHERE id = ?
                 ");
                 $stmt->execute([$applicationId, $submissionId]);
+                
+                // Create initial status history
+                $stmt = $this->db->prepare("
+                    INSERT INTO status_history (application_id, new_status, comment, changed_by)
+                    VALUES (?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $applicationId,
+                    STATUS_CREADO,
+                    'Solicitud creada desde formulario público',
+                    $form['created_by']
+                ]);
+                
+                // Create financial status
+                $stmt = $this->db->prepare("
+                    INSERT INTO financial_status (application_id, total_costs, total_paid, balance, status)
+                    VALUES (?, 0, 0, 0, ?)
+                ");
+                $stmt->execute([$applicationId, FINANCIAL_PENDIENTE]);
                 
                 // Log customer journey
                 $formName = htmlspecialchars($form['name'], ENT_QUOTES, 'UTF-8');

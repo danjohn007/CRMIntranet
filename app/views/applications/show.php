@@ -68,13 +68,35 @@ ob_start();
             <h3 class="text-xl font-bold text-gray-800 mb-4">Datos del Solicitante</h3>
             <?php
             $formData = json_decode($application['data_json'], true);
+            $formFields = json_decode($application['fields_json'], true);
+            
+            // Create a map of field IDs to field types for quick lookup
+            $fieldTypes = [];
+            if ($formFields && isset($formFields['fields'])) {
+                foreach ($formFields['fields'] as $field) {
+                    $fieldTypes[$field['id']] = $field['type'] ?? 'text';
+                }
+            }
+            
             if ($formData && is_array($formData)):
             ?>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <?php foreach ($formData as $key => $value): ?>
+                <?php foreach ($formData as $key => $value): 
+                    // Check if this field is a file type
+                    $isFileField = isset($fieldTypes[$key]) && $fieldTypes[$key] === 'file';
+                    
+                    // Skip empty file fields
+                    if ($isFileField && empty($value)) {
+                        continue;
+                    }
+                ?>
                 <div class="border-l-4 border-blue-500 pl-4">
                     <p class="text-sm text-gray-600 capitalize"><?= htmlspecialchars(str_replace('_', ' ', $key)) ?></p>
-                    <p class="text-lg"><?= is_array($value) ? htmlspecialchars(json_encode($value)) : htmlspecialchars($value) ?></p>
+                    <?php if ($isFileField): ?>
+                        <p class="text-lg"><?= htmlspecialchars($value) ?></p>
+                    <?php else: ?>
+                        <p class="text-lg"><?= is_array($value) ? htmlspecialchars(json_encode($value)) : htmlspecialchars($value) ?></p>
+                    <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
             </div>
