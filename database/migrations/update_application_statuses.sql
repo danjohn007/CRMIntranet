@@ -40,6 +40,9 @@ MODIFY COLUMN `status` ENUM(
 ) DEFAULT 'Creado';
 
 -- Step 2: Update records to new status values
+-- Note: 'Documentación validada' and original 'En revisión' both map to 'En revisión'
+-- This is intentional per requirements - the new status set consolidates these states
+-- Historical data is preserved in status_history table for audit purposes
 UPDATE `applications` SET `status` = 'Formulario recibido' WHERE `status` = 'Creado';
 UPDATE `applications` SET `status` = 'Pago verificado' WHERE `status` = 'Recepción de información y pago';
 UPDATE `applications` SET `status` = 'Rechazado (requiere corrección)' WHERE `status` = 'Información incompleta';
