@@ -37,14 +37,15 @@ ob_start();
                 <label class="block text-sm font-medium text-gray-700 mb-2">Estatus</label>
                 <select name="status" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base">
                     <option value="">Todos</option>
-                    <option value="<?= STATUS_CREADO ?>" <?= $status === STATUS_CREADO ? 'selected' : '' ?>><?= STATUS_CREADO ?></option>
-                    <option value="<?= STATUS_RECEPCION_INFO_PAGO ?>" <?= $status === STATUS_RECEPCION_INFO_PAGO ? 'selected' : '' ?>><?= STATUS_RECEPCION_INFO_PAGO ?></option>
+                    <option value="<?= STATUS_FORMULARIO_RECIBIDO ?>" <?= $status === STATUS_FORMULARIO_RECIBIDO ? 'selected' : '' ?>><?= STATUS_FORMULARIO_RECIBIDO ?></option>
+                    <option value="<?= STATUS_PAGO_VERIFICADO ?>" <?= $status === STATUS_PAGO_VERIFICADO ? 'selected' : '' ?>><?= STATUS_PAGO_VERIFICADO ?></option>
+                    <option value="<?= STATUS_EN_ELABORACION_HOJA ?>" <?= $status === STATUS_EN_ELABORACION_HOJA ? 'selected' : '' ?>><?= STATUS_EN_ELABORACION_HOJA ?></option>
                     <option value="<?= STATUS_EN_REVISION ?>" <?= $status === STATUS_EN_REVISION ? 'selected' : '' ?>><?= STATUS_EN_REVISION ?></option>
-                    <option value="<?= STATUS_INFO_INCOMPLETA ?>" <?= $status === STATUS_INFO_INCOMPLETA ? 'selected' : '' ?>><?= STATUS_INFO_INCOMPLETA ?></option>
-                    <option value="<?= STATUS_DOC_VALIDADA ?>" <?= $status === STATUS_DOC_VALIDADA ? 'selected' : '' ?>><?= STATUS_DOC_VALIDADA ?></option>
-                    <option value="<?= STATUS_EN_PROCESO ?>" <?= $status === STATUS_EN_PROCESO ? 'selected' : '' ?>><?= STATUS_EN_PROCESO ?></option>
-                    <option value="<?= STATUS_APROBADO ?>" <?= $status === STATUS_APROBADO ? 'selected' : '' ?>><?= STATUS_APROBADO ?></option>
                     <option value="<?= STATUS_RECHAZADO ?>" <?= $status === STATUS_RECHAZADO ? 'selected' : '' ?>><?= STATUS_RECHAZADO ?></option>
+                    <option value="<?= STATUS_APROBADO ?>" <?= $status === STATUS_APROBADO ? 'selected' : '' ?>><?= STATUS_APROBADO ?></option>
+                    <option value="<?= STATUS_CITA_SOLICITADA ?>" <?= $status === STATUS_CITA_SOLICITADA ? 'selected' : '' ?>><?= STATUS_CITA_SOLICITADA ?></option>
+                    <option value="<?= STATUS_CITA_CONFIRMADA ?>" <?= $status === STATUS_CITA_CONFIRMADA ? 'selected' : '' ?>><?= STATUS_CITA_CONFIRMADA ?></option>
+                    <option value="<?= STATUS_PROCESO_EMBAJADA ?>" <?= $status === STATUS_PROCESO_EMBAJADA ? 'selected' : '' ?>><?= STATUS_PROCESO_EMBAJADA ?></option>
                     <option value="<?= STATUS_FINALIZADO ?>" <?= $status === STATUS_FINALIZADO ? 'selected' : '' ?>><?= STATUS_FINALIZADO ?></option>
                 </select>
             </div>

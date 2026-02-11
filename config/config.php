@@ -45,15 +45,16 @@ define('ROLE_GERENTE', 'Gerente');
 define('ROLE_ASESOR', 'Asesor');
 
 // Estatus de Solicitudes
-define('STATUS_CREADO', 'Creado');
-define('STATUS_RECEPCION_INFO_PAGO', 'Recepción de información y pago');
+define('STATUS_FORMULARIO_RECIBIDO', 'Formulario recibido');
+define('STATUS_PAGO_VERIFICADO', 'Pago verificado');
+define('STATUS_EN_ELABORACION_HOJA', 'En elaboración de hoja de información');
 define('STATUS_EN_REVISION', 'En revisión');
-define('STATUS_INFO_INCOMPLETA', 'Información incompleta');
-define('STATUS_DOC_VALIDADA', 'Documentación validada');
-define('STATUS_EN_PROCESO', 'En proceso');
+define('STATUS_RECHAZADO', 'Rechazado (requiere corrección)');
 define('STATUS_APROBADO', 'Aprobado');
-define('STATUS_RECHAZADO', 'Rechazado');
-define('STATUS_FINALIZADO', 'Finalizado (Trámite Entregado)');
+define('STATUS_CITA_SOLICITADA', 'Cita solicitada');
+define('STATUS_CITA_CONFIRMADA', 'Cita confirmada');
+define('STATUS_PROCESO_EMBAJADA', 'Proceso en embajada');
+define('STATUS_FINALIZADO', 'Finalizado');
 
 // Estados Financieros
 define('FINANCIAL_PENDIENTE', 'Pendiente');
