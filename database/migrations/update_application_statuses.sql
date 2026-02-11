@@ -1,26 +1,10 @@
 -- Migration to update application status values
 -- Date: 2026-02-11
 -- Description: Update status enum in applications table to new status values
+-- Note: This migration works on the currently selected database. 
+--       Make sure you're connected to the correct database before running.
 
-USE `crm_visas`;
-
--- Step 1: Modify the applications table to change the status enum type
-ALTER TABLE `applications` 
-MODIFY COLUMN `status` ENUM(
-    'Formulario recibido',
-    'Pago verificado',
-    'En elaboración de hoja de información',
-    'En revisión',
-    'Rechazado (requiere corrección)',
-    'Aprobado',
-    'Cita solicitada',
-    'Cita confirmada',
-    'Proceso en embajada',
-    'Finalizado'
-) DEFAULT 'Formulario recibido';
-
--- Step 2: Update existing records to map old statuses to new ones
--- Mapping:
+-- Status Mapping:
 -- 'Creado' -> 'Formulario recibido'
 -- 'Recepción de información y pago' -> 'Pago verificado'
 -- 'En revisión' -> 'En revisión' (unchanged)
@@ -32,7 +16,7 @@ MODIFY COLUMN `status` ENUM(
 -- 'Finalizado (Trámite Entregado)' -> 'Finalizado'
 
 -- Note: Due to ENUM limitations, we need to do this in steps
--- First, add new enum values to allow coexistence
+-- Step 1: Add new enum values to allow coexistence with old values
 
 ALTER TABLE `applications` 
 MODIFY COLUMN `status` ENUM(
@@ -55,7 +39,7 @@ MODIFY COLUMN `status` ENUM(
     'Finalizado'
 ) DEFAULT 'Creado';
 
--- Update records to new status values
+-- Step 2: Update records to new status values
 UPDATE `applications` SET `status` = 'Formulario recibido' WHERE `status` = 'Creado';
 UPDATE `applications` SET `status` = 'Pago verificado' WHERE `status` = 'Recepción de información y pago';
 UPDATE `applications` SET `status` = 'Rechazado (requiere corrección)' WHERE `status` = 'Información incompleta';
@@ -64,7 +48,7 @@ UPDATE `applications` SET `status` = 'Proceso en embajada' WHERE `status` = 'En 
 UPDATE `applications` SET `status` = 'Rechazado (requiere corrección)' WHERE `status` = 'Rechazado';
 UPDATE `applications` SET `status` = 'Finalizado' WHERE `status` = 'Finalizado (Trámite Entregado)';
 
--- Now remove old enum values, keeping only new ones
+-- Step 3: Remove old enum values, keeping only new ones
 ALTER TABLE `applications` 
 MODIFY COLUMN `status` ENUM(
     'Formulario recibido',

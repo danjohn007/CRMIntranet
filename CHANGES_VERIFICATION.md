@@ -85,11 +85,12 @@
 **IMPORTANT**: Before running the application with these changes, run the database migration:
 
 ```bash
+# Using command line (use the appropriate database name: recursos_visas or crm_visas)
 mysql -u recursos_visas -p recursos_visas < database/migrations/update_application_statuses.sql
 ```
 
 Or through phpMyAdmin/MySQL client:
-1. Connect to the database
+1. Connect to the database (recursos_visas or crm_visas)
 2. Execute the SQL file content
 3. Verify the changes with:
    ```sql
