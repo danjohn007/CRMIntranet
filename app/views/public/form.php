@@ -279,6 +279,11 @@
                         // Field names don't have the 'field_' prefix, but IDs do
                         const field = document.getElementById(`field_${fieldName}`);
                         if (field) {
+                            // Skip file inputs - they cannot be programmatically set for security reasons
+                            if (field.type === 'file') {
+                                return;
+                            }
+                            
                             if (field.type === 'checkbox') {
                                 field.checked = draftData[fieldName] === 'on' || draftData[fieldName] === true;
                             } else if (field.type === 'radio') {
@@ -314,8 +319,15 @@
                 const data = {};
                 
                 // Store field values using their field names (without 'field_' prefix)
+                // Skip file inputs since they can't be restored from localStorage
                 for (let [key, value] of formData.entries()) {
                     if (key !== 'submissionId' && key !== 'currentPage') {
+                        // Check if this is a file input
+                        const field = form.elements[key] || document.getElementById(`field_${key}`);
+                        if (field && field.type === 'file') {
+                            // Skip file inputs - they cannot be stored in localStorage
+                            continue;
+                        }
                         data[key] = value;
                     }
                 }

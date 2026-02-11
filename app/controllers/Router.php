@@ -40,6 +40,8 @@ class Router {
         $this->routes['GET']['/solicitudes/ver/{id}'] = ['ApplicationController', 'show'];
         $this->routes['POST']['/solicitudes/cambiar-estatus/{id}'] = ['ApplicationController', 'changeStatus'];
         $this->routes['POST']['/solicitudes/subir-documento/{id}'] = ['ApplicationController', 'uploadDocument'];
+        $this->routes['POST']['/solicitudes/agregar-indicacion/{id}'] = ['ApplicationController', 'addNote'];
+        $this->routes['GET']['/solicitudes/descargar-archivo/{id}/{fieldId}'] = ['ApplicationController', 'downloadFormFile'];
         
         // Módulo Financiero
         $this->routes['GET']['/financiero'] = ['FinancialController', 'index'];

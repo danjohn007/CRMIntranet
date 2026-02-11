@@ -93,7 +93,15 @@ ob_start();
                 <div class="border-l-4 border-blue-500 pl-4">
                     <p class="text-sm text-gray-600 capitalize"><?= htmlspecialchars(str_replace('_', ' ', $key)) ?></p>
                     <?php if ($isFileField): ?>
-                        <p class="text-lg"><?= htmlspecialchars($value) ?></p>
+                        <div class="flex items-center space-x-3">
+                            <p class="text-lg"><?= htmlspecialchars($value) ?></p>
+                            <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
+                            <a href="<?= BASE_URL ?>/solicitudes/descargar-archivo/<?= $application['id'] ?>/<?= htmlspecialchars($key) ?>" 
+                               class="text-blue-600 hover:text-blue-800 transition">
+                                <i class="fas fa-download"></i> Descargar
+                            </a>
+                            <?php endif; ?>
+                        </div>
                     <?php else: ?>
                         <p class="text-lg"><?= is_array($value) ? htmlspecialchars(json_encode($value)) : htmlspecialchars($value) ?></p>
                     <?php endif; ?>
@@ -139,6 +147,44 @@ ob_start();
             </div>
             <?php else: ?>
             <p class="text-gray-500 text-center py-6">No hay documentos subidos</p>
+            <?php endif; ?>
+        </div>
+        
+        <!-- Indicaciones -->
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">Indicaciones</h3>
+                <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
+                <button onclick="document.getElementById('noteModal').classList.remove('hidden')" 
+                        class="btn-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition">
+                    <i class="fas fa-plus mr-2"></i>Agregar Indicación
+                </button>
+                <?php endif; ?>
+            </div>
+            
+            <?php if (!empty($notes)): ?>
+            <div class="space-y-3">
+                <?php foreach ($notes as $note): ?>
+                <div class="p-4 rounded-lg <?= $note['is_important'] ? 'bg-yellow-50 border-l-4 border-yellow-500' : 'bg-gray-50 border-l-4 border-gray-300' ?>">
+                    <div class="flex justify-between items-start mb-2">
+                        <div class="flex items-center space-x-2">
+                            <?php if ($note['is_important']): ?>
+                            <i class="fas fa-exclamation-circle text-yellow-600"></i>
+                            <span class="text-sm font-semibold text-yellow-800">IMPORTANTE</span>
+                            <?php endif; ?>
+                        </div>
+                        <span class="text-xs text-gray-500"><?= date('d/m/Y H:i', strtotime($note['created_at'])) ?></span>
+                    </div>
+                    <p class="text-gray-800 mb-2"><?= nl2br(htmlspecialchars($note['note_text'])) ?></p>
+                    <p class="text-sm text-gray-600">
+                        Por: <?= htmlspecialchars($note['created_by_name']) ?> 
+                        <span class="text-xs">(<?= htmlspecialchars($note['created_by_role']) ?>)</span>
+                    </p>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php else: ?>
+            <p class="text-gray-500 text-center py-6">No hay indicaciones registradas</p>
             <?php endif; ?>
         </div>
         
@@ -272,6 +318,46 @@ ob_start();
         </form>
     </div>
 </div>
+
+<!-- Modal de Agregar Indicación -->
+<?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
+<div id="noteModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-lg">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold">Agregar Indicación</h3>
+            <button onclick="document.getElementById('noteModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700">
+                <i class="fas fa-times text-xl"></i>
+            </button>
+        </div>
+        <form method="POST" action="<?= BASE_URL ?>/solicitudes/agregar-indicacion/<?= $application['id'] ?>">
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Indicación</label>
+                <textarea name="note_text" required rows="4" 
+                          class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                          placeholder="Escriba la indicación aquí..."></textarea>
+            </div>
+            <div class="mb-4">
+                <label class="flex items-center">
+                    <input type="checkbox" name="is_important" class="w-4 h-4 text-blue-600 rounded focus:ring-blue-500">
+                    <span class="ml-2 text-sm text-gray-700">
+                        <i class="fas fa-exclamation-circle text-yellow-600"></i>
+                        Marcar como importante
+                    </span>
+                </label>
+            </div>
+            <div class="flex gap-3">
+                <button type="submit" class="flex-1 btn-primary text-white py-2 rounded-lg hover:opacity-90">
+                    <i class="fas fa-save mr-2"></i>Guardar
+                </button>
+                <button type="button" onclick="document.getElementById('noteModal').classList.add('hidden')" 
+                        class="flex-1 bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600">
+                    Cancelar
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<?php endif; ?>
 
 <?php 
 $content = ob_get_clean();

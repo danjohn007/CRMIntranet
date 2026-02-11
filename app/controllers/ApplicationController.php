@@ -238,6 +238,17 @@ class ApplicationController extends BaseController {
             $stmt->execute([$id]);
             $documents = $stmt->fetchAll();
             
+            // Obtener indicaciones/notas
+            $stmt = $this->db->prepare("
+                SELECT n.*, u.full_name as created_by_name, u.role as created_by_role
+                FROM application_notes n
+                LEFT JOIN users u ON n.created_by = u.id
+                WHERE n.application_id = ?
+                ORDER BY n.is_important DESC, n.created_at DESC
+            ");
+            $stmt->execute([$id]);
+            $notes = $stmt->fetchAll();
+            
             // Obtener costos (solo Admin y Gerente)
             $costs = [];
             $payments = [];
@@ -267,6 +278,7 @@ class ApplicationController extends BaseController {
                 'application' => $application,
                 'history' => $history,
                 'documents' => $documents,
+                'notes' => $notes,
                 'costs' => $costs,
                 'payments' => $payments
             ]);
@@ -436,6 +448,156 @@ class ApplicationController extends BaseController {
         } catch (PDOException $e) {
             error_log("Error al subir documento: " . $e->getMessage());
             $_SESSION['error'] = 'Error al subir documento';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+    
+    public function addNote($id) {
+        // Solo Admin y Gerente pueden agregar indicaciones
+        $this->requireRole([ROLE_ADMIN, ROLE_GERENTE]);
+        
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+        
+        $noteText = trim($_POST['note_text'] ?? '');
+        $isImportant = isset($_POST['is_important']) ? 1 : 0;
+        
+        if (empty($noteText)) {
+            $_SESSION['error'] = 'La indicación no puede estar vacía';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+        
+        try {
+            // Verificar que la solicitud existe
+            $stmt = $this->db->prepare("SELECT id FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            if (!$stmt->fetch()) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+            
+            // Insertar indicación
+            $stmt = $this->db->prepare("
+                INSERT INTO application_notes (application_id, note_text, is_important, created_by)
+                VALUES (?, ?, ?, ?)
+            ");
+            $stmt->execute([
+                $id,
+                $noteText,
+                $isImportant,
+                $_SESSION['user_id']
+            ]);
+            
+            // Log audit trail
+            logAudit('create', 'solicitudes', 
+                "Indicación agregada a solicitud #$id" . ($isImportant ? ' (Importante)' : ''));
+            
+            $_SESSION['success'] = 'Indicación agregada correctamente';
+            $this->redirect('/solicitudes/ver/' . $id);
+            
+        } catch (PDOException $e) {
+            error_log("Error al agregar indicación: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al agregar indicación';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+    
+    public function downloadFormFile($id, $fieldId) {
+        $this->requireLogin();
+        
+        $role = $this->getUserRole();
+        
+        try {
+            // Obtener solicitud
+            $stmt = $this->db->prepare("SELECT * FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+            
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+            
+            // REGLA: Asesor no puede acceder a solicitudes finalizadas ni rechazadas
+            if ($role === ROLE_ASESOR && ($application['status'] === STATUS_FINALIZADO || $application['status'] === STATUS_RECHAZADO)) {
+                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                $this->redirect('/solicitudes');
+            }
+            
+            // Solo Admin y Gerente pueden descargar archivos
+            if (!in_array($role, [ROLE_ADMIN, ROLE_GERENTE])) {
+                $_SESSION['error'] = 'No tiene permisos para descargar archivos';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+            
+            // Obtener datos del formulario
+            $formData = json_decode($application['data_json'], true);
+            $formFields = json_decode($application['fields_json'], true);
+            
+            // Verificar que el campo existe y es de tipo file
+            $isFileField = false;
+            if ($formFields && isset($formFields['fields'])) {
+                foreach ($formFields['fields'] as $field) {
+                    if ($field['id'] === $fieldId && $field['type'] === 'file') {
+                        $isFileField = true;
+                        break;
+                    }
+                }
+            }
+            
+            if (!$isFileField) {
+                $_SESSION['error'] = 'Campo no válido';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+            
+            if (!isset($formData[$fieldId]) || empty($formData[$fieldId])) {
+                $_SESSION['error'] = 'Archivo no encontrado en los datos';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+            
+            $fileName = $formData[$fieldId];
+            
+            // Buscar el archivo en la tabla de documents
+            $stmt = $this->db->prepare("
+                SELECT * FROM documents 
+                WHERE application_id = ? AND (name LIKE ? OR file_path LIKE ?)
+                ORDER BY created_at DESC 
+                LIMIT 1
+            ");
+            $stmt->execute([$id, "%$fileName%", "%$fileName%"]);
+            $document = $stmt->fetch();
+            
+            if (!$document) {
+                $_SESSION['error'] = 'El documento no se encuentra registrado';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+            
+            $filePath = ROOT_PATH . '/public' . $document['file_path'];
+            
+            if (!file_exists($filePath)) {
+                $_SESSION['error'] = 'El archivo no existe en el servidor';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+            
+            // Log audit trail
+            logAudit('download', 'solicitudes', 
+                "Descarga de archivo '$fileName' de solicitud #$id (campo: $fieldId)");
+            
+            // Descargar archivo
+            header('Content-Description: File Transfer');
+            header('Content-Type: application/octet-stream');
+            header('Content-Disposition: attachment; filename="' . basename($fileName) . '"');
+            header('Expires: 0');
+            header('Cache-Control: must-revalidate');
+            header('Pragma: public');
+            header('Content-Length: ' . filesize($filePath));
+            readfile($filePath);
+            exit;
+            
+        } catch (PDOException $e) {
+            error_log("Error al descargar archivo: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al descargar archivo';
             $this->redirect('/solicitudes/ver/' . $id);
         }
     }
