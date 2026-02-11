@@ -162,7 +162,7 @@ class ApplicationController extends BaseController {
             ");
             $stmt->execute([
                 $applicationId,
-                STATUS_CREADO,
+                STATUS_FORMULARIO_RECIBIDO,
                 'Solicitud creada',
                 $_SESSION['user_id']
             ]);

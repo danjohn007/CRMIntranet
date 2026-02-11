@@ -67,7 +67,7 @@ CREATE TABLE `applications` (
   `form_version` int(11) NOT NULL,
   `type` enum('Visa','Pasaporte') NOT NULL,
   `subtype` varchar(50) DEFAULT NULL,
-  `status` enum('Creado','Recepción de información y pago','En revisión','Información incompleta','Documentación validada','En proceso','Aprobado','Rechazado','Finalizado (Trámite Entregado)') DEFAULT 'Creado',
+  `status` enum('Formulario recibido','Pago verificado','En elaboración de hoja de información','En revisión','Rechazado (requiere corrección)','Aprobado','Cita solicitada','Cita confirmada','Proceso en embajada','Finalizado') DEFAULT 'Formulario recibido',
   `data_json` longtext NOT NULL COMMENT 'Datos del formulario en JSON',
   `created_by` int(11) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -84,10 +84,10 @@ CREATE TABLE `applications` (
 -- Solicitudes de ejemplo
 INSERT INTO `applications` (`folio`, `form_id`, `form_version`, `type`, `subtype`, `status`, `data_json`, `created_by`) VALUES
 ('VISA-2026-000001', 1, 1, 'Visa', 'Primera Vez', 'En revisión', '{"nombre":"Roberto García Méndez","pasaporte":"M123456789","fecha_nacimiento":"1985-05-15","motivo":"Turismo"}', 3),
-('VISA-2026-000002', 1, 1, 'Visa', 'Primera Vez', 'Documentación validada', '{"nombre":"Laura Hernández Torres","pasaporte":"M987654321","fecha_nacimiento":"1990-08-22","motivo":"Negocios"}', 3),
+('VISA-2026-000002', 1, 1, 'Visa', 'Primera Vez', 'Pago verificado', '{"nombre":"Laura Hernández Torres","pasaporte":"M987654321","fecha_nacimiento":"1990-08-22","motivo":"Negocios"}', 3),
 ('VISA-2026-000003', 2, 1, 'Pasaporte', 'Renovación', 'Finalizado', '{"nombre":"Pedro Ramírez Luna","curp":"RALP850315HQTMND01","pasaporte_anterior":"M111222333"}', 4),
 ('VISA-2026-000004', 1, 1, 'Visa', 'Primera Vez', 'Aprobado', '{"nombre":"Diana Flores Castro","pasaporte":"M555666777","fecha_nacimiento":"1995-03-10","motivo":"Estudios"}', 3),
-('VISA-2026-000005', 2, 1, 'Pasaporte', 'Renovación', 'En proceso', '{"nombre":"Miguel Ángel Ortiz","curp":"OIGM920612HQTRTG03","pasaporte_anterior":"M444555666"}', 4);
+('VISA-2026-000005', 2, 1, 'Pasaporte', 'Renovación', 'Proceso en embajada', '{"nombre":"Miguel Ángel Ortiz","curp":"OIGM920612HQTRTG03","pasaporte_anterior":"M444555666"}', 4);
 
 -- Tabla de Historial de Estatus
 DROP TABLE IF EXISTS `status_history`;
@@ -108,13 +108,12 @@ CREATE TABLE `status_history` (
 
 -- Historial de ejemplo
 INSERT INTO `status_history` (`application_id`, `previous_status`, `new_status`, `comment`, `changed_by`) VALUES
-(1, 'Creado', 'En revisión', 'Documentos recibidos, iniciando revisión', 2),
-(2, 'Creado', 'En revisión', 'En proceso de validación', 2),
-(2, 'En revisión', 'Documentación validada', 'Documentos aprobados', 2),
-(3, 'Creado', 'En proceso', 'Trámite en SRE', 2),
-(3, 'En proceso', 'Aprobado', 'Pasaporte listo', 2),
+(1, 'Formulario recibido', 'En revisión', 'Documentos recibidos, iniciando revisión', 2),
+(2, 'Formulario recibido', 'Pago verificado', 'Pago confirmado', 2),
+(3, 'Formulario recibido', 'Proceso en embajada', 'Trámite en SRE', 2),
+(3, 'Proceso en embajada', 'Aprobado', 'Pasaporte listo', 2),
 (3, 'Aprobado', 'Finalizado', 'Entregado al cliente', 2),
-(4, 'Creado', 'En revisión', 'Revisando documentación', 2),
+(4, 'Formulario recibido', 'En revisión', 'Revisando documentación', 2),
 (4, 'En revisión', 'Aprobado', 'Visa aprobada', 2);
 
 -- Tabla de Documentos
