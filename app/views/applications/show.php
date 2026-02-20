@@ -138,10 +138,12 @@ ob_start();
                             </p>
                         </div>
                     </div>
+                    <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
                     <a href="<?= BASE_URL . $doc['file_path'] ?>" target="_blank" 
                        class="text-primary hover:underline">
                         <i class="fas fa-download"></i>
                     </a>
+                    <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
             </div>
@@ -229,15 +231,16 @@ ob_start();
                     <label class="block text-sm font-medium text-gray-700 mb-2">Nuevo Estatus</label>
                     <select name="status" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
                         <option value="">-- Seleccione --</option>
-                        <option value="<?= STATUS_CREADO ?>">Creado</option>
-                        <option value="<?= STATUS_RECEPCION_INFO_PAGO ?>">Recepción de información y pago</option>
+                        <option value="<?= STATUS_FORMULARIO_RECIBIDO ?>">Formulario recibido</option>
+                        <option value="<?= STATUS_PAGO_VERIFICADO ?>">Pago verificado</option>
+                        <option value="<?= STATUS_EN_ELABORACION_HOJA ?>">En elaboración de hoja de información</option>
                         <option value="<?= STATUS_EN_REVISION ?>">En revisión</option>
-                        <option value="<?= STATUS_INFO_INCOMPLETA ?>">Información incompleta</option>
-                        <option value="<?= STATUS_DOC_VALIDADA ?>">Documentación validada</option>
-                        <option value="<?= STATUS_EN_PROCESO ?>">En proceso</option>
+                        <option value="<?= STATUS_RECHAZADO ?>">Rechazado (requiere corrección)</option>
                         <option value="<?= STATUS_APROBADO ?>">Aprobado</option>
-                        <option value="<?= STATUS_RECHAZADO ?>">Rechazado</option>
-                        <option value="<?= STATUS_FINALIZADO ?>">Finalizado (Trámite Entregado)</option>
+                        <option value="<?= STATUS_CITA_SOLICITADA ?>">Cita solicitada</option>
+                        <option value="<?= STATUS_CITA_CONFIRMADA ?>">Cita confirmada</option>
+                        <option value="<?= STATUS_PROCESO_EMBAJADA ?>">Proceso en embajada</option>
+                        <option value="<?= STATUS_FINALIZADO ?>">Finalizado</option>
                     </select>
                 </div>
                 <div class="mb-4">

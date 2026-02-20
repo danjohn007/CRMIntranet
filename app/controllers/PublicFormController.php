@@ -207,7 +207,7 @@ class PublicFormController extends BaseController {
                     $form['version'],
                     $form['type'],
                     $form['subtype'],
-                    STATUS_CREADO,
+                    STATUS_FORMULARIO_RECIBIDO,
                     $submissionData,
                     100,
                     $form['created_by']
@@ -260,7 +260,7 @@ class PublicFormController extends BaseController {
                 ");
                 $stmt->execute([
                     $applicationId,
-                    STATUS_CREADO,
+                    STATUS_FORMULARIO_RECIBIDO,
                     'Solicitud creada desde formulario público',
                     $form['created_by']
                 ]);
