@@ -218,7 +218,7 @@
         </aside>
 
         <!-- Main Content -->
-        <main class="flex-1 p-4 md:p-6">
+        <main class="flex-1 min-w-0 p-4 md:p-6 overflow-x-hidden">
             <?php if (isset($_SESSION['success'])): ?>
             <div class="bg-green-100 border-l-4 border-green-500 text-green-700 p-4 mb-4 rounded" role="alert">
                 <p><?= htmlspecialchars($_SESSION['success']) ?></p>

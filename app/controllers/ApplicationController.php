@@ -297,6 +297,17 @@ class ApplicationController extends BaseController {
                 $stmt = $this->db->query("SELECT id, name, type, subtype FROM forms WHERE is_published = 1 ORDER BY type, name");
                 $publishedForms = $stmt->fetchAll();
             } catch (PDOException $e) {}
+
+            // Obtener token público del formulario vinculado (para generar enlace de cliente)
+            $formLinkToken = null;
+            if (!empty($application['form_link_id'])) {
+                try {
+                    $stmt = $this->db->prepare("SELECT public_token FROM forms WHERE id = ?");
+                    $stmt->execute([$application['form_link_id']]);
+                    $linkedFormRow = $stmt->fetch();
+                    $formLinkToken = $linkedFormRow['public_token'] ?? null;
+                } catch (PDOException $e) {}
+            }
             
             $this->view('applications/show', [
                 'application' => $application,
@@ -307,6 +318,7 @@ class ApplicationController extends BaseController {
                 'payments' => $payments,
                 'infoSheet' => $infoSheet,
                 'publishedForms' => $publishedForms,
+                'formLinkToken' => $formLinkToken,
             ]);
             
         } catch (PDOException $e) {
@@ -828,8 +840,8 @@ class ApplicationController extends BaseController {
             $this->db->prepare("UPDATE applications SET form_link_id = ?, form_link_status = 'enviado', form_link_sent_at = NOW() WHERE id = ?")
                 ->execute([$formLinkId, $id]);
 
-            $_SESSION['success'] = 'Formulario vinculado y marcado como enviado';
-            $this->redirect('/solicitudes/ver/' . $id);
+            $_SESSION['success'] = 'Formulario vinculado. Copia el enlace y compártelo con el cliente.';
+            $this->redirect('/solicitudes/ver/' . $id . '?copiar_enlace=1');
 
         } catch (PDOException $e) {
             error_log("Error al vincular formulario: " . $e->getMessage());
@@ -886,8 +898,7 @@ class ApplicationController extends BaseController {
     /**
      * Asesor confirma que la cita sigue vigente un día antes.
      */
-    public function confirmAppointment($id) {
-        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
+    public function confirmAppointment($id) {        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/public/solicitudes');
@@ -920,6 +931,115 @@ class ApplicationController extends BaseController {
             error_log("Error al confirmar cita: " . $e->getMessage());
             $_SESSION['error'] = 'Error al confirmar cita';
             $this->redirect('/public/solicitudes');
+        }
+    }
+
+    /**
+     * Eliminar solicitud (solo Admin).
+     */
+    public function delete($id) {
+        $this->requireRole([ROLE_ADMIN]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes');
+        }
+
+        try {
+            // Obtener solicitud y sus documentos para borrar archivos físicos
+            $stmt = $this->db->prepare("SELECT id FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            if (!$stmt->fetch()) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            // Borrar archivos físicos de documentos
+            $stmt = $this->db->prepare("SELECT file_path FROM documents WHERE application_id = ?");
+            $stmt->execute([$id]);
+            foreach ($stmt->fetchAll() as $doc) {
+                $filePath = ROOT_PATH . '/public' . $doc['file_path'];
+                if (file_exists($filePath)) {
+                    @unlink($filePath);
+                }
+            }
+
+            // Borrar registros relacionados (tablas explícitas para evitar inyección)
+            $relatedTables = [
+                "DELETE FROM documents WHERE application_id = ?",
+                "DELETE FROM status_history WHERE application_id = ?",
+                "DELETE FROM application_notes WHERE application_id = ?",
+                "DELETE FROM financial_costs WHERE application_id = ?",
+                "DELETE FROM payments WHERE application_id = ?",
+                "DELETE FROM financial_status WHERE application_id = ?",
+                "DELETE FROM information_sheets WHERE application_id = ?",
+                "DELETE FROM public_form_submissions WHERE application_id = ?",
+            ];
+            foreach ($relatedTables as $sql) {
+                try {
+                    $this->db->prepare($sql)->execute([$id]);
+                } catch (PDOException $e) {
+                    // Tabla puede no existir; continuar
+                }
+            }
+
+            // Borrar solicitud
+            $this->db->prepare("DELETE FROM applications WHERE id = ?")->execute([$id]);
+
+            logAudit('delete', 'solicitudes', "Solicitud #$id eliminada por administrador");
+
+            $_SESSION['success'] = 'Solicitud eliminada correctamente';
+            $this->redirect('/solicitudes');
+
+        } catch (PDOException $e) {
+            error_log("Error al eliminar solicitud: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al eliminar la solicitud';
+            $this->redirect('/solicitudes');
+        }
+    }
+
+    /**
+     * Descargar un documento por su ID (Admin y Gerente).
+     */
+    public function downloadDocument($docId) {
+        $this->requireRole([ROLE_ADMIN, ROLE_GERENTE]);
+
+        try {
+            $stmt = $this->db->prepare("
+                SELECT d.*, a.id as app_id
+                FROM documents d
+                LEFT JOIN applications a ON d.application_id = a.id
+                WHERE d.id = ?
+            ");
+            $stmt->execute([$docId]);
+            $doc = $stmt->fetch();
+
+            if (!$doc) {
+                $_SESSION['error'] = 'Documento no encontrado';
+                $this->redirect('/solicitudes');
+            }
+
+            $filePath = ROOT_PATH . '/public' . $doc['file_path'];
+            if (!file_exists($filePath)) {
+                $_SESSION['error'] = 'El archivo no existe en el servidor';
+                $this->redirect('/solicitudes/ver/' . $doc['app_id']);
+            }
+
+            logAudit('download', 'documentos', "Descarga de documento #$docId ({$doc['name']})");
+
+            header('Content-Description: File Transfer');
+            header('Content-Type: application/octet-stream');
+            header('Content-Disposition: attachment; filename="' . basename($doc['name']) . '"');
+            header('Expires: 0');
+            header('Cache-Control: must-revalidate');
+            header('Pragma: public');
+            header('Content-Length: ' . filesize($filePath));
+            readfile($filePath);
+            exit;
+
+        } catch (PDOException $e) {
+            error_log("Error al descargar documento: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al descargar documento';
+            $this->redirect('/solicitudes');
         }
     }
 }
