@@ -36,7 +36,7 @@ ini_set('error_log', ROOT_PATH . '/error.log');
 // Configuraciones Globales del Sistema (se cargarán de BD)
 define('SITE_NAME', 'CRM Visas y Pasaportes');
 define('ITEMS_PER_PAGE', 20);
-define('MAX_FILE_SIZE', 10485760); // 10MB
+define('MAX_FILE_SIZE', 2097152); // 2MB
 define('ALLOWED_EXTENSIONS', ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx']);
 
 // Roles del Sistema
@@ -44,7 +44,15 @@ define('ROLE_ADMIN', 'Administrador');
 define('ROLE_GERENTE', 'Gerente');
 define('ROLE_ASESOR', 'Asesor');
 
-// Estatus de Solicitudes
+// Estatus de Solicitudes (sistema de colores)
+define('STATUS_NUEVO', 'Nuevo');                          // GRIS - recién creada
+define('STATUS_LISTO_SOLICITUD', 'Listo para solicitud'); // ROJO - info+cuestionario+docs base
+define('STATUS_EN_ESPERA_PAGO', 'En espera de pago consular'); // AMARILLO - solicitud oficial hecha
+define('STATUS_CITA_PROGRAMADA', 'Cita programada');      // AZUL - pago+citas+docs finales
+define('STATUS_EN_ESPERA_RESULTADO', 'En espera de resultado'); // MORADO - cliente en embajada
+define('STATUS_TRAMITE_CERRADO', 'Trámite cerrado');      // VERDE - visa recibida/cerrado
+
+// Estatus legacy (compatibilidad)
 define('STATUS_FORMULARIO_RECIBIDO', 'Formulario recibido');
 define('STATUS_PAGO_VERIFICADO', 'Pago verificado');
 define('STATUS_EN_ELABORACION_HOJA', 'En elaboración de hoja de información');
