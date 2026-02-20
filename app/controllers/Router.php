@@ -33,6 +33,10 @@ class Router {
         $this->routes['POST']['/formularios/eliminar/{id}'] = ['FormController', 'delete'];
         $this->routes['POST']['/formularios/publicar/{id}'] = ['FormController', 'publish'];
         
+        $this->routes['POST']['/solicitudes/guardar-hoja-info/{id}'] = ['ApplicationController', 'saveInfoSheet'];
+        $this->routes['POST']['/solicitudes/marcar-asistencia/{id}'] = ['ApplicationController', 'markClientAttended'];
+        $this->routes['POST']['/solicitudes/vincular-formulario/{id}'] = ['ApplicationController', 'linkForm'];
+        
         // Solicitudes
         $this->routes['GET']['/solicitudes'] = ['ApplicationController', 'index'];
         $this->routes['GET']['/solicitudes/crear'] = ['ApplicationController', 'create'];
@@ -72,6 +76,10 @@ class Router {
         // Public Forms (no authentication required)
         $this->routes['GET']['/public/form/{token}'] = ['PublicFormController', 'show'];
         $this->routes['POST']['/public/form/{token}/submit'] = ['PublicFormController', 'submit'];
+
+        // Public solicitudes (for asesoras confirming appointments)
+        $this->routes['GET']['/public/solicitudes'] = ['ApplicationController', 'publicSolicitudes'];
+        $this->routes['POST']['/solicitudes/confirmar-cita/{id}'] = ['ApplicationController', 'confirmAppointment'];
         
         // Test de Conexión
         $this->routes['GET']['/test-conexion'] = ['TestController', 'connection'];

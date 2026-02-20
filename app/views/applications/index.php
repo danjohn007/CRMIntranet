@@ -20,17 +20,14 @@ ob_start();
             <label class="block text-sm font-medium text-gray-700 mb-2">Estatus</label>
             <select name="status" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base">
                 <option value="">Todos los estatus</option>
-                <option value="<?= STATUS_FORMULARIO_RECIBIDO ?>" <?= $status === STATUS_FORMULARIO_RECIBIDO ? 'selected' : '' ?>><?= STATUS_FORMULARIO_RECIBIDO ?></option>
-                <option value="<?= STATUS_PAGO_VERIFICADO ?>" <?= $status === STATUS_PAGO_VERIFICADO ? 'selected' : '' ?>><?= STATUS_PAGO_VERIFICADO ?></option>
-                <option value="<?= STATUS_EN_ELABORACION_HOJA ?>" <?= $status === STATUS_EN_ELABORACION_HOJA ? 'selected' : '' ?>><?= STATUS_EN_ELABORACION_HOJA ?></option>
-                <option value="<?= STATUS_EN_REVISION ?>" <?= $status === STATUS_EN_REVISION ? 'selected' : '' ?>><?= STATUS_EN_REVISION ?></option>
-                <option value="<?= STATUS_RECHAZADO ?>" <?= $status === STATUS_RECHAZADO ? 'selected' : '' ?>><?= STATUS_RECHAZADO ?></option>
-                <option value="<?= STATUS_APROBADO ?>" <?= $status === STATUS_APROBADO ? 'selected' : '' ?>><?= STATUS_APROBADO ?></option>
-                <option value="<?= STATUS_CITA_SOLICITADA ?>" <?= $status === STATUS_CITA_SOLICITADA ? 'selected' : '' ?>><?= STATUS_CITA_SOLICITADA ?></option>
-                <option value="<?= STATUS_CITA_CONFIRMADA ?>" <?= $status === STATUS_CITA_CONFIRMADA ? 'selected' : '' ?>><?= STATUS_CITA_CONFIRMADA ?></option>
-                <option value="<?= STATUS_PROCESO_EMBAJADA ?>" <?= $status === STATUS_PROCESO_EMBAJADA ? 'selected' : '' ?>><?= STATUS_PROCESO_EMBAJADA ?></option>
+                <option value="<?= STATUS_NUEVO ?>" <?= $status === STATUS_NUEVO ? 'selected' : '' ?>><?= STATUS_NUEVO ?> (Nuevo)</option>
+                <option value="<?= STATUS_LISTO_SOLICITUD ?>" <?= $status === STATUS_LISTO_SOLICITUD ? 'selected' : '' ?>><?= STATUS_LISTO_SOLICITUD ?></option>
+                <option value="<?= STATUS_EN_ESPERA_PAGO ?>" <?= $status === STATUS_EN_ESPERA_PAGO ? 'selected' : '' ?>><?= STATUS_EN_ESPERA_PAGO ?></option>
+                <option value="<?= STATUS_CITA_PROGRAMADA ?>" <?= $status === STATUS_CITA_PROGRAMADA ? 'selected' : '' ?>><?= STATUS_CITA_PROGRAMADA ?></option>
+                <option value="<?= STATUS_EN_ESPERA_RESULTADO ?>" <?= $status === STATUS_EN_ESPERA_RESULTADO ? 'selected' : '' ?>><?= STATUS_EN_ESPERA_RESULTADO ?></option>
                 <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
-                <option value="<?= STATUS_FINALIZADO ?>" <?= $status === STATUS_FINALIZADO ? 'selected' : '' ?>><?= STATUS_FINALIZADO ?></option>
+                <option value="<?= STATUS_TRAMITE_CERRADO ?>" <?= $status === STATUS_TRAMITE_CERRADO ? 'selected' : '' ?>><?= STATUS_TRAMITE_CERRADO ?></option>
+                <option value="<?= STATUS_FINALIZADO ?>" <?= $status === STATUS_FINALIZADO ? 'selected' : '' ?>><?= STATUS_FINALIZADO ?> (legacy)</option>
                 <?php endif; ?>
             </select>
         </div>
@@ -87,11 +84,11 @@ ob_start();
                     </td>
                     <td class="px-3 md:px-6 py-4 whitespace-nowrap">
                         <span class="px-2 py-1 text-xs rounded-full font-medium <?= 
-                            $app['status'] === STATUS_FINALIZADO ? 'bg-green-100 text-green-800' :
-                            ($app['status'] === STATUS_APROBADO ? 'bg-blue-100 text-blue-800' :
-                            ($app['status'] === STATUS_RECHAZADO ? 'bg-red-100 text-red-800' :
-                            ($app['status'] === STATUS_PROCESO_EMBAJADA ? 'bg-purple-100 text-purple-800' :
-                            ($app['status'] === STATUS_CITA_CONFIRMADA ? 'bg-indigo-100 text-indigo-800' : 'bg-yellow-100 text-yellow-800'))))
+                            ($app['status'] === STATUS_TRAMITE_CERRADO || $app['status'] === STATUS_FINALIZADO) ? 'bg-green-100 text-green-800' :
+                            ($app['status'] === STATUS_EN_ESPERA_RESULTADO ? 'bg-purple-100 text-purple-800' :
+                            ($app['status'] === STATUS_CITA_PROGRAMADA ? 'bg-blue-100 text-blue-800' :
+                            ($app['status'] === STATUS_EN_ESPERA_PAGO ? 'bg-yellow-100 text-yellow-800' :
+                            ($app['status'] === STATUS_LISTO_SOLICITUD ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'))))
                         ?>">
                             <?= htmlspecialchars($app['status']) ?>
                         </span>

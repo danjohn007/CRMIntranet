@@ -22,10 +22,11 @@ class ApplicationController extends BaseController {
             $params = [];
             
             if ($role === ROLE_ASESOR) {
-                // REGLA CRÍTICA: Asesor NO puede ver solicitudes finalizadas ni rechazadas
-                $where[] = "a.status NOT IN (?, ?)";
-                $params[] = STATUS_FINALIZADO;
-                $params[] = STATUS_RECHAZADO;
+                // REGLA CRÍTICA: Asesor solo puede ver SUS PROPIAS solicitudes y no las cerradas
+                $where[] = "a.created_by = ?";
+                $params[] = $userId;
+                $where[] = "a.status != ?";
+                $params[] = STATUS_TRAMITE_CERRADO;
             }
             
             if (!empty($status)) {
@@ -162,7 +163,7 @@ class ApplicationController extends BaseController {
             ");
             $stmt->execute([
                 $applicationId,
-                STATUS_FORMULARIO_RECIBIDO,
+                STATUS_NUEVO,
                 'Solicitud creada',
                 $_SESSION['user_id']
             ]);
@@ -210,10 +211,16 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
             
-            // REGLA CRÍTICA: Verificar que Asesor no pueda ver solicitudes finalizadas ni rechazadas
-            if ($role === ROLE_ASESOR && ($application['status'] === STATUS_FINALIZADO || $application['status'] === STATUS_RECHAZADO)) {
-                $_SESSION['error'] = 'No tiene permisos para ver esta solicitud';
-                $this->redirect('/solicitudes');
+            // REGLA CRÍTICA: Asesor solo puede ver SUS PROPIAS solicitudes y no las cerradas
+            if ($role === ROLE_ASESOR) {
+                if ($application['status'] === STATUS_TRAMITE_CERRADO || $application['status'] === STATUS_FINALIZADO) {
+                    $_SESSION['error'] = 'No tiene permisos para ver esta solicitud';
+                    $this->redirect('/solicitudes');
+                }
+                if (intval($application['created_by']) !== intval($userId)) {
+                    $_SESSION['error'] = 'No tiene permisos para ver esta solicitud';
+                    $this->redirect('/solicitudes');
+                }
             }
             
             // Obtener historial de estatus
@@ -273,6 +280,23 @@ class ApplicationController extends BaseController {
                 $stmt->execute([$id]);
                 $payments = $stmt->fetchAll();
             }
+
+            // Obtener hoja de información si existe
+            $infoSheet = null;
+            try {
+                $stmt = $this->db->prepare("SELECT * FROM information_sheets WHERE application_id = ?");
+                $stmt->execute([$id]);
+                $infoSheet = $stmt->fetch() ?: null;
+            } catch (PDOException $e) {
+                // Tabla puede no existir aún
+            }
+
+            // Obtener formularios publicados (para dropdown de envío a cliente)
+            $publishedForms = [];
+            try {
+                $stmt = $this->db->query("SELECT id, name, type, subtype FROM forms WHERE is_published = 1 ORDER BY type, name");
+                $publishedForms = $stmt->fetchAll();
+            } catch (PDOException $e) {}
             
             $this->view('applications/show', [
                 'application' => $application,
@@ -280,7 +304,9 @@ class ApplicationController extends BaseController {
                 'documents' => $documents,
                 'notes' => $notes,
                 'costs' => $costs,
-                'payments' => $payments
+                'payments' => $payments,
+                'infoSheet' => $infoSheet,
+                'publishedForms' => $publishedForms,
             ]);
             
         } catch (PDOException $e) {
@@ -324,9 +350,22 @@ class ApplicationController extends BaseController {
             
             $previousStatus = $application['status'];
             
-            // Actualizar estatus
-            $stmt = $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?");
-            $stmt->execute([$newStatus, $id]);
+            // Actualizar estatus con campos adicionales según el nuevo estado
+            $extraSql = '';
+            $extraParams = [];
+            if ($newStatus === STATUS_EN_ESPERA_PAGO) {
+                $officialDone = isset($_POST['official_application_done']) ? 1 : 0;
+                $feeSent      = isset($_POST['consular_fee_sent']) ? 1 : 0;
+                $extraSql = ', official_application_done = ?, consular_fee_sent = ?';
+                $extraParams = [$officialDone, $feeSent];
+            } elseif ($newStatus === STATUS_TRAMITE_CERRADO) {
+                $dhlTracking  = trim($_POST['dhl_tracking'] ?? '');
+                $deliveryDate = !empty($_POST['delivery_date']) ? $_POST['delivery_date'] : null;
+                $extraSql = ', dhl_tracking = ?, delivery_date = ?';
+                $extraParams = [$dhlTracking ?: null, $deliveryDate];
+            }
+            $stmt = $this->db->prepare("UPDATE applications SET status = ? $extraSql WHERE id = ?");
+            $stmt->execute(array_merge([$newStatus], $extraParams, [$id]));
             
             // Registrar en historial
             $stmt = $this->db->prepare("
@@ -383,10 +422,16 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
             
-            // REGLA: Asesor no puede acceder a solicitudes finalizadas ni rechazadas
-            if ($role === ROLE_ASESOR && ($application['status'] === STATUS_FINALIZADO || $application['status'] === STATUS_RECHAZADO)) {
-                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                $this->redirect('/solicitudes');
+            // REGLA: Asesor solo puede acceder a sus propias solicitudes y no las cerradas
+            if ($role === ROLE_ASESOR) {
+                if ($application['status'] === STATUS_TRAMITE_CERRADO || $application['status'] === STATUS_FINALIZADO) {
+                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                    $this->redirect('/solicitudes');
+                }
+                if (intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                    $this->redirect('/solicitudes');
+                }
             }
             
             // Procesar archivo
@@ -401,15 +446,32 @@ class ApplicationController extends BaseController {
             $fileTmpName = $file['tmp_name'];
             $fileType = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
             
+            // Tipo de documento
+            $docType = trim($_POST['doc_type'] ?? 'adicional');
+            $allowedDocTypes = ['pasaporte_vigente', 'visa_anterior', 'ficha_pago_consular', 'adicional'];
+            if (!in_array($docType, $allowedDocTypes)) {
+                $docType = 'adicional';
+            }
+            
             // Validaciones
             if ($fileSize > MAX_FILE_SIZE) {
-                $_SESSION['error'] = 'El archivo excede el tamaño máximo permitido (10MB)';
+                $_SESSION['error'] = 'El archivo excede el tamaño máximo permitido (2MB)';
                 $this->redirect('/solicitudes/ver/' . $id);
             }
             
             if (!in_array($fileType, ALLOWED_EXTENSIONS)) {
                 $_SESSION['error'] = 'Tipo de archivo no permitido';
                 $this->redirect('/solicitudes/ver/' . $id);
+            }
+            
+            // Solo puede haber una ficha de pago consular
+            if ($docType === 'ficha_pago_consular') {
+                $stmtCheck = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'ficha_pago_consular'");
+                $stmtCheck->execute([$id]);
+                if ($stmtCheck->fetch()) {
+                    $_SESSION['error'] = 'Ya existe una ficha de pago consular para esta solicitud';
+                    $this->redirect('/solicitudes/ver/' . $id);
+                }
             }
             
             // Crear directorio si no existe
@@ -427,20 +489,38 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes/ver/' . $id);
             }
             
-            // Guardar en base de datos
+            // Guardar en base de datos (con doc_type si la columna existe)
             $relativePath = '/uploads/applications/' . $id . '/' . $newFileName;
-            $stmt = $this->db->prepare("
-                INSERT INTO documents (application_id, name, file_path, file_type, file_size, uploaded_by)
-                VALUES (?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->execute([
-                $id,
-                $fileName,
-                $relativePath,
-                $fileType,
-                $fileSize,
-                $_SESSION['user_id']
-            ]);
+            try {
+                $stmt = $this->db->prepare("
+                    INSERT INTO documents (application_id, name, doc_type, file_path, file_type, file_size, uploaded_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $id,
+                    $fileName,
+                    $docType,
+                    $relativePath,
+                    $fileType,
+                    $fileSize,
+                    $_SESSION['user_id']
+                ]);
+            } catch (PDOException $e) {
+                // Fallback si la columna doc_type aún no existe
+                error_log('doc_type column missing, using fallback: ' . $e->getMessage());
+                $stmt = $this->db->prepare("
+                    INSERT INTO documents (application_id, name, file_path, file_type, file_size, uploaded_by)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $id,
+                    $fileName,
+                    $relativePath,
+                    $fileType,
+                    $fileSize,
+                    $_SESSION['user_id']
+                ]);
+            }
             
             $_SESSION['success'] = 'Documento subido correctamente';
             $this->redirect('/solicitudes/ver/' . $id);
@@ -599,6 +679,247 @@ class ApplicationController extends BaseController {
             error_log("Error al descargar archivo: " . $e->getMessage());
             $_SESSION['error'] = 'Error al descargar archivo';
             $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
+    public function saveInfoSheet($id) {
+        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $role = $this->getUserRole();
+
+        try {
+            $stmt = $this->db->prepare("SELECT * FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            // Asesor solo puede acceder a sus propias solicitudes
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                $this->redirect('/solicitudes');
+            }
+
+            $entryDate      = trim($_POST['entry_date'] ?? date('Y-m-d'));
+            $residencePlace = trim($_POST['residence_place'] ?? '');
+            $address        = trim($_POST['address'] ?? '');
+            $clientEmail    = trim($_POST['client_email'] ?? '');
+            $embassyEmail   = trim($_POST['embassy_email'] ?? '');
+            $amountPaid     = !empty($_POST['amount_paid']) ? floatval($_POST['amount_paid']) : null;
+            $observations   = trim($_POST['observations'] ?? '');
+
+            // Upsert hoja de información
+            $stmt = $this->db->prepare("
+                INSERT INTO information_sheets
+                    (application_id, entry_date, residence_place, address, client_email, embassy_email, amount_paid, observations, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    entry_date = VALUES(entry_date),
+                    residence_place = VALUES(residence_place),
+                    address = VALUES(address),
+                    client_email = VALUES(client_email),
+                    embassy_email = VALUES(embassy_email),
+                    amount_paid = VALUES(amount_paid),
+                    observations = VALUES(observations)
+            ");
+            $stmt->execute([
+                $id, $entryDate, $residencePlace, $address,
+                $clientEmail, $embassyEmail, $amountPaid, $observations,
+                $_SESSION['user_id']
+            ]);
+
+            logAudit('create', 'solicitudes', "Hoja de información guardada para solicitud #$id");
+
+            $_SESSION['success'] = 'Hoja de información guardada correctamente';
+            $this->redirect('/solicitudes/ver/' . $id);
+
+        } catch (PDOException $e) {
+            error_log("Error al guardar hoja de información: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al guardar hoja de información';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
+    public function markClientAttended($id) {
+        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $role = $this->getUserRole();
+
+        try {
+            $stmt = $this->db->prepare("SELECT * FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                $this->redirect('/solicitudes');
+            }
+
+            $attended     = isset($_POST['client_attended']) ? 1 : 0;
+            $attendedDate = !empty($_POST['client_attended_date']) ? $_POST['client_attended_date'] : null;
+
+            $this->db->prepare("UPDATE applications SET client_attended = ?, client_attended_date = ? WHERE id = ?")
+                ->execute([$attended, $attendedDate, $id]);
+
+            // Advance to STATUS_EN_ESPERA_RESULTADO if attended
+            if ($attended && $application['status'] === STATUS_CITA_PROGRAMADA) {
+                $prevStatus = $application['status'];
+                $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_EN_ESPERA_RESULTADO, $id]);
+                $this->db->prepare("INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by) VALUES (?, ?, ?, ?, ?)")
+                    ->execute([$id, $prevStatus, STATUS_EN_ESPERA_RESULTADO, 'Cliente marcó asistencia a cita', $_SESSION['user_id']]);
+            }
+
+            $_SESSION['success'] = 'Asistencia registrada correctamente';
+            $this->redirect('/solicitudes/ver/' . $id);
+
+        } catch (PDOException $e) {
+            error_log("Error al registrar asistencia: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al registrar asistencia';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
+    public function linkForm($id) {
+        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $role = $this->getUserRole();
+        $formLinkId = intval($_POST['form_link_id'] ?? 0);
+
+        if ($formLinkId <= 0) {
+            $_SESSION['error'] = 'Formulario no válido';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        try {
+            $stmt = $this->db->prepare("SELECT created_by FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                $this->redirect('/solicitudes');
+            }
+
+            $this->db->prepare("UPDATE applications SET form_link_id = ?, form_link_status = 'enviado', form_link_sent_at = NOW() WHERE id = ?")
+                ->execute([$formLinkId, $id]);
+
+            $_SESSION['success'] = 'Formulario vinculado y marcado como enviado';
+            $this->redirect('/solicitudes/ver/' . $id);
+
+        } catch (PDOException $e) {
+            error_log("Error al vincular formulario: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al vincular formulario';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
+    /**
+     * Vista pública para que asesoras confirmen citas del día siguiente.
+     */
+    public function publicSolicitudes() {
+        $this->requireLogin();
+
+        $role = $this->getUserRole();
+        $userId = $_SESSION['user_id'];
+
+        try {
+            // Solicitudes en estado "Cita programada" con cita MAÑANA
+            $tomorrow = date('Y-m-d', strtotime('+1 day'));
+
+            $sql = "
+                SELECT a.*, u.full_name as creator_name, f.name as form_name,
+                       COALESCE(a.appointment_confirmed_day_before, 0) as appointment_confirmed_day_before
+                FROM applications a
+                LEFT JOIN users u ON a.created_by = u.id
+                LEFT JOIN forms f ON a.form_id = f.id
+                WHERE a.status = ?
+                  AND DATE(a.appointment_date) = ?
+            ";
+            $params = [STATUS_CITA_PROGRAMADA, $tomorrow];
+
+            if ($role === ROLE_ASESOR) {
+                $sql .= " AND a.created_by = ?";
+                $params[] = $userId;
+            }
+            $sql .= " ORDER BY a.appointment_date ASC";
+
+            $stmt = $this->db->prepare($sql);
+            $stmt->execute($params);
+            $appointmentApplications = $stmt->fetchAll();
+
+            $this->view('public/solicitudes', [
+                'appointmentApplications' => $appointmentApplications,
+            ]);
+
+        } catch (PDOException $e) {
+            error_log("Error en publicSolicitudes: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al cargar solicitudes';
+            $this->view('public/solicitudes', ['appointmentApplications' => []]);
+        }
+    }
+
+    /**
+     * Asesor confirma que la cita sigue vigente un día antes.
+     */
+    public function confirmAppointment($id) {
+        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/public/solicitudes');
+        }
+
+        $role = $this->getUserRole();
+
+        try {
+            $stmt = $this->db->prepare("SELECT created_by FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/public/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                $this->redirect('/public/solicitudes');
+            }
+
+            $this->db->prepare("UPDATE applications SET appointment_confirmed_day_before = 1 WHERE id = ?")
+                ->execute([$id]);
+
+            $_SESSION['success'] = 'Cita confirmada correctamente';
+            $this->redirect('/public/solicitudes');
+
+        } catch (PDOException $e) {
+            error_log("Error al confirmar cita: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al confirmar cita';
+            $this->redirect('/public/solicitudes');
         }
     }
 }
