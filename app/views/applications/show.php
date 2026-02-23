@@ -67,7 +67,7 @@ foreach ($documents as $doc) {
     <i class="fas fa-hourglass-half text-yellow-500 text-2xl mt-0.5"></i>
     <div>
         <p class="font-bold text-yellow-800 text-lg">En espera de pago consular</p>
-        <p class="text-yellow-700 text-sm">Espera la confirmacion del pago consular para avanzar a AZUL.</p>
+        <p class="text-yellow-700 text-sm">Espera la confirmación del pago consular para avanzar a AZUL.</p>
     </div>
 </div>
 <?php elseif ($status === STATUS_CITA_PROGRAMADA): ?>
@@ -83,13 +83,13 @@ foreach ($documents as $doc) {
     <i class="fas fa-clock text-purple-500 text-2xl mt-0.5"></i>
     <div>
         <p class="font-bold text-purple-800 text-lg">EN ESPERA de entrega/resultado</p>
-        <p class="text-purple-700 text-sm">Cliente asistio a la cita. En espera del resultado.</p>
+        <p class="text-purple-700 text-sm">Cliente asistió a la cita. En espera del resultado.</p>
     </div>
 </div>
 <?php elseif (in_array($status, [STATUS_TRAMITE_CERRADO, STATUS_FINALIZADO])): ?>
 <div class="bg-green-50 border-l-4 border-green-500 rounded-lg p-4 mb-6 flex items-start gap-3">
     <i class="fas fa-check-circle text-green-500 text-2xl mt-0.5"></i>
-    <div><p class="font-bold text-green-800 text-lg">Tramite cerrado / Finalizado</p></div>
+    <div><p class="font-bold text-green-800 text-lg">Trámite cerrado / Finalizado</p></div>
 </div>
 <?php endif; ?>
 
@@ -101,7 +101,7 @@ foreach ($documents as $doc) {
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-4">Informacion General</h3>
             <div class="grid grid-cols-2 gap-4">
-                <div><p class="text-sm text-gray-600">Tipo de Tramite</p><p class="text-lg font-semibold"><?= htmlspecialchars($application['type']) ?></p></div>
+                <div><p class="text-sm text-gray-600">Tipo de Trámite</p><p class="text-lg font-semibold"><?= htmlspecialchars($application['type']) ?></p></div>
                 <div><p class="text-sm text-gray-600">Subtipo</p><p class="text-lg font-semibold"><?= htmlspecialchars($application['subtype'] ?? '-') ?></p></div>
                 <div>
                     <p class="text-sm text-gray-600">Estatus Actual</p>
@@ -248,7 +248,7 @@ foreach ($documents as $doc) {
                         <i class="fas fa-link mr-1"></i>Generar y copiar enlace
                     </button>
                 </div>
-                <p class="text-xs text-gray-500 mt-2">Al generar el enlace se marcara como enviado.</p>
+                <p class="text-xs text-gray-500 mt-2">Al generar el enlace se marcará como enviado.</p>
                 <?php endif; ?>
             <?php endif; ?>
         </div>
@@ -276,15 +276,15 @@ foreach ($documents as $doc) {
                     </label>
                 </div>
                 <div class="border-t border-red-200 pt-4 space-y-3">
-                    <p class="text-sm font-semibold text-red-800">Confirmacion DS-160 (opcional)</p>
+                    <p class="text-sm font-semibold text-red-800">Confirmación DS-160 (opcional)</p>
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">Numero de confirmacion DS-160</label>
+                        <label class="block text-xs text-gray-600 mb-1">Número de confirmación DS-160</label>
                         <input type="text" name="ds160_confirmation_number"
                                value="<?= htmlspecialchars($application['ds160_confirmation_number'] ?? '') ?>"
                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="AA-00-000000-0">
                     </div>
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">Subir PDF / Confirmacion DS-160</label>
+                        <label class="block text-xs text-gray-600 mb-1">Subir PDF / Confirmación DS-160</label>
                         <input type="file" name="ds160_file" accept=".pdf,.jpg,.jpeg,.png"
                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
                         <?php if ($ds160Doc): ?><p class="text-green-600 text-xs mt-1"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($ds160Doc['name']) ?></p><?php endif; ?>
@@ -360,7 +360,7 @@ foreach ($documents as $doc) {
                         <input type="file" name="consular_payment_file" accept=".pdf,.jpg,.jpeg,.png"
                                class="w-full border border-gray-300 rounded-lg px-3 py-1 text-sm"
                                onchange="checkFileSize(this, 'fileSizeError')">
-                        <p id="fileSizeError" class="text-red-500 text-xs hidden mt-1">El archivo excede el limite permitido de 2MB. Favor de comprimirlo antes de subirlo.</p>
+                        <p id="fileSizeError" class="text-red-500 text-xs hidden mt-1">El archivo excede el límite permitido de 2MB. Favor de comprimirlo antes de subirlo.</p>
                     </div>
                     <button type="submit" class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 text-sm">
                         <i class="fas fa-save mr-1"></i>Guardar pago
@@ -375,7 +375,7 @@ foreach ($documents as $doc) {
                         <input type="file" name="consular_payment_file" accept=".pdf,.jpg,.jpeg,.png"
                                class="w-full border border-gray-300 rounded-lg px-3 py-1 text-sm"
                                onchange="checkFileSize(this, 'fileSizeErrorAsesor')">
-                        <p id="fileSizeErrorAsesor" class="text-red-500 text-xs hidden mt-1">El archivo excede el limite permitido de 2MB. Favor de comprimirlo antes de subirlo.</p>
+                        <p id="fileSizeErrorAsesor" class="text-red-500 text-xs hidden mt-1">El archivo excede el límite permitido de 2MB. Favor de comprimirlo antes de subirlo.</p>
                     </div>
                     <button type="submit" class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 text-sm">
                         <i class="fas fa-upload mr-1"></i>Subir evidencia
@@ -387,7 +387,7 @@ foreach ($documents as $doc) {
             <?php if ($isAdmin): ?>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div class="border rounded-lg p-4">
-                    <p class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-calendar-alt mr-1 text-blue-600"></i>Confirmacion de cita</p>
+                    <p class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-calendar-alt mr-1 text-blue-600"></i>Confirmación de cita</p>
                     <?php if ($appointmentConfirmDoc): ?>
                     <p class="text-green-600 text-xs mb-1"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($appointmentConfirmDoc['name']) ?></p>
                     <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $appointmentConfirmDoc['id'] ?>" class="text-blue-600 text-xs hover:underline"><i class="fas fa-download mr-1"></i>Descargar</a>
@@ -423,12 +423,12 @@ foreach ($documents as $doc) {
                 </button>
             </form>
             <?php else: ?>
-            <p class="text-xs text-gray-500 mt-2"><i class="fas fa-info-circle mr-1"></i>Para avanzar a AZUL: pago confirmado + confirmacion de cita + solicitud oficial.</p>
+            <p class="text-xs text-gray-500 mt-2"><i class="fas fa-info-circle mr-1"></i>Para avanzar a AZUL: pago confirmado + confirmación de cita + solicitud oficial.</p>
             <?php endif; ?>
             <?php elseif ($isAsesor): ?>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div class="border rounded-lg p-3">
-                    <p class="text-sm font-semibold text-gray-700 mb-1"><i class="fas fa-calendar-alt mr-1 text-blue-600"></i>Confirmacion de cita</p>
+                    <p class="text-sm font-semibold text-gray-700 mb-1"><i class="fas fa-calendar-alt mr-1 text-blue-600"></i>Confirmación de cita</p>
                     <?php if ($appointmentConfirmDoc): ?>
                     <p class="text-green-600 text-xs"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($appointmentConfirmDoc['name']) ?></p>
                     <?php else: ?><p class="text-red-500 text-xs"><i class="fas fa-times-circle mr-1"></i>Pendiente</p><?php endif; ?>
@@ -455,7 +455,7 @@ foreach ($documents as $doc) {
                 <div class="flex flex-wrap gap-4 items-end">
                     <label class="flex items-center gap-2">
                         <input type="checkbox" name="client_attended" value="1" class="w-4 h-4">
-                        <span class="text-sm font-medium">Cliente asistio a CAS/Consulado</span>
+                        <span class="text-sm font-medium">Cliente asistió a CAS/Consulado</span>
                     </label>
                     <div>
                         <label class="block text-xs text-gray-600 mb-1">Fecha (opcional)</label>
@@ -476,18 +476,18 @@ foreach ($documents as $doc) {
             <h3 class="text-xl font-bold text-purple-800 mb-4"><i class="fas fa-clock text-purple-600 mr-2"></i>En espera de resultado</h3>
             <p class="flex items-center gap-2 text-sm mb-4">
                 <i class="fas fa-check-circle text-green-600"></i>
-                Cliente asistio <?= $application['client_attended_date'] ? '— ' . htmlspecialchars($application['client_attended_date']) : '' ?>
+                Cliente asistió <?= $application['client_attended_date'] ? '— ' . htmlspecialchars($application['client_attended_date']) : '' ?>
             </p>
             <?php if ($isAdmin): ?>
             <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>">
                 <input type="hidden" name="status" value="<?= STATUS_TRAMITE_CERRADO ?>">
-                <div class="mb-3"><label class="block text-xs text-gray-600 mb-1">Guia DHL (opcional)</label>
+                <div class="mb-3"><label class="block text-xs text-gray-600 mb-1">Guía DHL (opcional)</label>
                     <input type="text" name="dhl_tracking" value="<?= htmlspecialchars($application['dhl_tracking'] ?? '') ?>" class="w-full border rounded px-3 py-1 text-sm"></div>
                 <div class="mb-3"><label class="block text-xs text-gray-600 mb-1">Fecha de entrega (opcional)</label>
                     <input type="date" name="delivery_date" value="<?= htmlspecialchars($application['delivery_date'] ?? '') ?>" class="w-full border rounded px-3 py-1 text-sm"></div>
                 <textarea name="comment" rows="2" class="w-full border rounded px-3 py-2 text-sm mb-2" placeholder="Comentario opcional"></textarea>
                 <button type="submit" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 font-semibold">
-                    <i class="fas fa-check mr-2"></i>Cerrar tramite (VERDE)
+                    <i class="fas fa-check mr-2"></i>Cerrar trámite (VERDE)
                 </button>
             </form>
             <?php endif; ?>
@@ -497,10 +497,10 @@ foreach ($documents as $doc) {
         <!-- Estado VERDE: solo Admin -->
         <?php if (in_array($status, [STATUS_TRAMITE_CERRADO, STATUS_FINALIZADO]) && $isAdmin): ?>
         <div class="bg-green-50 border border-green-200 rounded-lg p-6">
-            <h3 class="text-xl font-bold text-green-800 mb-4"><i class="fas fa-check-circle text-green-600 mr-2"></i>Tramite cerrado</h3>
+            <h3 class="text-xl font-bold text-green-800 mb-4"><i class="fas fa-check-circle text-green-600 mr-2"></i>Trámite cerrado</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <?php if (!empty($application['dhl_tracking'])): ?>
-                <div><p class="text-sm text-gray-600">Guia DHL</p><p class="font-semibold"><?= htmlspecialchars($application['dhl_tracking']) ?></p></div>
+                <div><p class="text-sm text-gray-600">Guía DHL</p><p class="font-semibold"><?= htmlspecialchars($application['dhl_tracking']) ?></p></div>
                 <?php endif; ?>
                 <?php if (!empty($application['delivery_date'])): ?>
                 <div><p class="text-sm text-gray-600">Fecha de entrega</p><p class="font-semibold"><?= htmlspecialchars($application['delivery_date']) ?></p></div>
@@ -657,7 +657,7 @@ foreach ($documents as $doc) {
                         <option value="<?= STATUS_EN_ESPERA_PAGO ?>"      <?= $status===STATUS_EN_ESPERA_PAGO      ? 'selected':'' ?>>En espera de pago consular</option>
                         <option value="<?= STATUS_CITA_PROGRAMADA ?>"     <?= $status===STATUS_CITA_PROGRAMADA     ? 'selected':'' ?>>Cita programada</option>
                         <option value="<?= STATUS_EN_ESPERA_RESULTADO ?>" <?= $status===STATUS_EN_ESPERA_RESULTADO ? 'selected':'' ?>>En espera de resultado</option>
-                        <option value="<?= STATUS_TRAMITE_CERRADO ?>"     <?= $status===STATUS_TRAMITE_CERRADO     ? 'selected':'' ?>>Tramite cerrado</option>
+                        <option value="<?= STATUS_TRAMITE_CERRADO ?>"     <?= $status===STATUS_TRAMITE_CERRADO     ? 'selected':'' ?>>Trámite cerrado</option>
                     </select>
                 </div>
                 <div class="mb-4">
@@ -763,7 +763,7 @@ foreach ($documents as $doc) {
         <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-hoja-info/<?= $application['id'] ?>">
             <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Fecha de ingreso</label>
                 <input type="date" name="entry_date" required value="<?= htmlspecialchars($infoSheet['entry_date'] ?? date('Y-m-d')) ?>" class="w-full border rounded-lg px-4 py-2"></div>
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Residencia (Ciudad, Estado, Pais)</label>
+            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Residencia (Ciudad, Estado, País)</label>
                 <input type="text" name="residence_place" value="<?= htmlspecialchars($infoSheet['residence_place'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
             <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Domicilio</label>
                 <input type="text" name="address" value="<?= htmlspecialchars($infoSheet['address'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>

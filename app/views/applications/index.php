@@ -57,7 +57,7 @@ ob_start();
                 <tr>
                     <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Nombre del solicitante</th>
                     <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Servicio</th>
-                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Primera vez / Renovacion</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Primera vez / Renovación</th>
                     <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Color / Estatus</th>
                     <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Responsable</th>
                     <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Fecha de ingreso</th>
@@ -71,10 +71,10 @@ ob_start();
                     $clientName = trim(($appData['nombre'] ?? '') . ' ' . ($appData['apellidos'] ?? ''));
                     if (empty($clientName)) $clientName = $app['client_name'] ?? '-';
 
-                    // Determine primera vez / renovacion
+                    // Determine primera vez / renovación
                     $subtype    = $app['subtype'] ?? '';
-                    $esRenovacion = stripos($subtype, 'renov') !== false;
-                    $tipoLabel  = $esRenovacion ? 'Renovacion' : 'Primera vez';
+                    $esRenovación = stripos($subtype, 'renov') !== false;
+                    $tipoLabel  = $esRenovación ? 'Renovación' : 'Primera vez';
 
                     // Status color class
                     $sc = 'bg-gray-100 text-gray-800';
@@ -93,8 +93,8 @@ ob_start();
                         <span class="text-sm text-gray-900"><?= htmlspecialchars($app['type']) ?></span>
                     </td>
                     <td class="px-3 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
-                        <span class="text-sm <?= $esRenovacion ? 'text-orange-600' : 'text-blue-600' ?>">
-                            <?= $esRenovacion ? '<i class="fas fa-redo mr-1"></i>' : '<i class="fas fa-star mr-1"></i>' ?><?= $tipoLabel ?>
+                        <span class="text-sm <?= $esRenovación ? 'text-orange-600' : 'text-blue-600' ?>">
+                            <?= $esRenovación ? '<i class="fas fa-redo mr-1"></i>' : '<i class="fas fa-star mr-1"></i>' ?><?= $tipoLabel ?>
                         </span>
                     </td>
                     <td class="px-3 md:px-6 py-4 whitespace-nowrap">
