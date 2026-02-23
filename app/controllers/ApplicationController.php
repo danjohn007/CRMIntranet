@@ -261,7 +261,7 @@ class ApplicationController extends BaseController {
                 FROM status_history sh
                 LEFT JOIN users u ON sh.changed_by = u.id
                 WHERE sh.application_id = ?
-                ORDER BY sh.created_at ASC
+                ORDER BY sh.created_at DESC
             ");
             $stmt->execute([$id]);
             $history = $stmt->fetchAll();
@@ -396,6 +396,28 @@ class ApplicationController extends BaseController {
             }
 
             $previousStatus = $application['status'];
+
+            // ── Validaciones antes de pasar de NUEVO → ROJO ────────────────────
+            if ($previousStatus === STATUS_NUEVO && $newStatus === STATUS_LISTO_SOLICITUD) {
+                // 1. Pasaporte subido
+                $stmtDoc = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
+                $stmtDoc->execute([$id]);
+                if (!$stmtDoc->fetch()) {
+                    $_SESSION['error'] = 'No se puede cambiar a este estado: no se ha cargado el pasaporte vigente.';
+                    $this->redirect('/solicitudes/ver/' . $id);
+                }
+
+                // 2. Si es renovación, visa anterior subida
+                $isRenovacion = stripos($application['subtype'] ?? '', 'renov') !== false;
+                if ($isRenovacion) {
+                    $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
+                    $stmtVisa->execute([$id]);
+                    if (!$stmtVisa->fetch()) {
+                        $_SESSION['error'] = 'No se puede cambiar a este estado: para renovación se requiere cargar la visa anterior.';
+                        $this->redirect('/solicitudes/ver/' . $id);
+                    }
+                }
+            }
 
             // ── Validaciones antes de pasar de ROJO → AMARILLO ─────────────────
             if ($previousStatus === STATUS_LISTO_SOLICITUD && $newStatus === STATUS_EN_ESPERA_PAGO) {
@@ -565,7 +587,7 @@ class ApplicationController extends BaseController {
             
             // Tipo de documento
             $docType = trim($_POST['doc_type'] ?? 'adicional');
-            $allowedDocTypes = ['pasaporte_vigente', 'visa_anterior', 'ficha_pago_consular', 'adicional'];
+            $allowedDocTypes = ['pasaporte_vigente', 'visa_anterior', 'ficha_pago_consular', 'consular_payment_evidence', 'adicional'];
             if (!in_array($docType, $allowedDocTypes)) {
                 $docType = 'adicional';
             }
@@ -854,16 +876,31 @@ class ApplicationController extends BaseController {
 
             logAudit('create', 'solicitudes', "Hoja de información guardada para solicitud #$id");
 
-            // Auto-advance to ROJO if client has completed the form
-            $stmtApp = $this->db->prepare("SELECT status, form_link_status FROM applications WHERE id = ?");
+            // Auto-advance to ROJO if client has completed the form and base documents are present
+            $stmtApp = $this->db->prepare("SELECT a.status, a.form_link_status, a.subtype FROM applications a WHERE a.id = ?");
             $stmtApp->execute([$id]);
             $currentApp = $stmtApp->fetch();
             if ($currentApp && $currentApp['status'] === STATUS_NUEVO && $currentApp['form_link_status'] === 'completado') {
-                $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $id]);
-                $this->db->prepare("
-                    INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
-                    VALUES (?, ?, ?, ?, ?)
-                ")->execute([$id, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: hoja de información guardada y cuestionario completado', $_SESSION['user_id']]);
+                // Validate base documents before advancing
+                $stmtDoc = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
+                $stmtDoc->execute([$id]);
+                $hasPasaporte = (bool) $stmtDoc->fetch();
+
+                $isRenovacion = stripos($currentApp['subtype'] ?? '', 'renov') !== false;
+                $hasVisaAnterior = true;
+                if ($isRenovacion) {
+                    $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
+                    $stmtVisa->execute([$id]);
+                    $hasVisaAnterior = (bool) $stmtVisa->fetch();
+                }
+
+                if ($hasPasaporte && $hasVisaAnterior) {
+                    $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $id]);
+                    $this->db->prepare("
+                        INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
+                        VALUES (?, ?, ?, ?, ?)
+                    ")->execute([$id, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: hoja de información guardada y cuestionario completado', $_SESSION['user_id']]);
+                }
             }
 
             $_SESSION['success'] = 'Hoja de información guardada correctamente';

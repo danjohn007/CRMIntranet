@@ -41,8 +41,11 @@ ob_start();
             
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Subtipo</label>
-                <input type="text" name="subtype" value="<?= htmlspecialchars($form['subtype'] ?? '') ?>"
-                       class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                <select name="subtype" class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                    <option value="">Seleccione...</option>
+                    <option value="Primera vez" <?= ($form['subtype'] ?? '') === 'Primera vez' ? 'selected' : '' ?>>Primera vez</option>
+                    <option value="Renovación" <?= ($form['subtype'] ?? '') === 'Renovación' ? 'selected' : '' ?>>Renovación</option>
+                </select>
             </div>
             
             <div class="md:col-span-2">

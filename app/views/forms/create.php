@@ -44,9 +44,11 @@ ob_start();
             
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Subtipo</label>
-                <input type="text" name="subtype"
-                       class="w-full border border-gray-300 rounded-lg px-4 py-2"
-                       placeholder="Ej: Primera Vez, Renovación">
+                <select name="subtype" class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                    <option value="">Seleccione...</option>
+                    <option value="Primera vez">Primera vez</option>
+                    <option value="Renovación">Renovación</option>
+                </select>
             </div>
             
             <!-- Cost Section -->
