@@ -103,30 +103,44 @@ class ApplicationController extends BaseController {
     
     public function store() {
         $this->requireLogin();
-        
+
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/solicitudes/crear');
         }
-        
-        $formId = intval($_POST['form_id'] ?? 0);
+
+        $formId   = intval($_POST['form_id'] ?? 0);
         $formData = $_POST['form_data'] ?? [];
-        
+
         if ($formId <= 0) {
-            $_SESSION['error'] = 'Debe seleccionar un formulario';
+            $_SESSION['error'] = 'Debe seleccionar un tipo de trámite';
             $this->redirect('/solicitudes/crear');
         }
-        
+
+        // Only keep the 4 basic fields; sanitise values
+        $basicKeys    = ['nombre', 'apellidos', 'email', 'telefono'];
+        $filteredData = [];
+        foreach ($basicKeys as $key) {
+            $filteredData[$key] = trim($formData[$key] ?? '');
+        }
+
+        if (empty($filteredData['nombre'])) {
+            $_SESSION['error'] = 'El nombre del solicitante es obligatorio';
+            $this->redirect('/solicitudes/crear');
+        }
+
+        $clientName = trim($filteredData['nombre'] . ' ' . $filteredData['apellidos']);
+
         try {
             // Obtener información del formulario
             $stmt = $this->db->prepare("SELECT * FROM forms WHERE id = ? AND is_published = 1");
             $stmt->execute([$formId]);
             $form = $stmt->fetch();
-            
+
             if (!$form) {
                 $_SESSION['error'] = 'Formulario no encontrado';
                 $this->redirect('/solicitudes/crear');
             }
-            
+
             // Generar folio único
             $year = date('Y');
             $stmt = $this->db->prepare("
@@ -135,27 +149,45 @@ class ApplicationController extends BaseController {
                 WHERE folio LIKE ?
             ");
             $stmt->execute(["VISA-$year-%"]);
-            $result = $stmt->fetch();
+            $result     = $stmt->fetch();
             $nextNumber = ($result['last_number'] ?? 0) + 1;
-            $folio = sprintf("VISA-%s-%06d", $year, $nextNumber);
-            
-            // Crear solicitud
-            $stmt = $this->db->prepare("
-                INSERT INTO applications (folio, form_id, form_version, type, subtype, data_json, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?)
-            ");
-            $stmt->execute([
-                $folio,
-                $formId,
-                $form['version'],
-                $form['type'],
-                $form['subtype'],
-                json_encode($formData, JSON_UNESCAPED_UNICODE),
-                $_SESSION['user_id']
-            ]);
-            
+            $folio      = sprintf("VISA-%s-%06d", $year, $nextNumber);
+
+            // Crear solicitud con datos básicos
+            try {
+                $stmt = $this->db->prepare("
+                    INSERT INTO applications (folio, form_id, form_version, type, subtype, data_json, client_name, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $folio,
+                    $formId,
+                    $form['version'],
+                    $form['type'],
+                    $form['subtype'],
+                    json_encode($filteredData, JSON_UNESCAPED_UNICODE),
+                    $clientName,
+                    $_SESSION['user_id']
+                ]);
+            } catch (PDOException $e) {
+                // Fallback if client_name column doesn't exist yet
+                $stmt = $this->db->prepare("
+                    INSERT INTO applications (folio, form_id, form_version, type, subtype, data_json, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $folio,
+                    $formId,
+                    $form['version'],
+                    $form['type'],
+                    $form['subtype'],
+                    json_encode($filteredData, JSON_UNESCAPED_UNICODE),
+                    $_SESSION['user_id']
+                ]);
+            }
+
             $applicationId = $this->db->lastInsertId();
-            
+
             // Crear registro de historial
             $stmt = $this->db->prepare("
                 INSERT INTO status_history (application_id, new_status, comment, changed_by)
@@ -167,17 +199,17 @@ class ApplicationController extends BaseController {
                 'Solicitud creada',
                 $_SESSION['user_id']
             ]);
-            
+
             // Crear estado financiero inicial
             $stmt = $this->db->prepare("
                 INSERT INTO financial_status (application_id, total_costs, total_paid, balance, status)
                 VALUES (?, 0, 0, 0, ?)
             ");
             $stmt->execute([$applicationId, FINANCIAL_PENDIENTE]);
-            
+
             $_SESSION['success'] = "Solicitud creada exitosamente: $folio";
             $this->redirect('/solicitudes/ver/' . $applicationId);
-            
+
         } catch (PDOException $e) {
             error_log("Error al crear solicitud: " . $e->getMessage());
             $_SESSION['error'] = 'Error al crear solicitud';
@@ -330,55 +362,128 @@ class ApplicationController extends BaseController {
     
     public function changeStatus($id) {
         $this->requireRole([ROLE_ADMIN, ROLE_GERENTE]);
-        
+
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/solicitudes/ver/' . $id);
         }
-        
+
         $newStatus = $_POST['status'] ?? '';
-        $comment = trim($_POST['comment'] ?? '');
-        
+        $comment   = trim($_POST['comment'] ?? '');
+
         if (empty($newStatus)) {
             $_SESSION['error'] = 'Debe seleccionar un estatus';
             $this->redirect('/solicitudes/ver/' . $id);
         }
-        
+
         // Validar comentario obligatorio en rechazo
         if ($newStatus === STATUS_RECHAZADO && empty($comment)) {
             $_SESSION['error'] = 'El comentario es obligatorio para rechazar una solicitud';
             $this->redirect('/solicitudes/ver/' . $id);
         }
-        
+
         try {
-            // Obtener estatus actual
-            $stmt = $this->db->prepare("SELECT status FROM applications WHERE id = ?");
+            // Obtener solicitud completa para validaciones
+            $stmt = $this->db->prepare("
+                SELECT a.*, a.subtype
+                FROM applications a WHERE a.id = ?
+            ");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
-            
+
             if (!$application) {
                 $_SESSION['error'] = 'Solicitud no encontrada';
                 $this->redirect('/solicitudes');
             }
-            
+
             $previousStatus = $application['status'];
-            
-            // Actualizar estatus con campos adicionales según el nuevo estado
-            $extraSql = '';
+
+            // ── Validaciones antes de pasar de ROJO → AMARILLO ─────────────────
+            if ($previousStatus === STATUS_LISTO_SOLICITUD && $newStatus === STATUS_EN_ESPERA_PAGO) {
+                // 1. Formulario del cliente completado
+                if ($application['form_link_status'] !== 'completado') {
+                    $_SESSION['error'] = 'No se puede cambiar a este estado: el cliente aún no ha completado el cuestionario.';
+                    $this->redirect('/solicitudes/ver/' . $id);
+                }
+
+                // 2. Pasaporte subido
+                $stmtDoc = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
+                $stmtDoc->execute([$id]);
+                if (!$stmtDoc->fetch()) {
+                    $_SESSION['error'] = 'No se puede cambiar a este estado: no se ha cargado el pasaporte vigente.';
+                    $this->redirect('/solicitudes/ver/' . $id);
+                }
+
+                // 3. Si es renovación, visa anterior subida
+                $isRenovacion = stripos($application['subtype'] ?? '', 'renov') !== false;
+                if ($isRenovacion) {
+                    $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
+                    $stmtVisa->execute([$id]);
+                    if (!$stmtVisa->fetch()) {
+                        $_SESSION['error'] = 'No se puede cambiar a este estado: para renovación se requiere cargar la visa anterior.';
+                        $this->redirect('/solicitudes/ver/' . $id);
+                    }
+                }
+            }
+
+            // ── Campos adicionales por estado ───────────────────────────────────
+            $extraSql    = '';
             $extraParams = [];
-            if ($newStatus === STATUS_EN_ESPERA_PAGO) {
+
+            if ($previousStatus === STATUS_LISTO_SOLICITUD && $newStatus === STATUS_EN_ESPERA_PAGO) {
+                // Checkboxes vienen del estado ROJO (ya deben estar marcados)
                 $officialDone = isset($_POST['official_application_done']) ? 1 : 0;
                 $feeSent      = isset($_POST['consular_fee_sent']) ? 1 : 0;
-                $extraSql = ', official_application_done = ?, consular_fee_sent = ?';
-                $extraParams = [$officialDone, $feeSent];
+                $ds160Num     = trim($_POST['ds160_confirmation_number'] ?? '');
+                $extraSql    = ', official_application_done = ?, consular_fee_sent = ?, ds160_confirmation_number = ?';
+                $extraParams = [$officialDone, $feeSent, $ds160Num ?: null];
+            } elseif ($newStatus === STATUS_LISTO_SOLICITUD) {
+                // Saving checkboxes while still in ROJO (no status transition)
+                $officialDone = isset($_POST['official_application_done']) ? 1 : 0;
+                $feeSent      = isset($_POST['consular_fee_sent']) ? 1 : 0;
+                $ds160Num     = trim($_POST['ds160_confirmation_number'] ?? '');
+                $extraSql    = ', official_application_done = ?, consular_fee_sent = ?, ds160_confirmation_number = ?';
+                $extraParams = [$officialDone, $feeSent, $ds160Num ?: null];
+            } elseif ($newStatus === STATUS_EN_ESPERA_PAGO) {
+                // Updating AMARILLO fields
+                $consularPaymentConfirmed = isset($_POST['consular_payment_confirmed']) ? 1 : 0;
+                $extraSql    = ', consular_payment_confirmed = ?';
+                $extraParams = [$consularPaymentConfirmed];
             } elseif ($newStatus === STATUS_TRAMITE_CERRADO) {
                 $dhlTracking  = trim($_POST['dhl_tracking'] ?? '');
                 $deliveryDate = !empty($_POST['delivery_date']) ? $_POST['delivery_date'] : null;
-                $extraSql = ', dhl_tracking = ?, delivery_date = ?';
+                $extraSql    = ', dhl_tracking = ?, delivery_date = ?';
                 $extraParams = [$dhlTracking ?: null, $deliveryDate];
             }
+
             $stmt = $this->db->prepare("UPDATE applications SET status = ? $extraSql WHERE id = ?");
-            $stmt->execute(array_merge([$newStatus], $extraParams, [$id]));
-            
+            try {
+                $stmt->execute(array_merge([$newStatus], $extraParams, [$id]));
+            } catch (PDOException $colErr) {
+                // New columns may not exist yet; fall back to status-only update
+                error_log("changeStatus column fallback: " . $colErr->getMessage());
+                $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([$newStatus, $id]);
+            }
+
+            // Handle DS-160 file upload (ROJO state)
+            if (in_array($newStatus, [STATUS_LISTO_SOLICITUD]) && isset($_FILES['ds160_file']) && $_FILES['ds160_file']['error'] === UPLOAD_ERR_OK) {
+                $this->saveApplicationFile($id, $_FILES['ds160_file'], 'ds160');
+            }
+
+            // Handle consular payment evidence (AMARILLO state)
+            if ($newStatus === STATUS_EN_ESPERA_PAGO && isset($_FILES['consular_payment_file']) && $_FILES['consular_payment_file']['error'] === UPLOAD_ERR_OK) {
+                $this->saveApplicationFile($id, $_FILES['consular_payment_file'], 'consular_payment_evidence');
+            }
+
+            // Handle appointment confirmation and official application (AMARILLO → AZUL)
+            if ($newStatus === STATUS_CITA_PROGRAMADA || $newStatus === STATUS_EN_ESPERA_PAGO) {
+                if (isset($_FILES['appointment_confirmation_doc']) && $_FILES['appointment_confirmation_doc']['error'] === UPLOAD_ERR_OK) {
+                    $this->saveApplicationFile($id, $_FILES['appointment_confirmation_doc'], 'appointment_confirmation');
+                }
+                if (isset($_FILES['official_application_final']) && $_FILES['official_application_final']['error'] === UPLOAD_ERR_OK) {
+                    $this->saveApplicationFile($id, $_FILES['official_application_final'], 'official_application_final');
+                }
+            }
+
             // Registrar en historial
             $stmt = $this->db->prepare("
                 INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
@@ -391,11 +496,11 @@ class ApplicationController extends BaseController {
                 $comment,
                 $_SESSION['user_id']
             ]);
-            
+
             // Log audit trail
-            logAudit('update', 'solicitudes', 
+            logAudit('update', 'solicitudes',
                 "Cambio de estatus de solicitud #$id: $previousStatus → $newStatus");
-            
+
             // Log customer journey
             logCustomerJourney(
                 $id,
@@ -749,6 +854,18 @@ class ApplicationController extends BaseController {
 
             logAudit('create', 'solicitudes', "Hoja de información guardada para solicitud #$id");
 
+            // Auto-advance to ROJO if client has completed the form
+            $stmtApp = $this->db->prepare("SELECT status, form_link_status FROM applications WHERE id = ?");
+            $stmtApp->execute([$id]);
+            $currentApp = $stmtApp->fetch();
+            if ($currentApp && $currentApp['status'] === STATUS_NUEVO && $currentApp['form_link_status'] === 'completado') {
+                $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $id]);
+                $this->db->prepare("
+                    INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
+                    VALUES (?, ?, ?, ?, ?)
+                ")->execute([$id, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: hoja de información guardada y cuestionario completado', $_SESSION['user_id']]);
+            }
+
             $_SESSION['success'] = 'Hoja de información guardada correctamente';
             $this->redirect('/solicitudes/ver/' . $id);
 
@@ -1041,5 +1158,53 @@ class ApplicationController extends BaseController {
             $_SESSION['error'] = 'Error al descargar documento';
             $this->redirect('/solicitudes');
         }
+    }
+
+    /**
+     * Helper: save an uploaded file as a document of the given doc_type.
+     * Returns true on success, false on failure.
+     */
+    private function saveApplicationFile($appId, array $fileInfo, string $docType): bool {
+        $fileName    = $fileInfo['name'];
+        $fileSize    = $fileInfo['size'];
+        $fileTmpName = $fileInfo['tmp_name'];
+        $fileExt     = strtolower(pathinfo($fileName, PATHINFO_EXTENSION));
+
+        if ($fileSize > MAX_FILE_SIZE || !in_array($fileExt, ALLOWED_EXTENSIONS)) {
+            return false;
+        }
+
+        $uploadDir = ROOT_PATH . '/public/uploads/applications/' . $appId;
+        if (!file_exists($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+
+        $newFileName  = uniqid() . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $fileName);
+        $filePath     = $uploadDir . '/' . $newFileName;
+
+        if (!move_uploaded_file($fileTmpName, $filePath)) {
+            return false;
+        }
+
+        $relativePath = '/uploads/applications/' . $appId . '/' . $newFileName;
+        try {
+            $this->db->prepare("
+                INSERT INTO documents (application_id, name, doc_type, file_path, file_type, file_size, uploaded_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?)
+            ")->execute([
+                $appId,
+                $fileName,
+                $docType,
+                $relativePath,
+                $fileExt,
+                $fileSize,
+                $_SESSION['user_id']
+            ]);
+        } catch (PDOException $e) {
+            error_log("saveApplicationFile PDO error: " . $e->getMessage());
+            return false;
+        }
+
+        return true;
     }
 }
