@@ -47,6 +47,7 @@ class Router {
         $this->routes['POST']['/solicitudes/agregar-indicacion/{id}'] = ['ApplicationController', 'addNote'];
         $this->routes['GET']['/solicitudes/descargar-archivo/{id}/{fieldId}'] = ['ApplicationController', 'downloadFormFile'];
         $this->routes['GET']['/solicitudes/descargar-documento/{docId}'] = ['ApplicationController', 'downloadDocument'];
+        $this->routes['GET']['/solicitudes/ver-documento/{docId}'] = ['ApplicationController', 'viewDocument'];
         $this->routes['POST']['/solicitudes/eliminar/{id}'] = ['ApplicationController', 'delete'];
         
         // Módulo Financiero

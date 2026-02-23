@@ -319,13 +319,13 @@ class FormBuilder {
                 </div>
                 
                 <div class="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                        <label class="block text-xs text-gray-600 mb-1">Etiqueta</label>
+                    <div class="col-span-2">
+                        <label class="block text-xs text-gray-600 mb-1">Nombre de campo</label>
                         <input type="text" value="${field.label}" 
                                class="field-label-input w-full border border-gray-300 rounded px-2 py-1 text-sm"
                                data-index="${index}">
                     </div>
-                    <div>
+                    <div style="display:none">
                         <label class="block text-xs text-gray-600 mb-1">ID del campo</label>
                         <input type="text" value="${field.id}" 
                                class="field-id-input w-full border border-gray-300 rounded px-2 py-1 text-sm"
