@@ -55,86 +55,69 @@ ob_start();
         <table class="w-full">
             <thead class="bg-gray-50 border-b">
                 <tr>
-                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Folio</th>
-                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Tipo</th>
-                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden lg:table-cell">Subtipo</th>
-                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Estatus</th>
-                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Creado por</th>
-                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Fecha</th>
-                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden xl:table-cell">Progreso</th>
-                    <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
-                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden xl:table-cell">Estado Financiero</th>
-                    <?php endif; ?>
-                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Acciones</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Nombre del solicitante</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Servicio</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Primera vez / Renovación</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Color / Estatus</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap hidden md:table-cell">Responsable</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Fecha de ingreso</th>
+                    <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider whitespace-nowrap">Expediente</th>
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
-                <?php foreach ($applications as $app): ?>
+                <?php foreach ($applications as $app):
+                    // Extract applicant name from data_json or client_name column
+                    $appData = json_decode($app['data_json'] ?? '{}', true) ?: [];
+                    $clientName = trim(($appData['nombre'] ?? '') . ' ' . ($appData['apellidos'] ?? ''));
+                    if (empty($clientName)) $clientName = $app['client_name'] ?? '-';
+
+                    // Determine primera vez / renovación
+                    $subtype    = $app['subtype'] ?? '';
+                    $esRenovación = stripos($subtype, 'renov') !== false;
+                    $tipoLabel  = $esRenovación ? 'Renovación' : 'Primera vez';
+
+                    // Status color class
+                    $sc = 'bg-gray-100 text-gray-800';
+                    if (in_array($app['status'], [STATUS_TRAMITE_CERRADO, STATUS_FINALIZADO])) $sc = 'bg-green-100 text-green-800';
+                    elseif ($app['status'] === STATUS_EN_ESPERA_RESULTADO) $sc = 'bg-purple-100 text-purple-800';
+                    elseif ($app['status'] === STATUS_CITA_PROGRAMADA)     $sc = 'bg-blue-100 text-blue-800';
+                    elseif ($app['status'] === STATUS_EN_ESPERA_PAGO)      $sc = 'bg-yellow-100 text-yellow-800';
+                    elseif ($app['status'] === STATUS_LISTO_SOLICITUD)     $sc = 'bg-red-100 text-red-800';
+                ?>
                 <tr class="hover:bg-gray-50">
+                    <td class="px-3 md:px-6 py-4">
+                        <span class="font-medium text-gray-900 text-sm"><?= htmlspecialchars($clientName) ?></span>
+                        <p class="text-xs text-gray-400 font-mono"><?= htmlspecialchars($app['folio']) ?></p>
+                    </td>
                     <td class="px-3 md:px-6 py-4 whitespace-nowrap">
-                        <span class="font-mono text-xs md:text-sm font-semibold text-primary">
-                            <?= htmlspecialchars($app['folio']) ?>
+                        <span class="text-sm text-gray-900"><?= htmlspecialchars($app['type']) ?></span>
+                    </td>
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
+                        <span class="text-sm <?= $esRenovación ? 'text-orange-600' : 'text-blue-600' ?>">
+                            <?= $esRenovación ? '<i class="fas fa-redo mr-1"></i>' : '<i class="fas fa-star mr-1"></i>' ?><?= $tipoLabel ?>
                         </span>
                     </td>
                     <td class="px-3 md:px-6 py-4 whitespace-nowrap">
-                        <span class="text-xs md:text-sm text-gray-900"><?= htmlspecialchars($app['type']) ?></span>
-                    </td>
-                    <td class="px-3 md:px-6 py-4 whitespace-nowrap hidden lg:table-cell">
-                        <span class="text-xs md:text-sm text-gray-600"><?= htmlspecialchars($app['subtype'] ?? '-') ?></span>
-                    </td>
-                    <td class="px-3 md:px-6 py-4 whitespace-nowrap">
-                        <span class="px-2 py-1 text-xs rounded-full font-medium <?= 
-                            ($app['status'] === STATUS_TRAMITE_CERRADO || $app['status'] === STATUS_FINALIZADO) ? 'bg-green-100 text-green-800' :
-                            ($app['status'] === STATUS_EN_ESPERA_RESULTADO ? 'bg-purple-100 text-purple-800' :
-                            ($app['status'] === STATUS_CITA_PROGRAMADA ? 'bg-blue-100 text-blue-800' :
-                            ($app['status'] === STATUS_EN_ESPERA_PAGO ? 'bg-yellow-100 text-yellow-800' :
-                            ($app['status'] === STATUS_LISTO_SOLICITUD ? 'bg-red-100 text-red-800' : 'bg-gray-100 text-gray-800'))))
-                        ?>">
+                        <span class="px-2 py-1 text-xs rounded-full font-medium <?= $sc ?>">
                             <?= htmlspecialchars($app['status']) ?>
                         </span>
                     </td>
-                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-700 hidden md:table-cell">
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-700 hidden md:table-cell">
                         <?= htmlspecialchars($app['creator_name']) ?>
                     </td>
-                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-500">
-                        <?= date('d/m/Y H:i', strtotime($app['created_at'])) ?>
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                        <?= date('d/m/Y', strtotime($app['created_at'])) ?>
                     </td>
-                    <td class="px-3 md:px-6 py-4 whitespace-nowrap hidden xl:table-cell">
-                        <?php if ($app['progress_percentage'] > 0): ?>
-                        <div class="flex items-center space-x-2">
-                            <div class="w-16 bg-gray-200 rounded-full h-2">
-                                <div class="bg-blue-600 h-2 rounded-full" style="width: <?= $app['progress_percentage'] ?>%"></div>
-                            </div>
-                            <span class="text-xs text-gray-600"><?= number_format($app['progress_percentage'], 0) ?>%</span>
-                        </div>
-                        <?php else: ?>
-                        <span class="text-xs text-gray-400">-</span>
-                        <?php endif; ?>
-                    </td>
-                    <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <?php if ($app['financial_status']): ?>
-                        <span class="px-2 py-1 text-xs rounded-full font-medium <?= 
-                            $app['financial_status'] === FINANCIAL_PAGADO ? 'bg-green-100 text-green-800' :
-                            ($app['financial_status'] === FINANCIAL_PARCIAL ? 'bg-yellow-100 text-yellow-800' : 'bg-red-100 text-red-800')
-                        ?>">
-                            <?= htmlspecialchars($app['financial_status']) ?>
-                        </span>
-                        <?php else: ?>
-                        <span class="text-xs text-gray-400">-</span>
-                        <?php endif; ?>
-                    </td>
-                    <?php endif; ?>
-                    <td class="px-6 py-4 whitespace-nowrap text-sm">
-                        <div class="flex items-center space-x-2">
-                        <a href="<?= BASE_URL ?>/solicitudes/ver/<?= $app['id'] ?>" 
-                           class="text-primary hover:underline">
-                            <i class="fas fa-eye"></i> Ver
+                    <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm">
+                        <div class="flex items-center gap-2">
+                        <a href="<?= BASE_URL ?>/solicitudes/ver/<?= $app['id'] ?>"
+                           class="btn-primary text-white px-3 py-1.5 rounded-lg hover:opacity-90 transition text-xs font-medium">
+                            <i class="fas fa-folder-open mr-1"></i>Abrir expediente
                         </a>
                         <?php if ($_SESSION['user_role'] === ROLE_ADMIN): ?>
                         <form method="POST" action="<?= BASE_URL ?>/solicitudes/eliminar/<?= $app['id'] ?>"
-                              class="inline" onsubmit="return confirm('¿Está seguro de eliminar esta solicitud? Esta acción no se puede deshacer.')">
-                            <button type="submit" class="text-red-600 hover:text-red-800 ml-2" title="Eliminar solicitud">
+                              class="inline" onsubmit="return confirm('Esta accion no se puede deshacer.')">
+                            <button type="submit" class="text-red-600 hover:text-red-800" title="Eliminar">
                                 <i class="fas fa-trash"></i>
                             </button>
                         </form>
@@ -146,8 +129,7 @@ ob_start();
                 
                 <?php if (empty($applications)): ?>
                 <tr>
-                    <td colspan="<?= in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE]) ? '8' : '7' ?>" 
-                        class="px-6 py-12 text-center text-gray-500">
+                    <td colspan="7" class="px-6 py-12 text-center text-gray-500">
                         <i class="fas fa-inbox text-4xl mb-3 text-gray-300"></i>
                         <p>No se encontraron solicitudes</p>
                     </td>
