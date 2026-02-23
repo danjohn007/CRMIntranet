@@ -424,15 +424,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const isToday = dateStr === todayStr;
 
             const cell = document.createElement('div');
+            const hasAppts = appts.length > 0;
             cell.className = 'relative p-1 min-h-10 rounded-lg cursor-pointer text-center transition ' +
-                (isToday ? 'bg-blue-600 text-white' : 'hover:bg-gray-100 text-gray-700');
+                (isToday ? 'bg-blue-600 text-white' : 'hover:bg-gray-100 text-gray-700') +
+                (hasAppts ? ' ring-2 ring-orange-400' : '');
 
             const dayNum = document.createElement('span');
             dayNum.className = 'text-xs md:text-sm font-medium block';
             dayNum.textContent = day;
             cell.appendChild(dayNum);
 
-            if (appts.length > 0) {
+            if (hasAppts) {
                 const dot = document.createElement('div');
                 dot.className = 'flex justify-center gap-0.5 mt-0.5 flex-wrap';
                 appts.slice(0, 3).forEach(a => {

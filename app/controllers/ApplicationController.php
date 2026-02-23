@@ -361,14 +361,27 @@ class ApplicationController extends BaseController {
     }
     
     public function changeStatus($id) {
-        $this->requireRole([ROLE_ADMIN, ROLE_GERENTE]);
+        $this->requireLogin();
+
+        $role      = $this->getUserRole();
+        $newStatus = $_POST['status'] ?? '';
+
+        // Asesor may only close a trámite (from morado) via this endpoint
+        if ($role === ROLE_ASESOR) {
+            if ($newStatus !== STATUS_TRAMITE_CERRADO) {
+                http_response_code(403);
+                die("Acceso denegado. No tiene permisos para esta acción.");
+            }
+        } elseif (!in_array($role, [ROLE_ADMIN, ROLE_GERENTE])) {
+            http_response_code(403);
+            die("Acceso denegado. No tiene permisos para acceder a esta sección.");
+        }
 
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/solicitudes/ver/' . $id);
         }
 
-        $newStatus = $_POST['status'] ?? '';
-        $comment   = trim($_POST['comment'] ?? '');
+        $comment = trim($_POST['comment'] ?? '');
 
         if (empty($newStatus)) {
             $_SESSION['error'] = 'Debe seleccionar un estatus';
@@ -396,6 +409,18 @@ class ApplicationController extends BaseController {
             }
 
             $previousStatus = $application['status'];
+
+            // Asesor can only close their own trámite from STATUS_EN_ESPERA_RESULTADO
+            if ($role === ROLE_ASESOR) {
+                if (intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                    $this->redirect('/solicitudes');
+                }
+                if ($previousStatus !== STATUS_EN_ESPERA_RESULTADO) {
+                    $_SESSION['error'] = 'No puede cerrar un trámite que no está en estado En espera de resultado';
+                    $this->redirect('/solicitudes/ver/' . $id);
+                }
+            }
 
             // ── Validaciones antes de pasar de NUEVO → ROJO ────────────────────
             if ($previousStatus === STATUS_NUEVO && $newStatus === STATUS_LISTO_SOLICITUD) {
@@ -539,6 +564,10 @@ class ApplicationController extends BaseController {
             );
             
             $_SESSION['success'] = 'Estatus actualizado correctamente';
+            // Asesor cannot view a closed trámite, redirect them to the list
+            if ($role === ROLE_ASESOR && $newStatus === STATUS_TRAMITE_CERRADO) {
+                $this->redirect('/solicitudes');
+            }
             $this->redirect('/solicitudes/ver/' . $id);
             
         } catch (PDOException $e) {
@@ -667,6 +696,40 @@ class ApplicationController extends BaseController {
                 ]);
             }
             
+            // Auto-advance to ROJO when a base doc is uploaded and all conditions are met
+            // (form completed, info sheet exists, and all required base documents present)
+            if (in_array($docType, ['pasaporte_vigente', 'visa_anterior'])) {
+                $stmtApp2 = $this->db->prepare("SELECT status, form_link_status, subtype FROM applications WHERE id = ?");
+                $stmtApp2->execute([$id]);
+                $currentApp2 = $stmtApp2->fetch();
+                if ($currentApp2 && $currentApp2['status'] === STATUS_NUEVO && $currentApp2['form_link_status'] === 'completado') {
+                    $stmtSheet2 = $this->db->prepare("SELECT id FROM information_sheets WHERE application_id = ?");
+                    $stmtSheet2->execute([$id]);
+                    $hasInfoSheet2 = $stmtSheet2->fetch();
+                    if ($hasInfoSheet2) {
+                        $stmtDoc2 = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
+                        $stmtDoc2->execute([$id]);
+                        $hasPasaporte2 = (bool) $stmtDoc2->fetch();
+
+                        $isRenovacion2 = stripos($currentApp2['subtype'] ?? '', 'renov') !== false;
+                        $hasVisaAnterior2 = true;
+                        if ($isRenovacion2) {
+                            $stmtVisa2 = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
+                            $stmtVisa2->execute([$id]);
+                            $hasVisaAnterior2 = (bool) $stmtVisa2->fetch();
+                        }
+
+                        if ($hasPasaporte2 && $hasVisaAnterior2) {
+                            $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $id]);
+                            $this->db->prepare("
+                                INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
+                                VALUES (?, ?, ?, ?, ?)
+                            ")->execute([$id, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: documentos base, cuestionario y hoja de información completos', $_SESSION['user_id']]);
+                        }
+                    }
+                }
+            }
+
             $_SESSION['success'] = 'Documento subido correctamente';
             $this->redirect('/solicitudes/ver/' . $id);
             
@@ -881,6 +944,15 @@ class ApplicationController extends BaseController {
             ]);
 
             logAudit('create', 'solicitudes', "Hoja de información guardada para solicitud #$id");
+
+            // Sync financial_status: set total_costs and total_paid to the honorarios amount
+            if ($amountPaid !== null) {
+                $this->db->prepare("
+                    UPDATE financial_status
+                    SET total_costs = ?, total_paid = ?, balance = 0, status = ?
+                    WHERE application_id = ?
+                ")->execute([$amountPaid, $amountPaid, FINANCIAL_PAGADO, $id]);
+            }
 
             // Auto-advance to ROJO if client has completed the form and base documents are present
             $stmtApp = $this->db->prepare("SELECT a.status, a.form_link_status, a.subtype FROM applications a WHERE a.id = ?");

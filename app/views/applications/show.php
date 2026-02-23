@@ -510,7 +510,7 @@ foreach ($documents as $doc) {
                 <i class="fas fa-check-circle text-green-600"></i>
                 Cliente asistió <?= $application['client_attended_date'] ? '— ' . htmlspecialchars($application['client_attended_date']) : '' ?>
             </p>
-            <?php if ($isAdmin): ?>
+            <?php if ($isAdmin || $isAsesor): ?>
             <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>">
                 <input type="hidden" name="status" value="<?= STATUS_TRAMITE_CERRADO ?>">
                 <div class="mb-3"><label class="block text-xs text-gray-600 mb-1">Guía DHL (opcional)</label>
@@ -587,7 +587,7 @@ foreach ($documents as $doc) {
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">Documentos</h3>
-                <button onclick="document.getElementById('uploadModal').classList.remove('hidden')"
+                <button onclick="openDocUpload('adicional')"
                         class="btn-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition">
                     <i class="fas fa-upload mr-2"></i>Subir
                 </button>
@@ -735,18 +735,7 @@ foreach ($documents as $doc) {
             <button onclick="document.getElementById('uploadModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times text-xl"></i></button>
         </div>
         <form method="POST" action="<?= BASE_URL ?>/solicitudes/subir-documento/<?= $application['id'] ?>" enctype="multipart/form-data">
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de documento</label>
-                <select id="docTypeSelect" name="doc_type" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
-                    <option value="adicional">Documento adicional</option>
-                    <?php if (!$pasaporteDoc): ?><option value="pasaporte_vigente">Pasaporte vigente</option><?php endif; ?>
-                    <?php if ($isRenovacion && !$visaAnteriorDoc): ?><option value="visa_anterior">Visa anterior</option><?php endif; ?>
-                    <?php
-                    $hasFichaPago = false;
-                    foreach ($documents as $d) { if (($d['doc_type']??'') === 'ficha_pago_consular') { $hasFichaPago = true; break; } }
-                    if (!$hasFichaPago): ?><option value="ficha_pago_consular">Ficha de pago consular</option><?php endif; ?>
-                </select>
-            </div>
+            <input type="hidden" id="docTypeHidden" name="doc_type" value="adicional">
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Archivo</label>
                 <input type="file" name="document" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
@@ -818,8 +807,8 @@ foreach ($documents as $doc) {
 
 <script>
 function openDocUpload(docType) {
-    var sel = document.getElementById('docTypeSelect');
-    if (sel) { for (var i=0; i<sel.options.length; i++) { if (sel.options[i].value===docType) { sel.selectedIndex=i; break; } } }
+    var hidden = document.getElementById('docTypeHidden');
+    if (hidden) { hidden.value = docType || 'adicional'; }
     document.getElementById('uploadModal').classList.remove('hidden');
 }
 function showCopySuccess() {
