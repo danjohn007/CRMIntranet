@@ -303,8 +303,8 @@ class PublicFormController extends BaseController {
                         UPDATE public_form_submissions SET application_id = ? WHERE id = ?
                     ")->execute([$applicationId, $submissionId]);
 
-                    // Auto-advance to ROJO if info sheet already exists
-                    $stmtApp = $this->db->prepare("SELECT status FROM applications WHERE id = ?");
+                    // Auto-advance to ROJO if client form completed, info sheet exists, AND base documents are uploaded
+                    $stmtApp = $this->db->prepare("SELECT status, subtype FROM applications WHERE id = ?");
                     $stmtApp->execute([$applicationId]);
                     $currentApp = $stmtApp->fetch();
                     $stmtSheet = $this->db->prepare("SELECT id FROM information_sheets WHERE application_id = ?");
@@ -312,11 +312,25 @@ class PublicFormController extends BaseController {
                     $hasInfoSheet = $stmtSheet->fetch();
 
                     if ($hasInfoSheet && $currentApp && $currentApp['status'] === STATUS_NUEVO) {
-                        $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $applicationId]);
-                        $this->db->prepare("
-                            INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
-                            VALUES (?, ?, ?, ?, ?)
-                        ")->execute([$applicationId, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: cuestionario completado y hoja de información registrada', $form['created_by']]);
+                        $stmtDoc = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
+                        $stmtDoc->execute([$applicationId]);
+                        $hasPasaporte = (bool) $stmtDoc->fetch();
+
+                        $isRenovacion = stripos($currentApp['subtype'] ?? '', 'renov') !== false;
+                        $hasVisaAnterior = true;
+                        if ($isRenovacion) {
+                            $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
+                            $stmtVisa->execute([$applicationId]);
+                            $hasVisaAnterior = (bool) $stmtVisa->fetch();
+                        }
+
+                        if ($hasPasaporte && $hasVisaAnterior) {
+                            $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $applicationId]);
+                            $this->db->prepare("
+                                INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
+                                VALUES (?, ?, ?, ?, ?)
+                            ")->execute([$applicationId, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: cuestionario completado, hoja de información y documentos base registrados', $form['created_by']]);
+                        }
                     }
 
                     // Log customer journey
