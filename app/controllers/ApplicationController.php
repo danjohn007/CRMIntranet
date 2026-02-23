@@ -468,8 +468,14 @@ class ApplicationController extends BaseController {
             } elseif ($newStatus === STATUS_EN_ESPERA_PAGO) {
                 // Updating AMARILLO fields
                 $consularPaymentConfirmed = isset($_POST['consular_payment_confirmed']) ? 1 : 0;
-                $extraSql    = ', consular_payment_confirmed = ?';
-                $extraParams = [$consularPaymentConfirmed];
+                $appointmentDate = !empty($_POST['appointment_date']) ? $_POST['appointment_date'] : null;
+                if ($appointmentDate !== null) {
+                    $extraSql    = ', consular_payment_confirmed = ?, appointment_date = ?';
+                    $extraParams = [$consularPaymentConfirmed, $appointmentDate];
+                } else {
+                    $extraSql    = ', consular_payment_confirmed = ?';
+                    $extraParams = [$consularPaymentConfirmed];
+                }
             } elseif ($newStatus === STATUS_TRAMITE_CERRADO) {
                 $dhlTracking  = trim($_POST['dhl_tracking'] ?? '');
                 $deliveryDate = !empty($_POST['delivery_date']) ? $_POST['delivery_date'] : null;
@@ -1154,6 +1160,47 @@ class ApplicationController extends BaseController {
     /**
      * Descargar un documento por su ID (Admin y Gerente).
      */
+    public function viewDocument($docId) {
+        $this->requireRole([ROLE_ADMIN, ROLE_GERENTE]);
+
+        try {
+            $stmt = $this->db->prepare("
+                SELECT d.*, a.id as app_id
+                FROM documents d
+                LEFT JOIN applications a ON d.application_id = a.id
+                WHERE d.id = ?
+            ");
+            $stmt->execute([$docId]);
+            $doc = $stmt->fetch();
+
+            if (!$doc) {
+                $_SESSION['error'] = 'Documento no encontrado';
+                $this->redirect('/solicitudes');
+            }
+
+            $filePath = ROOT_PATH . '/public' . $doc['file_path'];
+            if (!file_exists($filePath)) {
+                $_SESSION['error'] = 'El archivo no existe en el servidor';
+                $this->redirect('/solicitudes/ver/' . $doc['app_id']);
+            }
+
+            logAudit('view', 'documentos', "Visualización de documento #$docId ({$doc['name']})");
+
+            $mimeType = mime_content_type($filePath) ?: 'application/octet-stream';
+            header('Content-Type: ' . $mimeType);
+            header('Content-Disposition: inline; filename="' . basename($doc['name']) . '"');
+            header('Content-Length: ' . filesize($filePath));
+            header('Cache-Control: private, no-cache');
+            readfile($filePath);
+            exit;
+
+        } catch (PDOException $e) {
+            error_log("Error al visualizar documento: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al visualizar documento';
+            $this->redirect('/solicitudes');
+        }
+    }
+
     public function downloadDocument($docId) {
         $this->requireRole([ROLE_ADMIN, ROLE_GERENTE]);
 

@@ -125,6 +125,13 @@ foreach ($documents as $doc) {
         <?php
         $basicData   = json_decode($application['data_json'], true) ?: [];
         $basicFields = ['nombre' => 'Nombre', 'apellidos' => 'Apellidos', 'email' => 'Email', 'telefono' => 'Telefono'];
+        // If basic fields are missing from data_json (overwritten after form submission),
+        // reconstruct from client_name stored at creation time
+        if (empty($basicData['nombre']) && !empty($application['client_name'])) {
+            $nameParts = explode(' ', $application['client_name'], 2);
+            $basicData['nombre']    = $nameParts[0] ?? $application['client_name'];
+            $basicData['apellidos'] = $nameParts[1] ?? '';
+        }
         ?>
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-4">Datos basicos del solicitante</h3>
@@ -144,10 +151,15 @@ foreach ($documents as $doc) {
         <?php if ($application['form_link_status'] === 'completado'): ?>
         <?php
         $formFieldsJson = json_decode($application['fields_json'] ?? '{}', true);
-        $fieldTypes = [];
+        $fieldTypes  = [];
+        $fieldLabels = [];
         if ($formFieldsJson && isset($formFieldsJson['fields'])) {
-            foreach ($formFieldsJson['fields'] as $f) { $fieldTypes[$f['id']] = $f['type'] ?? 'text'; }
+            foreach ($formFieldsJson['fields'] as $f) {
+                $fieldTypes[$f['id']]  = $f['type']  ?? 'text';
+                $fieldLabels[$f['id']] = $f['label'] ?? $f['id'];
+            }
         }
+        $basicKeys = ['nombre', 'apellidos', 'email', 'telefono'];
         ?>
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-2">
@@ -156,11 +168,13 @@ foreach ($documents as $doc) {
             <?php if ($isAdmin): ?>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <?php foreach ($basicData as $key => $value):
+                    if (in_array($key, $basicKeys)) continue;
                     $isFileField = isset($fieldTypes[$key]) && $fieldTypes[$key] === 'file';
                     if ($isFileField && empty($value)) continue;
+                    $displayLabel = $fieldLabels[$key] ?? str_replace('_', ' ', $key);
                 ?>
                 <div class="border-l-4 border-green-500 pl-4">
-                    <p class="text-sm text-gray-600 capitalize"><?= htmlspecialchars(str_replace('_', ' ', $key)) ?></p>
+                    <p class="text-sm text-gray-600 capitalize"><?= htmlspecialchars($displayLabel) ?></p>
                     <?php if ($isFileField): ?>
                         <p class="text-lg"><?= htmlspecialchars($value) ?></p>
                         <a href="<?= BASE_URL ?>/solicitudes/descargar-archivo/<?= $application['id'] ?>/<?= htmlspecialchars($key) ?>"
@@ -377,6 +391,27 @@ foreach ($documents as $doc) {
             </div>
             <!-- Admin: cita y solicitud oficial -->
             <?php if ($isAdmin): ?>
+            <!-- Fecha de cita -->
+            <div class="border rounded-lg p-4 mb-4 bg-white">
+                <p class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-calendar-day mr-1 text-yellow-600"></i>Fecha de cita consular</p>
+                <?php if (!empty($application['appointment_date'])): ?>
+                <p class="text-green-700 text-sm mb-2"><i class="fas fa-check-circle mr-1"></i><?= date('d/m/Y H:i', strtotime($application['appointment_date'])) ?></p>
+                <?php endif; ?>
+                <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>">
+                    <input type="hidden" name="status" value="<?= STATUS_EN_ESPERA_PAGO ?>">
+                    <div class="flex items-end gap-2">
+                        <div class="flex-1">
+                            <label class="block text-xs text-gray-600 mb-1">Establecer / actualizar fecha de cita</label>
+                            <input type="datetime-local" name="appointment_date"
+                                   value="<?= !empty($application['appointment_date']) ? date('Y-m-d\TH:i', strtotime($application['appointment_date'])) : '' ?>"
+                                   class="w-full border border-gray-300 rounded px-2 py-1 text-sm">
+                        </div>
+                        <button type="submit" class="bg-yellow-600 text-white px-3 py-1 rounded text-xs hover:bg-yellow-700 whitespace-nowrap">
+                            <i class="fas fa-save mr-1"></i>Guardar fecha
+                        </button>
+                    </div>
+                </form>
+            </div>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div class="border rounded-lg p-4">
                     <p class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-calendar-alt mr-1 text-blue-600"></i>Confirmación de cita</p>
@@ -440,6 +475,9 @@ foreach ($documents as $doc) {
         <?php if ($status === STATUS_CITA_PROGRAMADA): ?>
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
             <h3 class="text-xl font-bold text-blue-800 mb-4"><i class="fas fa-calendar-check text-blue-600 mr-2"></i>Asistencia a cita</h3>
+            <?php if (!empty($application['appointment_date'])): ?>
+            <p class="text-blue-700 text-sm mb-3"><i class="fas fa-calendar-day mr-1"></i>Fecha de cita programada: <strong><?= date('d/m/Y H:i', strtotime($application['appointment_date'])) ?></strong></p>
+            <?php endif; ?>
             <?php if ($application['client_attended']): ?>
             <p class="text-green-600 font-semibold"><i class="fas fa-check-circle mr-1"></i>Asistencia registrada<?= $application['client_attended_date'] ? ' — ' . htmlspecialchars($application['client_attended_date']) : '' ?></p>
             <?php else: ?>
@@ -450,8 +488,10 @@ foreach ($documents as $doc) {
                         <span class="text-sm font-medium">Cliente asistió a CAS/Consulado</span>
                     </label>
                     <div>
-                        <label class="block text-xs text-gray-600 mb-1">Fecha (opcional)</label>
-                        <input type="date" name="client_attended_date" class="border border-gray-300 rounded px-3 py-1 text-sm">
+                        <label class="block text-xs text-gray-600 mb-1">Fecha de asistencia</label>
+                        <input type="date" name="client_attended_date"
+                               value="<?= !empty($application['appointment_date']) ? date('Y-m-d', strtotime($application['appointment_date'])) : '' ?>"
+                               class="border border-gray-300 rounded px-3 py-1 text-sm">
                     </div>
                     <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
                         <i class="fas fa-save mr-1"></i>Guardar
@@ -512,7 +552,7 @@ foreach ($documents as $doc) {
                         <?php if ($isAdmin): ?>
                         <p class="text-green-600 font-semibold mb-2"><i class="fas fa-check-circle mr-1"></i>Subido</p>
                         <div class="flex gap-3">
-                            <a href="<?= BASE_URL . htmlspecialchars($pasaporteDoc['file_path']) ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
+                            <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $pasaporteDoc['id'] ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
                             <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $pasaporteDoc['id'] ?>" class="text-primary text-sm"><i class="fas fa-download mr-1"></i>Descargar</a>
                         </div>
                         <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($pasaporteDoc['name']) ?></p><?php endif; ?>
@@ -529,7 +569,7 @@ foreach ($documents as $doc) {
                         <?php if ($isAdmin): ?>
                         <p class="text-green-600 font-semibold mb-2"><i class="fas fa-check-circle mr-1"></i>Subido</p>
                         <div class="flex gap-3">
-                            <a href="<?= BASE_URL . htmlspecialchars($visaAnteriorDoc['file_path']) ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
+                            <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaAnteriorDoc['id'] ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
                             <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $visaAnteriorDoc['id'] ?>" class="text-primary text-sm"><i class="fas fa-download mr-1"></i>Descargar</a>
                         </div>
                         <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($visaAnteriorDoc['name']) ?></p><?php endif; ?>
@@ -565,7 +605,7 @@ foreach ($documents as $doc) {
                     </div>
                     <?php if ($isAdmin): ?>
                     <div class="flex items-center space-x-3">
-                        <a href="<?= BASE_URL . htmlspecialchars($doc['file_path']) ?>" target="_blank" class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></a>
+                        <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" target="_blank" class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></a>
                         <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $doc['id'] ?>" class="text-primary hover:underline"><i class="fas fa-download"></i></a>
                     </div>
                     <?php endif; ?>

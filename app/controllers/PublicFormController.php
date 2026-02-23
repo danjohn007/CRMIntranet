@@ -279,6 +279,19 @@ class PublicFormController extends BaseController {
                     }
 
                     // Update application with submitted form data and mark as completado
+                    // Preserve basic applicant fields (nombre/apellidos/email/telefono) registered at creation
+                    $stmtBasicData = $this->db->prepare("SELECT data_json FROM applications WHERE id = ?");
+                    $stmtBasicData->execute([$applicationId]);
+                    $existingAppRow = $stmtBasicData->fetch();
+                    $existingBasic  = json_decode($existingAppRow['data_json'] ?? '{}', true) ?: [];
+                    $basicKeys      = ['nombre', 'apellidos', 'email', 'telefono'];
+                    foreach ($basicKeys as $bk) {
+                        if (!empty($existingBasic[$bk])) {
+                            $data[$bk] = $existingBasic[$bk];
+                        }
+                    }
+                    $submissionData = json_encode($data, JSON_UNESCAPED_UNICODE);
+
                     $this->db->prepare("
                         UPDATE applications
                         SET form_link_status = 'completado', data_json = ?, progress_percentage = 100
