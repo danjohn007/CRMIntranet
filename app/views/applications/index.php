@@ -126,10 +126,20 @@ ob_start();
                     </td>
                     <?php endif; ?>
                     <td class="px-6 py-4 whitespace-nowrap text-sm">
+                        <div class="flex items-center space-x-2">
                         <a href="<?= BASE_URL ?>/solicitudes/ver/<?= $app['id'] ?>" 
-                           class="text-primary hover:underline mr-3">
+                           class="text-primary hover:underline">
                             <i class="fas fa-eye"></i> Ver
                         </a>
+                        <?php if ($_SESSION['user_role'] === ROLE_ADMIN): ?>
+                        <form method="POST" action="<?= BASE_URL ?>/solicitudes/eliminar/<?= $app['id'] ?>"
+                              class="inline" onsubmit="return confirm('¿Está seguro de eliminar esta solicitud? Esta acción no se puede deshacer.')">
+                            <button type="submit" class="text-red-600 hover:text-red-800 ml-2" title="Eliminar solicitud">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </form>
+                        <?php endif; ?>
+                        </div>
                     </td>
                 </tr>
                 <?php endforeach; ?>

@@ -185,7 +185,17 @@ ob_start();
                     </p>
                     <?php if ($pasaporteDoc): ?>
                         <?php if ($_SESSION['user_role'] === ROLE_GERENTE || $_SESSION['user_role'] === ROLE_ADMIN): ?>
-                            <p class="text-green-600 font-semibold"><i class="fas fa-check-circle mr-1"></i>Subido</p>
+                            <p class="text-green-600 font-semibold mb-2"><i class="fas fa-check-circle mr-1"></i>Subido</p>
+                            <div class="flex items-center space-x-3">
+                                <a href="<?= BASE_URL . htmlspecialchars($pasaporteDoc['file_path']) ?>" target="_blank"
+                                   class="text-blue-600 hover:text-blue-800 text-sm" title="Previsualizar">
+                                    <i class="fas fa-eye mr-1"></i>Previsualizar
+                                </a>
+                                <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $pasaporteDoc['id'] ?>"
+                                   class="text-primary hover:underline text-sm" title="Descargar">
+                                    <i class="fas fa-download mr-1"></i>Descargar
+                                </a>
+                            </div>
                         <?php else: ?>
                             <p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($pasaporteDoc['name']) ?></p>
                         <?php endif; ?>
@@ -207,7 +217,17 @@ ob_start();
                     </p>
                     <?php if ($visaAnteriorDoc): ?>
                         <?php if ($_SESSION['user_role'] === ROLE_GERENTE || $_SESSION['user_role'] === ROLE_ADMIN): ?>
-                            <p class="text-green-600 font-semibold"><i class="fas fa-check-circle mr-1"></i>Subido</p>
+                            <p class="text-green-600 font-semibold mb-2"><i class="fas fa-check-circle mr-1"></i>Subido</p>
+                            <div class="flex items-center space-x-3">
+                                <a href="<?= BASE_URL . htmlspecialchars($visaAnteriorDoc['file_path']) ?>" target="_blank"
+                                   class="text-blue-600 hover:text-blue-800 text-sm" title="Previsualizar">
+                                    <i class="fas fa-eye mr-1"></i>Previsualizar
+                                </a>
+                                <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $visaAnteriorDoc['id'] ?>"
+                                   class="text-primary hover:underline text-sm" title="Descargar">
+                                    <i class="fas fa-download mr-1"></i>Descargar
+                                </a>
+                            </div>
                         <?php else: ?>
                             <p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($visaAnteriorDoc['name']) ?></p>
                         <?php endif; ?>
@@ -234,8 +254,17 @@ ob_start();
             <?php $formLinkStatus = $application['form_link_status'] ?? null; ?>
             <?php if ($formLinkStatus === 'completado'): ?>
                 <p class="text-green-600 font-semibold"><i class="fas fa-check-circle mr-1"></i>Cuestionario completado por el cliente</p>
-            <?php elseif ($formLinkStatus === 'enviado'): ?>
-                <p class="text-yellow-600 font-semibold"><i class="fas fa-hourglass-half mr-1"></i>Formulario enviado — esperando respuesta del cliente</p>
+            <?php elseif ($formLinkStatus === 'enviado' && !empty($formLinkToken)): ?>
+                <?php $clientFormUrl = BASE_URL . '/public/form/' . htmlspecialchars($formLinkToken) . '?app=' . $application['id']; ?>
+                <p class="text-yellow-600 font-semibold mb-3"><i class="fas fa-hourglass-half mr-1"></i>Formulario enviado — esperando respuesta del cliente</p>
+                <div class="flex items-center gap-3 flex-wrap">
+                    <input type="text" readonly value="<?= htmlspecialchars($clientFormUrl) ?>"
+                           class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm bg-gray-50" id="clientFormUrlInput">
+                    <button onclick="copyClientFormUrl()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition text-sm">
+                        <i class="fas fa-copy mr-1"></i>Copiar enlace
+                    </button>
+                </div>
+                <p class="text-xs text-gray-500 mt-2">Comparte este enlace con el cliente para que complete el cuestionario. Solo puede llenarse una vez.</p>
             <?php else: ?>
             <div class="flex items-end gap-3 flex-wrap">
                 <div class="flex-1 min-w-48">
@@ -311,10 +340,16 @@ ob_start();
                         </div>
                     </div>
                     <?php if (in_array($_SESSION['user_role'], [ROLE_ADMIN, ROLE_GERENTE])): ?>
-                    <a href="<?= BASE_URL . $doc['file_path'] ?>" target="_blank" 
-                       class="text-primary hover:underline">
-                        <i class="fas fa-download"></i>
-                    </a>
+                    <div class="flex items-center space-x-3">
+                        <a href="<?= BASE_URL . htmlspecialchars($doc['file_path']) ?>" target="_blank"
+                           class="text-blue-600 hover:text-blue-800" title="Previsualizar">
+                            <i class="fas fa-eye"></i>
+                        </a>
+                        <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $doc['id'] ?>"
+                           class="text-primary hover:underline" title="Descargar">
+                            <i class="fas fa-download"></i>
+                        </a>
+                    </div>
                     <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
@@ -411,7 +446,7 @@ ob_start();
                         <option value="<?= STATUS_TRAMITE_CERRADO ?>" <?= $application['status'] === STATUS_TRAMITE_CERRADO ? 'selected' : '' ?>>🟢 Trámite cerrado</option>
                     </select>
                 </div>
-                <?php if ($application['status'] === STATUS_EN_ESPERA_PAGO || in_array($application['status'], [STATUS_EN_ESPERA_PAGO, STATUS_CITA_PROGRAMADA])): ?>
+                <?php if ($application['status'] === STATUS_EN_ESPERA_PAGO): ?>
                 <div class="mb-4 p-3 bg-yellow-50 rounded-lg border border-yellow-200">
                     <p class="text-sm font-semibold text-yellow-800 mb-2">Checklist estado Amarillo</p>
                     <label class="flex items-center gap-2 mb-2">
@@ -651,12 +686,20 @@ function openDocUpload(docType) {
     document.getElementById('uploadModal').classList.remove('hidden');
 }
 
+function showCopySuccess(url) {
+    var msg = document.createElement('div');
+    msg.className = 'fixed top-4 right-4 bg-green-500 text-white px-6 py-3 rounded-lg shadow-lg z-50';
+    msg.innerHTML = '<i class="fas fa-check-circle mr-2"></i>Enlace copiado al portapapeles';
+    document.body.appendChild(msg);
+    setTimeout(function() { msg.remove(); }, 3000);
+}
+
 function copyFormLink() {
     var formId = document.getElementById('formLinkSelect').value;
     if (!formId) { alert('Seleccione un formulario'); return; }
     var baseUrl = '<?= BASE_URL ?>';
     var appId = '<?= $application['id'] ?>';
-    // Mark as sent via AJAX or form submit
+    // Submit form to mark as sent and get token
     var form = document.createElement('form');
     form.method = 'POST';
     form.action = baseUrl + '/solicitudes/vincular-formulario/' + appId;
@@ -664,21 +707,39 @@ function copyFormLink() {
     inp.type = 'hidden'; inp.name = 'form_link_id'; inp.value = formId;
     form.appendChild(inp);
     document.body.appendChild(form);
-    // Copy public form URL to clipboard
-    var url = baseUrl + '/public/form/' + formId;
+    form.submit();
+}
+
+function copyClientFormUrl() {
+    var input = document.getElementById('clientFormUrlInput');
+    if (!input) return;
+    var url = input.value;
     if (navigator.clipboard) {
         navigator.clipboard.writeText(url).then(function() {
-            alert('Enlace copiado: ' + url);
-            form.submit();
+            showCopySuccess(url);
         }).catch(function() {
-            prompt('Copia este enlace:', url);
-            form.submit();
+            input.select();
+            document.execCommand('copy');
+            showCopySuccess(url);
         });
     } else {
-        prompt('Copia este enlace:', url);
-        form.submit();
+        input.select();
+        document.execCommand('copy');
+        showCopySuccess(url);
     }
 }
+
+// Auto-select the URL input if redirected after linking
+document.addEventListener('DOMContentLoaded', function() {
+    var urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('copiar_enlace') === '1') {
+        var input = document.getElementById('clientFormUrlInput');
+        if (input) {
+            input.select();
+            input.focus();
+        }
+    }
+});
 </script>
 
 <?php 

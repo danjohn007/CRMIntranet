@@ -23,6 +23,31 @@ class PublicFormController extends BaseController {
                 echo "Formulario no encontrado o no disponible";
                 return;
             }
+
+            // Check if linked to a solicitud (app parameter)
+            $appId = isset($_GET['app']) ? intval($_GET['app']) : null;
+            $application = null;
+            if ($appId) {
+                $stmtApp = $this->db->prepare("
+                    SELECT id, form_link_id, form_link_status
+                    FROM applications WHERE id = ? AND form_link_id = ?
+                ");
+                $stmtApp->execute([$appId, $form['id']]);
+                $application = $stmtApp->fetch();
+
+                // If already completed, show message
+                if ($application && $application['form_link_status'] === 'completado') {
+                    $this->viewPublic('public/form', [
+                        'form' => $form,
+                        'fields' => null,
+                        'pages' => null,
+                        'token' => $token,
+                        'alreadyCompleted' => true,
+                        'appId' => $appId,
+                    ]);
+                    return;
+                }
+            }
             
             // Parse fields JSON
             $fields = json_decode($form['fields_json'], true);
@@ -37,7 +62,9 @@ class PublicFormController extends BaseController {
                 'form' => $form,
                 'fields' => $fields,
                 'pages' => $pages,
-                'token' => $token
+                'token' => $token,
+                'alreadyCompleted' => false,
+                'appId' => $appId,
             ]);
             
         } catch (PDOException $e) {
@@ -143,6 +170,9 @@ class PublicFormController extends BaseController {
             
             // If completed, optionally create an application
             if ($isCompleted) {
+                // Check if linked to an existing application via ?app= parameter
+                $linkedAppId = isset($_POST['appId']) ? intval($_POST['appId']) : null;
+
                 // Process file uploads
                 $uploadedFiles = [];
                 if (!empty($_FILES)) {
@@ -183,6 +213,67 @@ class PublicFormController extends BaseController {
                     }
                 }
                 
+                // If linked to an existing solicitud, update it instead of creating a new application
+                if ($linkedAppId) {
+                    // Verify the app still exists and is linked to this form
+                    $stmtCheck = $this->db->prepare("
+                        SELECT id, form_link_status FROM applications WHERE id = ? AND form_link_id = ?
+                    ");
+                    $stmtCheck->execute([$linkedAppId, $form['id']]);
+                    $linkedApp = $stmtCheck->fetch();
+
+                    if ($linkedApp && $linkedApp['form_link_status'] !== 'completado') {
+                        $applicationId = $linkedAppId;
+
+                        // Save uploaded files as documents
+                        if (!empty($uploadedFiles)) {
+                            $uploadDir = ROOT_PATH . '/public/uploads/applications/' . $applicationId;
+                            if (!file_exists($uploadDir)) {
+                                mkdir($uploadDir, 0755, true);
+                            }
+                            foreach ($uploadedFiles as $fieldId => $fileInfo) {
+                                $newFileName = bin2hex(random_bytes(16)) . '_' . preg_replace('/[^a-zA-Z0-9._-]/', '', $fileInfo['name']);
+                                $filePath = $uploadDir . '/' . $newFileName;
+                                if (move_uploaded_file($fileInfo['tmp_name'], $filePath)) {
+                                    $relativePath = '/uploads/applications/' . $applicationId . '/' . $newFileName;
+                                    $this->db->prepare("
+                                        INSERT INTO documents (application_id, name, file_path, file_type, file_size, uploaded_by)
+                                        VALUES (?, ?, ?, ?, ?, ?)
+                                    ")->execute([
+                                        $applicationId,
+                                        $fileInfo['label'] . ' - ' . $fileInfo['name'],
+                                        $relativePath,
+                                        $fileInfo['type'],
+                                        $fileInfo['size'],
+                                        $form['created_by']
+                                    ]);
+                                }
+                            }
+                        }
+
+                        // Update application with submitted form data and mark as completado
+                        $this->db->prepare("
+                            UPDATE applications 
+                            SET form_link_status = 'completado', data_json = ?, progress_percentage = 100
+                            WHERE id = ?
+                        ")->execute([$submissionData, $applicationId]);
+
+                        // Link submission to application
+                        $this->db->prepare("
+                            UPDATE public_form_submissions SET application_id = ? WHERE id = ?
+                        ")->execute([$applicationId, $submissionId]);
+
+                        // Log customer journey
+                        $formName = htmlspecialchars($form['name'], ENT_QUOTES, 'UTF-8');
+                        logCustomerJourney(
+                            $applicationId,
+                            'form_submission',
+                            'Cuestionario del cliente completado',
+                            "Formulario '$formName' completado por el cliente vía enlace",
+                            'online'
+                        );
+                    }
+                } else {
                 // Generate folio
                 $year = date('Y');
                 $stmt = $this->db->prepare("
@@ -281,6 +372,7 @@ class PublicFormController extends BaseController {
                     "Formulario '$formName' completado vía enlace público",
                     'online'
                 );
+                } // end else (new application)
             }
             
             echo json_encode([

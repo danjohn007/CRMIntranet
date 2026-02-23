@@ -36,6 +36,18 @@
 
     <!-- Main Content -->
     <div class="max-w-4xl mx-auto px-4 py-8">
+        <?php if (!empty($alreadyCompleted)): ?>
+        <!-- Already completed message -->
+        <div class="bg-green-50 border-l-4 border-green-500 p-6 mb-6 rounded-lg">
+            <div class="flex items-center">
+                <i class="fas fa-check-circle text-green-500 text-3xl mr-4"></i>
+                <div>
+                    <h3 class="text-lg font-bold text-green-800">¡Formulario ya completado!</h3>
+                    <p class="text-green-700">Este cuestionario ya fue llenado anteriormente. Solo se permite una respuesta por solicitud.</p>
+                </div>
+            </div>
+        </div>
+        <?php else: ?>
         <!-- Progress Bar (if pagination enabled) -->
         <?php if ($form['pagination_enabled'] && $pages): ?>
         <div class="bg-white rounded-lg shadow-lg p-6 mb-6">
@@ -200,6 +212,7 @@
             <p class="mt-2">Creado por: <?= htmlspecialchars($form['creator_name']) ?> | <?= htmlspecialchars($form['creator_email']) ?></p>
         </div>
     </div>
+    <?php endif; ?>
 
     <script>
         const form = document.getElementById('public-form');
@@ -500,6 +513,10 @@
             payload.append('currentPage', document.getElementById('current-page').value);
             payload.append('isCompleted', isCompleted);
             
+            <?php if (!empty($appId)): ?>
+            payload.append('appId', '<?= intval($appId) ?>');
+            <?php endif; ?>
+
             if (submissionIdInput.value) {
                 payload.append('submissionId', submissionIdInput.value);
             }
