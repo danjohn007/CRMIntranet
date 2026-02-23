@@ -233,21 +233,13 @@ foreach ($documents as $doc) {
                         <i class="fas fa-copy mr-1"></i>Copiar enlace
                     </button>
                 </div>
-                <?php elseif (!empty($publishedForms)): ?>
-                <div class="flex items-end gap-3 flex-wrap">
-                    <div class="flex-1 min-w-48">
-                        <label class="block text-sm font-medium text-gray-700 mb-1">Selecciona formulario</label>
-                        <select id="formLinkSelect" class="w-full border border-gray-300 rounded-lg px-3 py-2">
-                            <option value="">-- Seleccione --</option>
-                            <?php foreach ($publishedForms as $pf): ?>
-                            <option value="<?= $pf['id'] ?>"><?= htmlspecialchars($pf['name']) ?></option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <button onclick="copyFormLink()" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
+                <?php elseif (!empty($application['form_id'])): ?>
+                <form method="POST" action="<?= BASE_URL ?>/solicitudes/vincular-formulario/<?= $application['id'] ?>">
+                    <input type="hidden" name="form_link_id" value="<?= intval($application['form_id']) ?>">
+                    <button type="submit" class="bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 text-sm">
                         <i class="fas fa-link mr-1"></i>Generar y copiar enlace
                     </button>
-                </div>
+                </form>
                 <p class="text-xs text-gray-500 mt-2">Al generar el enlace se marcará como enviado.</p>
                 <?php endif; ?>
             <?php endif; ?>
@@ -367,12 +359,12 @@ foreach ($documents as $doc) {
                     </button>
                 </form>
                 <?php elseif ($isAsesor): ?>
-                <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>"
+                <form method="POST" action="<?= BASE_URL ?>/solicitudes/subir-documento/<?= $application['id'] ?>"
                       enctype="multipart/form-data" class="space-y-2">
-                    <input type="hidden" name="status" value="<?= STATUS_EN_ESPERA_PAGO ?>">
+                    <input type="hidden" name="doc_type" value="consular_payment_evidence">
                     <div>
                         <label class="block text-xs text-gray-600 mb-1">Subir evidencia de pago (max. 2MB)</label>
-                        <input type="file" name="consular_payment_file" accept=".pdf,.jpg,.jpeg,.png"
+                        <input type="file" name="document" accept=".pdf,.jpg,.jpeg,.png"
                                class="w-full border border-gray-300 rounded-lg px-3 py-1 text-sm"
                                onchange="checkFileSize(this, 'fileSizeErrorAsesor')">
                         <p id="fileSizeErrorAsesor" class="text-red-500 text-xs hidden mt-1">El archivo excede el límite permitido de 2MB. Favor de comprimirlo antes de subirlo.</p>

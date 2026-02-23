@@ -117,20 +117,6 @@ ob_start();
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">PayPal Client ID</label>
-                    <input type="text" name="config_paypal_client_id" 
-                           value="<?= htmlspecialchars($configs['paypal_client_id']['config_value'] ?? '') ?>"
-                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
-                </div>
-                
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">PayPal Secret</label>
-                    <input type="password" name="config_paypal_secret" 
-                           value="<?= htmlspecialchars($configs['paypal_secret']['config_value'] ?? '') ?>"
-                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
-                </div>
-                
-                <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">QR API Key</label>
                     <input type="text" name="config_qr_api_key" 
                            value="<?= htmlspecialchars($configs['qr_api_key']['config_value'] ?? '') ?>"
