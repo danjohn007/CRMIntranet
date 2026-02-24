@@ -40,6 +40,15 @@ foreach ($documents as $doc) {
 $canadianIsRenovacion = $isCanadianVisa && stripos($application['canadian_modalidad'] ?? '', 'renov') !== false;
 $canadianIsETA        = $isCanadianVisa && stripos($application['canadian_tipo'] ?? '', 'ETA') !== false;
 $isClosedStatus       = $status === STATUS_TRAMITE_CERRADO || $status === STATUS_FINALIZADO;
+
+// Human-readable labels for each status in the Canadian visa flow
+$canadianStatusLabels = [
+    STATUS_LISTO_SOLICITUD     => 'Expediente interno completo, listo para cargar a sistema canadiense',
+    STATUS_EN_ESPERA_PAGO      => 'Documentos cargados en sistema canadiense, en espera de cita biométrica',
+    STATUS_CITA_PROGRAMADA     => 'Cita biométrica generada',
+    STATUS_EN_ESPERA_RESULTADO => 'En espera de resolución',
+    STATUS_TRAMITE_CERRADO     => 'Trámite cerrado',
+];
 ?>
 
 <div class="mb-6">
@@ -151,8 +160,13 @@ $isClosedStatus       = $status === STATUS_TRAMITE_CERRADO || $status === STATUS
                     elseif ($status === STATUS_CITA_PROGRAMADA)     $sc = 'bg-blue-100 text-blue-800';
                     elseif ($status === STATUS_EN_ESPERA_PAGO)      $sc = 'bg-yellow-100 text-yellow-800';
                     elseif ($status === STATUS_LISTO_SOLICITUD)     $sc = 'bg-red-100 text-red-800';
+                    if ($isCanadianVisa) {
+                        $displayStatus = $canadianStatusLabels[$status] ?? $status;
+                    } else {
+                        $displayStatus = $status;
+                    }
                     ?>
-                    <span class="px-3 py-1 text-sm rounded-full font-medium <?= $sc ?>"><?= htmlspecialchars($status) ?></span>
+                    <span class="px-3 py-1 text-sm rounded-full font-medium <?= $sc ?>"><?= htmlspecialchars($displayStatus) ?></span>
                 </div>
                 <div><p class="text-sm text-gray-600">Creado por</p><p class="text-lg font-semibold"><?= htmlspecialchars($application['creator_name']) ?></p></div>
                 <div><p class="text-sm text-gray-600">Fecha de Creacion</p><p class="text-lg font-semibold"><?= date('d/m/Y H:i', strtotime($application['created_at'])) ?></p></div>
@@ -995,11 +1009,19 @@ $isClosedStatus       = $status === STATUS_TRAMITE_CERRADO || $status === STATUS
                     <select name="status" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
                         <option value="">-- Seleccione --</option>
                         <option value="<?= STATUS_NUEVO ?>"               <?= $status===STATUS_NUEVO               ? 'selected':'' ?>>Nuevo</option>
+                        <?php if ($isCanadianVisa): ?>
+                        <option value="<?= STATUS_LISTO_SOLICITUD ?>"     <?= $status===STATUS_LISTO_SOLICITUD     ? 'selected':'' ?>><?= htmlspecialchars($canadianStatusLabels[STATUS_LISTO_SOLICITUD]) ?></option>
+                        <option value="<?= STATUS_EN_ESPERA_PAGO ?>"      <?= $status===STATUS_EN_ESPERA_PAGO      ? 'selected':'' ?>><?= htmlspecialchars($canadianStatusLabels[STATUS_EN_ESPERA_PAGO]) ?></option>
+                        <option value="<?= STATUS_CITA_PROGRAMADA ?>"     <?= $status===STATUS_CITA_PROGRAMADA     ? 'selected':'' ?>><?= htmlspecialchars($canadianStatusLabels[STATUS_CITA_PROGRAMADA]) ?></option>
+                        <option value="<?= STATUS_EN_ESPERA_RESULTADO ?>" <?= $status===STATUS_EN_ESPERA_RESULTADO ? 'selected':'' ?>><?= htmlspecialchars($canadianStatusLabels[STATUS_EN_ESPERA_RESULTADO]) ?></option>
+                        <option value="<?= STATUS_TRAMITE_CERRADO ?>"     <?= $status===STATUS_TRAMITE_CERRADO     ? 'selected':'' ?>><?= htmlspecialchars($canadianStatusLabels[STATUS_TRAMITE_CERRADO]) ?></option>
+                        <?php else: ?>
                         <option value="<?= STATUS_LISTO_SOLICITUD ?>"     <?= $status===STATUS_LISTO_SOLICITUD     ? 'selected':'' ?>>Listo para solicitud</option>
                         <option value="<?= STATUS_EN_ESPERA_PAGO ?>"      <?= $status===STATUS_EN_ESPERA_PAGO      ? 'selected':'' ?>>En espera de pago consular</option>
                         <option value="<?= STATUS_CITA_PROGRAMADA ?>"     <?= $status===STATUS_CITA_PROGRAMADA     ? 'selected':'' ?>>Cita programada</option>
                         <option value="<?= STATUS_EN_ESPERA_RESULTADO ?>" <?= $status===STATUS_EN_ESPERA_RESULTADO ? 'selected':'' ?>>En espera de resultado</option>
                         <option value="<?= STATUS_TRAMITE_CERRADO ?>"     <?= $status===STATUS_TRAMITE_CERRADO     ? 'selected':'' ?>>Trámite cerrado</option>
+                        <?php endif; ?>
                     </select>
                 </div>
                 <div class="mb-4">
