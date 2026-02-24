@@ -5,11 +5,27 @@ ob_start();
 
 <div class="mb-6">
     <h2 class="text-3xl font-bold text-gray-800">Nueva Solicitud</h2>
-    <p class="text-gray-600">Complete los datos básicos del solicitante para crear un nuevo trámite</p>
+    <p class="text-gray-600">Complete los datos para crear un nuevo trámite</p>
 </div>
 
-<div class="bg-white rounded-lg shadow p-6">
+<!-- Botones de selección de flujo -->
+<div class="mb-6 flex flex-wrap gap-3">
+    <button type="button" id="btn-standard"
+            onclick="setFlow('standard')"
+            class="px-6 py-3 rounded-lg border-2 font-semibold transition border-blue-600 bg-blue-600 text-white">
+        <i class="fas fa-file-alt mr-2"></i>Nuevo trámite estándar
+    </button>
+    <button type="button" id="btn-canadian"
+            onclick="setFlow('canadian')"
+            class="px-6 py-3 rounded-lg border-2 font-semibold transition border-red-600 bg-white text-red-600 hover:bg-red-600 hover:text-white">
+        <i class="fas fa-flag mr-2"></i>Nuevo trámite &nbsp;<strong>VISA CANADIENSE</strong>
+    </button>
+</div>
+
+<!-- ─── FLUJO ESTÁNDAR ─────────────────────────────────────── -->
+<div id="form-standard" class="bg-white rounded-lg shadow p-6">
     <form method="POST" action="<?= BASE_URL ?>/solicitudes/crear" id="applicationForm">
+        <input type="hidden" name="is_canadian_visa" value="0">
         <div class="mb-6">
             <label class="block text-sm font-medium text-gray-700 mb-2">
                 Tipo de trámite <span class="text-red-500">*</span>
@@ -19,13 +35,13 @@ ob_start();
                 <option value="">-- Seleccione el tipo de trámite --</option>
                 <?php foreach ($forms as $form): ?>
                 <option value="<?= $form['id'] ?>">
-                    <?= htmlspecialchars($form['name']) ?> (<?= htmlspecialchars($form['type']) ?> - <?= htmlspecialchars($form['subtype']) ?>)
+                    <?= htmlspecialchars($form['name']) ?> (<?= htmlspecialchars($form['type']) ?><?= !empty($form['subtype']) ? ' - ' . htmlspecialchars($form['subtype']) : '' ?>)
                 </option>
                 <?php endforeach; ?>
             </select>
         </div>
 
-        <!-- Datos básicos del solicitante (siempre visibles al seleccionar trámite) -->
+        <!-- Datos básicos del solicitante -->
         <div id="basic-fields" class="hidden space-y-4">
             <h3 class="text-xl font-bold text-gray-800 mb-2">Datos básicos del solicitante</h3>
             <p class="text-sm text-gray-500 mb-4">
@@ -72,10 +88,111 @@ ob_start();
     </form>
 </div>
 
+<!-- ─── FLUJO VISA CANADIENSE ─────────────────────────────── -->
+<div id="form-canadian" class="hidden bg-white rounded-lg shadow p-6 border-2 border-red-200">
+    <form method="POST" action="<?= BASE_URL ?>/solicitudes/crear" id="applicationFormCanadian">
+        <input type="hidden" name="is_canadian_visa" value="1">
+
+        <div class="mb-4 p-3 bg-red-50 rounded-lg border border-red-200">
+            <p class="text-red-700 font-semibold text-sm">
+                <i class="fas fa-info-circle mr-1"></i>
+                Flujo especializado para Visa / ETA Canadiense
+            </p>
+        </div>
+
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Campos iniciales</h3>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Tipo <span class="text-red-500">*</span>
+                </label>
+                <select name="canadian_tipo" required
+                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <option value="">-- Seleccione --</option>
+                    <option value="Visa Canadiense">Visa Canadiense</option>
+                    <option value="ETA Canadiense">ETA Canadiense (si aplica)</option>
+                </select>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">
+                    Modalidad <span class="text-red-500">*</span>
+                </label>
+                <select name="canadian_modalidad" required
+                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
+                    <option value="">-- Seleccione --</option>
+                    <option value="Primera vez">Primera vez</option>
+                    <option value="Renovación">Renovación</option>
+                </select>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
+                <input type="text" name="form_data[nombre]" required
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                       placeholder="Nombre(s)">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Apellidos <span class="text-red-500">*</span></label>
+                <input type="text" name="form_data[apellidos]" required
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                       placeholder="Apellido paterno y materno">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
+                <input type="email" name="form_data[email]" required
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                       placeholder="correo@ejemplo.com">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono <span class="text-red-500">*</span></label>
+                <input type="tel" name="form_data[telefono]" required
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
+                       placeholder="Número de teléfono">
+            </div>
+        </div>
+
+        <div class="mt-8 flex gap-4">
+            <button type="submit"
+                    class="bg-red-600 text-white px-8 py-3 rounded-lg hover:bg-red-700 transition font-semibold">
+                <i class="fas fa-save mr-2"></i>Crear Solicitud Visa Canadiense
+            </button>
+            <a href="<?= BASE_URL ?>/solicitudes" class="bg-gray-500 text-white px-8 py-3 rounded-lg hover:bg-gray-600 transition">
+                <i class="fas fa-times mr-2"></i>Cancelar
+            </a>
+        </div>
+    </form>
+</div>
+
 <script>
+function setFlow(flow) {
+    var standard = document.getElementById('form-standard');
+    var canadian = document.getElementById('form-canadian');
+    var btnStd   = document.getElementById('btn-standard');
+    var btnCan   = document.getElementById('btn-canadian');
+
+    if (flow === 'canadian') {
+        standard.classList.add('hidden');
+        canadian.classList.remove('hidden');
+        btnStd.classList.remove('bg-blue-600', 'text-white');
+        btnStd.classList.add('bg-white', 'text-blue-600');
+        btnCan.classList.remove('bg-white', 'text-red-600', 'hover:bg-red-600', 'hover:text-white');
+        btnCan.classList.add('bg-red-600', 'text-white');
+    } else {
+        canadian.classList.add('hidden');
+        standard.classList.remove('hidden');
+        btnCan.classList.remove('bg-red-600', 'text-white');
+        btnCan.classList.add('bg-white', 'text-red-600', 'hover:bg-red-600', 'hover:text-white');
+        btnStd.classList.remove('bg-white', 'text-blue-600');
+        btnStd.classList.add('bg-blue-600', 'text-white');
+    }
+}
+
 document.getElementById('form_id').addEventListener('change', function() {
-    const basicFields = document.getElementById('basic-fields');
-    const submitBtn  = document.getElementById('submit-btn');
+    var basicFields = document.getElementById('basic-fields');
+    var submitBtn   = document.getElementById('submit-btn');
     if (this.value) {
         basicFields.classList.remove('hidden');
         submitBtn.disabled = false;

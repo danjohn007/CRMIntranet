@@ -7,6 +7,7 @@ $isAdmin       = in_array($role, [ROLE_ADMIN, ROLE_GERENTE]);
 $isAsesor      = $role === ROLE_ASESOR;
 $status        = $application['status'];
 $isRenovacion  = stripos($application['subtype'] ?? '', 'renov') !== false;
+$isCanadianVisa = !empty($application['is_canadian_visa']);
 
 // Classify documents by type for quick access
 $pasaporteDoc          = null;
@@ -16,16 +17,29 @@ $ds160Doc              = null;
 $consularPaymentDoc    = null;
 $appointmentConfirmDoc = null;
 $officialFinalDoc      = null;
+$visaCanadiensPrevDoc  = null;
+$etaAnteriorDoc        = null;
+$canadianVacConfirmDoc = null;
+$canadianPortalCapDoc  = null;
 foreach ($documents as $doc) {
     $dt = $doc['doc_type'] ?? 'adicional';
-    if ($dt === 'pasaporte_vigente'         && !$pasaporteDoc)          $pasaporteDoc          = $doc;
-    if ($dt === 'visa_anterior'             && !$visaAnteriorDoc)       $visaAnteriorDoc       = $doc;
-    if ($dt === 'ficha_pago_consular'       && !$fichaPagoDoc)          $fichaPagoDoc          = $doc;
-    if ($dt === 'ds160'                     && !$ds160Doc)              $ds160Doc              = $doc;
-    if ($dt === 'consular_payment_evidence' && !$consularPaymentDoc)    $consularPaymentDoc    = $doc;
-    if ($dt === 'appointment_confirmation'  && !$appointmentConfirmDoc) $appointmentConfirmDoc = $doc;
-    if ($dt === 'official_application_final'&& !$officialFinalDoc)      $officialFinalDoc      = $doc;
+    if ($dt === 'pasaporte_vigente'          && !$pasaporteDoc)          $pasaporteDoc          = $doc;
+    if ($dt === 'visa_anterior'              && !$visaAnteriorDoc)       $visaAnteriorDoc       = $doc;
+    if ($dt === 'ficha_pago_consular'        && !$fichaPagoDoc)          $fichaPagoDoc          = $doc;
+    if ($dt === 'ds160'                      && !$ds160Doc)              $ds160Doc              = $doc;
+    if ($dt === 'consular_payment_evidence'  && !$consularPaymentDoc)    $consularPaymentDoc    = $doc;
+    if ($dt === 'appointment_confirmation'   && !$appointmentConfirmDoc) $appointmentConfirmDoc = $doc;
+    if ($dt === 'official_application_final' && !$officialFinalDoc)      $officialFinalDoc      = $doc;
+    if ($dt === 'visa_canadiense_anterior'   && !$visaCanadiensPrevDoc)  $visaCanadiensPrevDoc  = $doc;
+    if ($dt === 'eta_anterior'               && !$etaAnteriorDoc)        $etaAnteriorDoc        = $doc;
+    if ($dt === 'canadian_vac_confirmation'  && !$canadianVacConfirmDoc) $canadianVacConfirmDoc = $doc;
+    if ($dt === 'canadian_portal_capture'    && !$canadianPortalCapDoc)  $canadianPortalCapDoc  = $doc;
 }
+
+// Canadian visa flags
+$canadianIsRenovacion = $isCanadianVisa && stripos($application['canadian_modalidad'] ?? '', 'renov') !== false;
+$canadianIsETA        = $isCanadianVisa && stripos($application['canadian_tipo'] ?? '', 'ETA') !== false;
+$isClosedStatus       = $isClosedStatus;
 ?>
 
 <div class="mb-6">
@@ -58,35 +72,55 @@ foreach ($documents as $doc) {
 <div class="bg-red-50 border-l-4 border-red-500 rounded-lg p-4 mb-6 flex items-start gap-3">
     <i class="fas fa-exclamation-circle text-red-500 text-2xl mt-0.5"></i>
     <div>
+        <?php if ($isCanadianVisa): ?>
+        <p class="font-bold text-red-800 text-lg">Listo para carga en portal canadiense.</p>
+        <p class="text-red-700 text-sm">Carga los documentos en el portal de Canadá para continuar.</p>
+        <?php else: ?>
         <p class="font-bold text-red-800 text-lg">Listo para llenar solicitud oficial y enviar ficha</p>
         <p class="text-red-700 text-sm">Completa el DS-160 y envía la ficha de pago al solicitante.</p>
+        <?php endif; ?>
     </div>
 </div>
 <?php elseif ($status === STATUS_EN_ESPERA_PAGO): ?>
 <div class="bg-yellow-50 border-l-4 border-yellow-500 rounded-lg p-4 mb-6 flex items-start gap-3">
     <i class="fas fa-hourglass-half text-yellow-500 text-2xl mt-0.5"></i>
     <div>
+        <?php if ($isCanadianVisa): ?>
+        <p class="font-bold text-yellow-800 text-lg">En espera de cita biométrica</p>
+        <p class="text-yellow-700 text-sm">Generar cita de biométricos para avanzar a AZUL.</p>
+        <?php else: ?>
         <p class="font-bold text-yellow-800 text-lg">En espera de pago consular</p>
         <p class="text-yellow-700 text-sm">Espera la confirmación del pago consular para avanzar a AZUL.</p>
+        <?php endif; ?>
     </div>
 </div>
 <?php elseif ($status === STATUS_CITA_PROGRAMADA): ?>
 <div class="bg-blue-50 border-l-4 border-blue-500 rounded-lg p-4 mb-6 flex items-start gap-3">
     <i class="fas fa-calendar-check text-blue-500 text-2xl mt-0.5"></i>
     <div>
+        <?php if ($isCanadianVisa): ?>
+        <p class="font-bold text-blue-800 text-lg">Biométricos programados</p>
+        <p class="text-blue-700 text-sm">Confirma la asistencia del cliente a biométricos.</p>
+        <?php else: ?>
         <p class="font-bold text-blue-800 text-lg">LISTO y programado</p>
         <p class="text-blue-700 text-sm">Cita programada. Confirma la asistencia del cliente.</p>
+        <?php endif; ?>
     </div>
 </div>
 <?php elseif ($status === STATUS_EN_ESPERA_RESULTADO): ?>
 <div class="bg-purple-50 border-l-4 border-purple-500 rounded-lg p-4 mb-6 flex items-start gap-3">
     <i class="fas fa-clock text-purple-500 text-2xl mt-0.5"></i>
     <div>
+        <?php if ($isCanadianVisa): ?>
+        <p class="font-bold text-purple-800 text-lg">En espera de resolución (aprox. 1 mes)</p>
+        <p class="text-purple-700 text-sm">Biométricos realizados. En espera de resolución de visa.</p>
+        <?php else: ?>
         <p class="font-bold text-purple-800 text-lg">EN ESPERA de entrega/resultado</p>
         <p class="text-purple-700 text-sm">Cliente asistió a la cita. En espera del resultado.</p>
+        <?php endif; ?>
     </div>
 </div>
-<?php elseif (in_array($status, [STATUS_TRAMITE_CERRADO, STATUS_FINALIZADO])): ?>
+<?php elseif ($isClosedStatus): ?>
 <div class="bg-green-50 border-l-4 border-green-500 rounded-lg p-4 mb-6 flex items-start gap-3">
     <i class="fas fa-check-circle text-green-500 text-2xl mt-0.5"></i>
     <div><p class="font-bold text-green-800 text-lg">Trámite cerrado / Finalizado</p></div>
@@ -101,13 +135,18 @@ foreach ($documents as $doc) {
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-4">Informacion General</h3>
             <div class="grid grid-cols-2 gap-4">
-                <div><p class="text-sm text-gray-600">Tipo de Trámite</p><p class="text-lg font-semibold"><?= htmlspecialchars($application['type']) ?></p></div>
+                <div><p class="text-sm text-gray-600">Tipo de Trámite</p><p class="text-lg font-semibold"><?= htmlspecialchars($application['type']) ?><?= $isCanadianVisa ? ' <span class="text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full ml-1">CANADIENSE</span>' : '' ?></p></div>
+                <?php if ($isCanadianVisa): ?>
+                <div><p class="text-sm text-gray-600">Tipo Canadiense</p><p class="text-lg font-semibold"><?= htmlspecialchars($application['canadian_tipo'] ?? '-') ?></p></div>
+                <div><p class="text-sm text-gray-600">Modalidad</p><p class="text-lg font-semibold"><?= htmlspecialchars($application['canadian_modalidad'] ?? '-') ?></p></div>
+                <?php else: ?>
                 <div><p class="text-sm text-gray-600">Subtipo</p><p class="text-lg font-semibold"><?= htmlspecialchars($application['subtype'] ?? '-') ?></p></div>
+                <?php endif; ?>
                 <div>
                     <p class="text-sm text-gray-600">Estatus Actual</p>
                     <?php
                     $sc = 'bg-gray-100 text-gray-800';
-                    if (in_array($status, [STATUS_TRAMITE_CERRADO, STATUS_FINALIZADO])) $sc = 'bg-green-100 text-green-800';
+                    if ($isClosedStatus) $sc = 'bg-green-100 text-green-800';
                     elseif ($status === STATUS_EN_ESPERA_RESULTADO) $sc = 'bg-purple-100 text-purple-800';
                     elseif ($status === STATUS_CITA_PROGRAMADA)     $sc = 'bg-blue-100 text-blue-800';
                     elseif ($status === STATUS_EN_ESPERA_PAGO)      $sc = 'bg-yellow-100 text-yellow-800';
@@ -260,9 +299,54 @@ foreach ($documents as $doc) {
         </div>
         <?php endif; ?>
 
-        <!-- Estado ROJO: checklist DS-160 -->
+        <!-- Estado ROJO -->
         <?php if ($status === STATUS_LISTO_SOLICITUD && $isAdmin): ?>
         <div class="bg-red-50 border border-red-200 rounded-lg p-6">
+            <?php if ($isCanadianVisa): ?>
+            <!-- ── Estado ROJO: Visa Canadiense ── -->
+            <h3 class="text-xl font-bold text-red-800 mb-4"><i class="fas fa-tasks text-red-600 mr-2"></i>Checklist Estado ROJO — Visa Canadiense</h3>
+            <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>"
+                  enctype="multipart/form-data">
+                <input type="hidden" name="status" value="<?= STATUS_LISTO_SOLICITUD ?>">
+                <div class="space-y-3 mb-4">
+                    <label class="flex items-center gap-3">
+                        <input type="checkbox" name="canadian_docs_uploaded_portal" value="1"
+                               <?= !empty($application['canadian_docs_uploaded_portal']) ? 'checked' : '' ?> class="w-5 h-5 text-red-600">
+                        <span class="text-gray-800 font-medium">Documentos cargados en portal Canadá</span>
+                        <?php if (!empty($application['canadian_docs_uploaded_portal'])): ?><i class="fas fa-check-circle text-green-600"></i><?php endif; ?>
+                    </label>
+                </div>
+                <div class="border-t border-red-200 pt-4 space-y-3">
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Número de aplicación (opcional)</label>
+                        <input type="text" name="canadian_application_number"
+                               value="<?= htmlspecialchars($application['canadian_application_number'] ?? '') ?>"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Número de aplicación">
+                    </div>
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Captura o confirmación de envío (opcional)</label>
+                        <input type="file" name="canadian_portal_capture" accept=".pdf,.jpg,.jpeg,.png"
+                               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        <?php if ($canadianPortalCapDoc): ?><p class="text-green-600 text-xs mt-1"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($canadianPortalCapDoc['name']) ?></p><?php endif; ?>
+                    </div>
+                </div>
+                <button type="submit" class="mt-4 bg-gray-600 text-white px-4 py-2 rounded-lg hover:bg-gray-700 text-sm">
+                    <i class="fas fa-save mr-1"></i>Guardar
+                </button>
+            </form>
+            <?php if (!empty($application['canadian_docs_uploaded_portal'])): ?>
+            <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>"
+                  class="mt-4">
+                <input type="hidden" name="status" value="<?= STATUS_EN_ESPERA_PAGO ?>">
+                <input type="hidden" name="canadian_docs_uploaded_portal" value="1">
+                <textarea name="comment" rows="2" class="w-full border rounded px-3 py-2 text-sm mb-2" placeholder="Comentario opcional"></textarea>
+                <button type="submit" class="w-full bg-yellow-500 text-white py-2 rounded-lg hover:bg-yellow-600 font-semibold">
+                    <i class="fas fa-arrow-right mr-2"></i>Pasar a EN ESPERA DE CITA BIOMÉTRICA (AMARILLO)
+                </button>
+            </form>
+            <?php endif; ?>
+            <?php else: ?>
+            <!-- ── Estado ROJO: Flujo estándar ── -->
             <h3 class="text-xl font-bold text-red-800 mb-4"><i class="fas fa-tasks text-red-600 mr-2"></i>Checklist Estado ROJO</h3>
             <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>"
                   enctype="multipart/form-data">
@@ -312,10 +396,17 @@ foreach ($documents as $doc) {
                 </button>
             </form>
             <?php endif; ?>
+            <?php endif; ?>
         </div>
         <?php elseif ($status === STATUS_LISTO_SOLICITUD && $isAsesor): ?>
         <div class="bg-red-50 border border-red-200 rounded-lg p-6">
             <h3 class="text-xl font-bold text-red-800 mb-4"><i class="fas fa-tasks text-red-600 mr-2"></i>Estado ROJO</h3>
+            <?php if ($isCanadianVisa): ?>
+            <p class="flex items-center gap-2 text-sm">
+                <i class="fas <?= !empty($application['canadian_docs_uploaded_portal']) ? 'fa-check-circle text-green-600' : 'fa-circle text-gray-400' ?>"></i>
+                Documentos cargados en portal Canadá
+            </p>
+            <?php else: ?>
             <div class="space-y-2">
                 <p class="flex items-center gap-2 text-sm">
                     <i class="fas <?= $application['official_application_done'] ? 'fa-check-circle text-green-600' : 'fa-circle text-gray-400' ?>"></i>
@@ -326,12 +417,80 @@ foreach ($documents as $doc) {
                     Ficha de pago enviada
                 </p>
             </div>
+            <?php endif; ?>
         </div>
         <?php endif; ?>
 
         <!-- Estado AMARILLO -->
         <?php if ($status === STATUS_EN_ESPERA_PAGO): ?>
         <div class="bg-yellow-50 border border-yellow-200 rounded-lg p-6">
+            <?php if ($isCanadianVisa): ?>
+            <!-- ── Estado AMARILLO: Visa Canadiense ── -->
+            <h3 class="text-xl font-bold text-yellow-800 mb-4"><i class="fas fa-hourglass-half text-yellow-600 mr-2"></i>En espera de cita biométrica</h3>
+            <?php
+            $biometricDate     = $application['canadian_biometric_date'] ?? '';
+            $biometricLocation = $application['canadian_biometric_location'] ?? '';
+            $biometricGenerated = !empty($application['canadian_biometric_appointment_generated']);
+            $canAdvanceToAzulCan = $biometricGenerated && $canadianVacConfirmDoc && !empty($biometricDate);
+            ?>
+            <?php if ($isAdmin): ?>
+            <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>"
+                  enctype="multipart/form-data" class="space-y-4">
+                <input type="hidden" name="status" value="<?= STATUS_EN_ESPERA_PAGO ?>">
+                <label class="flex items-center gap-3">
+                    <input type="checkbox" name="canadian_biometric_appointment_generated" value="1"
+                           <?= $biometricGenerated ? 'checked' : '' ?> class="w-5 h-5 text-yellow-600">
+                    <span class="font-medium text-gray-800">Cita para biométricos generada</span>
+                    <?php if ($biometricGenerated): ?><i class="fas fa-check-circle text-green-600"></i><?php endif; ?>
+                </label>
+                <div>
+                    <label class="block text-xs text-gray-600 mb-1">Confirmación de cita VAC (PDF)</label>
+                    <?php if ($canadianVacConfirmDoc): ?>
+                    <p class="text-green-600 text-xs mb-1"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($canadianVacConfirmDoc['name']) ?></p>
+                    <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $canadianVacConfirmDoc['id'] ?>" class="text-blue-600 text-xs hover:underline"><i class="fas fa-download mr-1"></i>Descargar</a>
+                    <?php else: ?>
+                    <input type="file" name="canadian_vac_confirmation" accept=".pdf,.jpg,.jpeg,.png"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                    <?php endif; ?>
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-600 mb-1">Fecha de biométricos (con hora)</label>
+                    <input type="datetime-local" name="canadian_biometric_date"
+                           value="<?= !empty($biometricDate) ? date('Y-m-d\TH:i', strtotime($biometricDate)) : '' ?>"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                </div>
+                <div>
+                    <label class="block text-xs text-gray-600 mb-1">Lugar</label>
+                    <input type="text" name="canadian_biometric_location"
+                           value="<?= htmlspecialchars($biometricLocation) ?>"
+                           class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Lugar: VAC CDMX">
+                </div>
+                <button type="submit" class="bg-yellow-600 text-white px-4 py-2 rounded-lg hover:bg-yellow-700 text-sm">
+                    <i class="fas fa-save mr-1"></i>Guardar
+                </button>
+            </form>
+            <?php if ($canAdvanceToAzulCan): ?>
+            <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>" class="mt-4">
+                <input type="hidden" name="status" value="<?= STATUS_CITA_PROGRAMADA ?>">
+                <textarea name="comment" rows="2" class="w-full border rounded px-3 py-2 text-sm mb-2" placeholder="Comentario opcional"></textarea>
+                <button type="submit" class="w-full bg-blue-600 text-white py-2 rounded-lg hover:bg-blue-700 font-semibold">
+                    <i class="fas fa-arrow-right mr-2"></i>Pasar a BIOMÉTRICOS PROGRAMADOS (AZUL)
+                </button>
+            </form>
+            <?php else: ?>
+            <p class="text-xs text-gray-500 mt-2"><i class="fas fa-info-circle mr-1"></i>Para avanzar: marcar cita generada + subir confirmación VAC + establecer fecha.</p>
+            <?php endif; ?>
+            <?php else: ?>
+            <!-- Asesor view of AMARILLO canadiense -->
+            <div class="space-y-2 text-sm">
+                <p class="flex items-center gap-2"><i class="fas <?= $biometricGenerated ? 'fa-check-circle text-green-600' : 'fa-circle text-gray-400' ?>"></i>Cita para biométricos generada</p>
+                <?php if ($canadianVacConfirmDoc): ?><p class="text-green-600 text-xs"><i class="fas fa-check-circle mr-1"></i>Confirmación de cita VAC subida</p><?php endif; ?>
+                <?php if (!empty($biometricDate)): ?><p class="text-blue-700 text-xs"><i class="fas fa-calendar-day mr-1"></i><?= date('d/m/Y H:i', strtotime($biometricDate)) ?></p><?php endif; ?>
+                <?php if (!empty($biometricLocation)): ?><p class="text-xs text-gray-600"><i class="fas fa-map-marker-alt mr-1"></i><?= htmlspecialchars($biometricLocation) ?></p><?php endif; ?>
+            </div>
+            <?php endif; ?>
+            <?php else: ?>
+            <!-- ── Estado AMARILLO: Flujo estándar ── -->
             <h3 class="text-xl font-bold text-yellow-800 mb-4"><i class="fas fa-hourglass-half text-yellow-600 mr-2"></i>Estado AMARILLO</h3>
             <!-- Read-only ROJO checklist -->
             <div class="mb-4 p-3 bg-white rounded border border-gray-200">
@@ -468,12 +627,47 @@ foreach ($documents as $doc) {
                 </div>
             </div>
             <?php endif; ?>
+            <?php endif; /* end !$isCanadianVisa */ ?>
         </div>
         <?php endif; ?>
 
         <!-- Estado AZUL: asistencia -->
         <?php if ($status === STATUS_CITA_PROGRAMADA): ?>
         <div class="bg-blue-50 border border-blue-200 rounded-lg p-6">
+            <?php if ($isCanadianVisa): ?>
+            <!-- ── Estado AZUL: Visa Canadiense ── -->
+            <h3 class="text-xl font-bold text-blue-800 mb-4"><i class="fas fa-fingerprint text-blue-600 mr-2"></i>Biométricos programados</h3>
+            <?php if (!empty($application['canadian_biometric_date'])): ?>
+            <p class="text-blue-700 text-sm mb-3"><i class="fas fa-calendar-day mr-1"></i>Fecha de biométricos: <strong><?= date('d/m/Y H:i', strtotime($application['canadian_biometric_date'])) ?></strong></p>
+            <?php endif; ?>
+            <?php if (!empty($application['canadian_biometric_location'])): ?>
+            <p class="text-blue-600 text-sm mb-3"><i class="fas fa-map-marker-alt mr-1"></i><?= htmlspecialchars($application['canadian_biometric_location']) ?></p>
+            <?php endif; ?>
+            <?php if (!empty($application['canadian_client_attended_biometrics'])): ?>
+            <p class="text-green-600 font-semibold"><i class="fas fa-check-circle mr-1"></i>Asistencia a biométricos registrada<?= !empty($application['canadian_biometric_attended_date']) ? ' — ' . htmlspecialchars($application['canadian_biometric_attended_date']) : '' ?></p>
+            <?php else: ?>
+            <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>">
+                <input type="hidden" name="status" value="<?= STATUS_EN_ESPERA_RESULTADO ?>">
+                <div class="flex flex-wrap gap-4 items-end mb-3">
+                    <label class="flex items-center gap-2">
+                        <input type="checkbox" name="canadian_client_attended_biometrics" value="1" class="w-4 h-4">
+                        <span class="text-sm font-medium">Cliente asistió a biométricos</span>
+                    </label>
+                    <div>
+                        <label class="block text-xs text-gray-600 mb-1">Fecha de asistencia</label>
+                        <input type="date" name="canadian_biometric_attended_date"
+                               value="<?= !empty($application['canadian_biometric_date']) ? date('Y-m-d', strtotime($application['canadian_biometric_date'])) : '' ?>"
+                               class="border border-gray-300 rounded px-3 py-1 text-sm">
+                    </div>
+                </div>
+                <textarea name="comment" rows="2" class="w-full border rounded px-3 py-2 text-sm mb-2" placeholder="Comentario opcional"></textarea>
+                <button type="submit" class="bg-purple-600 text-white px-4 py-2 rounded-lg hover:bg-purple-700 font-semibold">
+                    <i class="fas fa-arrow-right mr-2"></i>Pasar a EN ESPERA DE RESOLUCIÓN (MORADO)
+                </button>
+            </form>
+            <?php endif; ?>
+            <?php else: ?>
+            <!-- ── Estado AZUL: Flujo estándar ── -->
             <h3 class="text-xl font-bold text-blue-800 mb-4"><i class="fas fa-calendar-check text-blue-600 mr-2"></i>Asistencia a cita</h3>
             <?php if (!empty($application['appointment_date'])): ?>
             <p class="text-blue-700 text-sm mb-3"><i class="fas fa-calendar-day mr-1"></i>Fecha de cita programada: <strong><?= date('d/m/Y H:i', strtotime($application['appointment_date'])) ?></strong></p>
@@ -499,12 +693,56 @@ foreach ($documents as $doc) {
                 </div>
             </form>
             <?php endif; ?>
+            <?php endif; /* end !$isCanadianVisa */ ?>
         </div>
         <?php endif; ?>
 
         <!-- Estado MORADO -->
         <?php if ($status === STATUS_EN_ESPERA_RESULTADO): ?>
         <div class="bg-purple-50 border border-purple-200 rounded-lg p-6">
+            <?php if ($isCanadianVisa): ?>
+            <!-- ── Estado MORADO: Visa Canadiense ── -->
+            <h3 class="text-xl font-bold text-purple-800 mb-4"><i class="fas fa-clock text-purple-600 mr-2"></i>En espera de resolución (aprox. 1 mes)</h3>
+            <?php if (!empty($application['canadian_biometric_attended_date'])): ?>
+            <p class="flex items-center gap-2 text-sm mb-4">
+                <i class="fas fa-check-circle text-green-600"></i>
+                Biométricos realizados — <?= htmlspecialchars($application['canadian_biometric_attended_date']) ?>
+            </p>
+            <?php endif; ?>
+            <?php if ($isAdmin || $isAsesor): ?>
+            <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>">
+                <input type="hidden" name="status" value="<?= STATUS_TRAMITE_CERRADO ?>">
+                <div class="mb-4">
+                    <p class="text-sm font-semibold text-gray-700 mb-2">Resultado de la visa <span class="text-red-500">*</span></p>
+                    <div class="flex gap-6">
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="canadian_visa_result" value="aprobada"
+                                   <?= ($application['canadian_visa_result'] ?? '') === 'aprobada' ? 'checked' : '' ?>
+                                   class="w-4 h-4 text-green-600" required>
+                            <span class="text-green-700 font-semibold"><i class="fas fa-check-circle mr-1"></i>Visa aprobada</span>
+                        </label>
+                        <label class="flex items-center gap-2 cursor-pointer">
+                            <input type="radio" name="canadian_visa_result" value="negada"
+                                   <?= ($application['canadian_visa_result'] ?? '') === 'negada' ? 'checked' : '' ?>
+                                   class="w-4 h-4 text-red-600" required>
+                            <span class="text-red-700 font-semibold"><i class="fas fa-times-circle mr-1"></i>Visa negada</span>
+                        </label>
+                    </div>
+                </div>
+                <div class="mb-3"><label class="block text-xs text-gray-600 mb-1">Fecha de resolución (opcional)</label>
+                    <input type="date" name="canadian_resolution_date" value="<?= htmlspecialchars($application['canadian_resolution_date'] ?? '') ?>" class="w-full border rounded px-3 py-1 text-sm"></div>
+                <div class="mb-3"><label class="block text-xs text-gray-600 mb-1">Número de guía (si aplica)</label>
+                    <input type="text" name="canadian_guide_number" value="<?= htmlspecialchars($application['canadian_guide_number'] ?? '') ?>" class="w-full border rounded px-3 py-1 text-sm" placeholder="Número de guía"></div>
+                <div class="mb-3"><label class="block text-xs text-gray-600 mb-1">Observaciones finales (opcional)</label>
+                    <textarea name="canadian_final_observations" rows="2" class="w-full border rounded px-3 py-1 text-sm"><?= htmlspecialchars($application['canadian_final_observations'] ?? '') ?></textarea></div>
+                <textarea name="comment" rows="2" class="w-full border rounded px-3 py-2 text-sm mb-2" placeholder="Comentario de historial (opcional)"></textarea>
+                <button type="submit" class="w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 font-semibold">
+                    <i class="fas fa-check mr-2"></i>Cerrar trámite (VERDE)
+                </button>
+            </form>
+            <?php endif; ?>
+            <?php else: ?>
+            <!-- ── Estado MORADO: Flujo estándar ── -->
             <h3 class="text-xl font-bold text-purple-800 mb-4"><i class="fas fa-clock text-purple-600 mr-2"></i>En espera de resultado</h3>
             <p class="flex items-center gap-2 text-sm mb-4">
                 <i class="fas fa-check-circle text-green-600"></i>
@@ -523,13 +761,36 @@ foreach ($documents as $doc) {
                 </button>
             </form>
             <?php endif; ?>
+            <?php endif; /* end !$isCanadianVisa */ ?>
         </div>
         <?php endif; ?>
 
         <!-- Estado VERDE: solo Admin -->
-        <?php if (in_array($status, [STATUS_TRAMITE_CERRADO, STATUS_FINALIZADO]) && $isAdmin): ?>
+        <?php if ($isClosedStatus && $isAdmin): ?>
         <div class="bg-green-50 border border-green-200 rounded-lg p-6">
             <h3 class="text-xl font-bold text-green-800 mb-4"><i class="fas fa-check-circle text-green-600 mr-2"></i>Trámite cerrado</h3>
+            <?php if ($isCanadianVisa): ?>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <?php if (!empty($application['canadian_visa_result'])): ?>
+                <div class="md:col-span-2">
+                    <p class="text-sm text-gray-600">Resultado</p>
+                    <p class="font-bold text-lg <?= $application['canadian_visa_result'] === 'aprobada' ? 'text-green-700' : 'text-red-700' ?>">
+                        <i class="fas <?= $application['canadian_visa_result'] === 'aprobada' ? 'fa-check-circle' : 'fa-times-circle' ?> mr-1"></i>
+                        Visa <?= htmlspecialchars(ucfirst($application['canadian_visa_result'])) ?>
+                    </p>
+                </div>
+                <?php endif; ?>
+                <?php if (!empty($application['canadian_resolution_date'])): ?>
+                <div><p class="text-sm text-gray-600">Fecha de resolución</p><p class="font-semibold"><?= htmlspecialchars($application['canadian_resolution_date']) ?></p></div>
+                <?php endif; ?>
+                <?php if (!empty($application['canadian_guide_number'])): ?>
+                <div><p class="text-sm text-gray-600">Número de guía</p><p class="font-semibold"><?= htmlspecialchars($application['canadian_guide_number']) ?></p></div>
+                <?php endif; ?>
+                <?php if (!empty($application['canadian_final_observations'])): ?>
+                <div class="md:col-span-2"><p class="text-sm text-gray-600">Observaciones finales</p><p class="font-semibold"><?= nl2br(htmlspecialchars($application['canadian_final_observations'])) ?></p></div>
+                <?php endif; ?>
+            </div>
+            <?php else: ?>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <?php if (!empty($application['dhl_tracking'])): ?>
                 <div><p class="text-sm text-gray-600">Guía DHL</p><p class="font-semibold"><?= htmlspecialchars($application['dhl_tracking']) ?></p></div>
@@ -538,11 +799,12 @@ foreach ($documents as $doc) {
                 <div><p class="text-sm text-gray-600">Fecha de entrega</p><p class="font-semibold"><?= htmlspecialchars($application['delivery_date']) ?></p></div>
                 <?php endif; ?>
             </div>
+            <?php endif; ?>
         </div>
         <?php endif; ?>
 
-        <!-- Documentos Base (no mostrar a asesor en verde) -->
-        <?php if (!in_array($status, [STATUS_TRAMITE_CERRADO, STATUS_FINALIZADO]) || $isAdmin): ?>
+        <!-- Documentos Base (always visible to Admin/Gerente regardless of status; hidden for Asesor in closed state) -->
+        <?php if ($isAdmin || !$isClosedStatus): ?>
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-passport text-blue-600 mr-2"></i>Documentos Base</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -557,11 +819,52 @@ foreach ($documents as $doc) {
                         </div>
                         <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($pasaporteDoc['name']) ?></p><?php endif; ?>
                     <?php else: ?>
-                        <?php if ($isAsesor): ?>
+                        <?php if ($isAsesor && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('pasaporte_vigente')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
                         <?php else: ?><p class="text-red-500 text-sm"><i class="fas fa-times-circle mr-1"></i>No subido</p><?php endif; ?>
                     <?php endif; ?>
                 </div>
+                <?php if ($isCanadianVisa): ?>
+                <?php /* Canadian visa: visa canadiense anterior (si renovación) */ ?>
+                <?php if ($canadianIsRenovacion): ?>
+                <div class="border rounded-lg p-4">
+                    <p class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-id-card mr-1"></i>Visa canadiense anterior</p>
+                    <?php if ($visaCanadiensPrevDoc): ?>
+                        <?php if ($isAdmin): ?>
+                        <p class="text-green-600 font-semibold mb-2"><i class="fas fa-check-circle mr-1"></i>Subido</p>
+                        <div class="flex gap-3">
+                            <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaCanadiensPrevDoc['id'] ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
+                            <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $visaCanadiensPrevDoc['id'] ?>" class="text-primary text-sm"><i class="fas fa-download mr-1"></i>Descargar</a>
+                        </div>
+                        <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($visaCanadiensPrevDoc['name']) ?></p><?php endif; ?>
+                    <?php else: ?>
+                        <?php if ($isAsesor && !$isClosedStatus): ?>
+                        <button onclick="openDocUpload('visa_canadiense_anterior')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
+                        <?php else: ?><p class="text-red-500 text-sm"><i class="fas fa-times-circle mr-1"></i>No subido</p><?php endif; ?>
+                    <?php endif; ?>
+                </div>
+                <?php endif; /* canadianIsRenovacion */ ?>
+                <?php /* Canadian visa: ETA anterior (si ETA + renovación) */ ?>
+                <?php if ($canadianIsETA && $canadianIsRenovacion): ?>
+                <div class="border rounded-lg p-4">
+                    <p class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-file-alt mr-1"></i>ETA anterior</p>
+                    <?php if ($etaAnteriorDoc): ?>
+                        <?php if ($isAdmin): ?>
+                        <p class="text-green-600 font-semibold mb-2"><i class="fas fa-check-circle mr-1"></i>Subido</p>
+                        <div class="flex gap-3">
+                            <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $etaAnteriorDoc['id'] ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
+                            <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $etaAnteriorDoc['id'] ?>" class="text-primary text-sm"><i class="fas fa-download mr-1"></i>Descargar</a>
+                        </div>
+                        <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($etaAnteriorDoc['name']) ?></p><?php endif; ?>
+                    <?php else: ?>
+                        <?php if ($isAsesor && !$isClosedStatus): ?>
+                        <button onclick="openDocUpload('eta_anterior')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
+                        <?php else: ?><p class="text-red-500 text-sm"><i class="fas fa-times-circle mr-1"></i>No subido</p><?php endif; ?>
+                    <?php endif; ?>
+                </div>
+                <?php endif; /* canadianIsETA && canadianIsRenovacion */ ?>
+                <?php else: ?>
+                <?php /* Standard flow: visa anterior (si renovación) */ ?>
                 <?php if ($isRenovacion): ?>
                 <div class="border rounded-lg p-4">
                     <p class="text-sm font-semibold text-gray-700 mb-2"><i class="fas fa-id-card mr-1"></i>Visa anterior</p>
@@ -574,23 +877,28 @@ foreach ($documents as $doc) {
                         </div>
                         <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($visaAnteriorDoc['name']) ?></p><?php endif; ?>
                     <?php else: ?>
-                        <?php if ($isAsesor): ?>
+                        <?php if ($isAsesor && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('visa_anterior')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
                         <?php else: ?><p class="text-red-500 text-sm"><i class="fas fa-times-circle mr-1"></i>No subido</p><?php endif; ?>
                     <?php endif; ?>
                 </div>
                 <?php endif; ?>
+                <?php endif; /* end isCanadianVisa/else */ ?>
             </div>
         </div>
+        <?php endif; /* end Documentos Base */ ?>
 
-        <!-- Documentos generales -->
+        <!-- Documentos generales (always visible to Admin/Gerente) -->
+        <?php if ($isAdmin || !$isClosedStatus): ?>
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">Documentos</h3>
+                <?php if (!$isClosedStatus): ?>
                 <button onclick="openDocUpload('adicional')"
                         class="btn-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition">
                     <i class="fas fa-upload mr-2"></i>Subir
                 </button>
+                <?php endif; ?>
             </div>
             <?php if (!empty($documents)): ?>
             <div class="space-y-3">
@@ -614,8 +922,10 @@ foreach ($documents as $doc) {
             </div>
             <?php else: ?><p class="text-gray-500 text-center py-6">No hay documentos</p><?php endif; ?>
         </div>
+        <?php endif; /* end isAdmin || !closed */ ?>
 
-        <!-- Indicaciones -->
+        <!-- Indicaciones (always visible to Admin/Gerente) -->
+        <?php if ($isAdmin || !$isClosedStatus): ?>
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">Indicaciones</h3>
@@ -641,7 +951,7 @@ foreach ($documents as $doc) {
             </div>
             <?php else: ?><p class="text-gray-500 text-center py-6">No hay indicaciones</p><?php endif; ?>
         </div>
-        <?php endif; /* end hide for asesor in verde */ ?>
+        <?php endif; /* end Indicaciones */ ?>
 
         <!-- Historial de Estatus -->
         <div class="bg-white rounded-lg shadow p-6">
@@ -676,7 +986,7 @@ foreach ($documents as $doc) {
     <div class="space-y-6">
 
         <!-- Cambiar Estatus manual (Admin/Gerente) -->
-        <?php if ($isAdmin && !in_array($status, [STATUS_TRAMITE_CERRADO, STATUS_FINALIZADO])): ?>
+        <?php if ($isAdmin && !$isClosedStatus): ?>
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-bold text-gray-800 mb-4">Cambiar Estatus</h3>
             <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>" enctype="multipart/form-data">
@@ -782,17 +1092,17 @@ foreach ($documents as $doc) {
             <button onclick="document.getElementById('infoSheetModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times text-xl"></i></button>
         </div>
         <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-hoja-info/<?= $application['id'] ?>">
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Fecha de ingreso</label>
+            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
                 <input type="date" name="entry_date" required value="<?= htmlspecialchars($infoSheet['entry_date'] ?? date('Y-m-d')) ?>" class="w-full border rounded-lg px-4 py-2"></div>
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Residencia (Ciudad, Estado, País)</label>
+            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Lugar de residencia del solicitante</label>
                 <input type="text" name="residence_place" value="<?= htmlspecialchars($infoSheet['residence_place'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Domicilio</label>
+            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Domicilio completo</label>
                 <input type="text" name="address" value="<?= htmlspecialchars($infoSheet['address'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Email solicitante</label>
+            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Email del solicitante</label>
                 <input type="email" name="client_email" value="<?= htmlspecialchars($infoSheet['client_email'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Email embajada</label>
+            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1"><?= $isCanadianVisa ? 'Email de la embajada canadiense' : 'Email de la embajada' ?></label>
                 <input type="email" name="embassy_email" value="<?= htmlspecialchars($infoSheet['embassy_email'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Honorarios pagados</label>
+            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1"><?= $isCanadianVisa ? 'Costo que pagó el cliente' : 'Honorarios pagados' ?></label>
                 <input type="number" step="0.01" min="0" name="amount_paid" value="<?= htmlspecialchars($infoSheet['amount_paid'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
             <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
                 <textarea name="observations" rows="3" class="w-full border rounded-lg px-4 py-2"><?= htmlspecialchars($infoSheet['observations'] ?? '') ?></textarea></div>
