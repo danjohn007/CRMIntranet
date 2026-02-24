@@ -17,7 +17,7 @@ $isAsesorRole = $_SESSION['user_role'] === ROLE_ASESOR;
 
 <!-- Filtros -->
 <div class="bg-white rounded-lg shadow p-4 mb-4 md:mb-6">
-    <form method="GET" action="<?= BASE_URL ?>/solicitudes" class="grid grid-cols-1 md:grid-cols-4 gap-4" id="filterForm">
+    <form method="GET" action="<?= BASE_URL ?>/solicitudes" class="grid grid-cols-1 md:grid-cols-3 gap-4" id="filterForm">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Flujo</label>
             <select name="flow" id="flowSelect" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base" onchange="updateStatusOptions()">
@@ -30,15 +30,6 @@ $isAsesorRole = $_SESSION['user_role'] === ROLE_ASESOR;
             <label class="block text-sm font-medium text-gray-700 mb-2">Estatus</label>
             <select name="status" id="statusSelect" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base">
                 <!-- Options populated by JS based on selected flow -->
-            </select>
-        </div>
-        
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Tipo</label>
-            <select name="type" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base">
-                <option value="">Todos los tipos</option>
-                <option value="Visa" <?= $type === 'Visa' ? 'selected' : '' ?>>Visa</option>
-                <option value="Pasaporte" <?= $type === 'Pasaporte' ? 'selected' : '' ?>>Pasaporte</option>
             </select>
         </div>
         

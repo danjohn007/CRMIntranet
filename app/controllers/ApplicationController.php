@@ -14,7 +14,6 @@ class ApplicationController extends BaseController {
         
         // Filtros
         $status = $_GET['status'] ?? '';
-        $type = $_GET['type'] ?? '';
         $flow = $_GET['flow'] ?? '';  // 'normal', 'canadiense', or '' (todos)
         
         try {
@@ -35,11 +34,6 @@ class ApplicationController extends BaseController {
                 $params[] = $status;
             }
             
-            if (!empty($type)) {
-                $where[] = "a.type = ?";
-                $params[] = $type;
-            }
-
             if ($flow === 'canadiense') {
                 $where[] = "a.is_canadian_visa = 1";
             } elseif ($flow === 'normal') {
@@ -77,7 +71,6 @@ class ApplicationController extends BaseController {
                 'totalPages' => $totalPages,
                 'total' => $total,
                 'status' => $status,
-                'type' => $type,
                 'flow' => $flow
             ]);
             
