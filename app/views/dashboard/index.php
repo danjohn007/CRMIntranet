@@ -138,52 +138,7 @@ ob_start();
     </div>
 </div>
 
-<!-- Tablas con scroll horizontal -->
-<div class="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
-    <?php if (isset($stats['recent_payments'])): ?>
-    <div class="bg-white rounded-lg shadow">
-        <div class="p-4 md:p-6 border-b border-gray-200">
-            <h3 class="text-lg md:text-xl font-bold text-gray-800">Pagos Recientes</h3>
-        </div>
-        <div class="table-container">
-            <table class="w-full">
-                <thead class="bg-gray-50">
-                    <tr>
-                        <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Folio</th>
-                        <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Fecha</th>
-                        <th class="px-3 md:px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase whitespace-nowrap">Monto</th>
-                    </tr>
-                </thead>
-                <tbody class="divide-y divide-gray-200">
-                    <?php foreach ($stats['recent_payments'] ?? [] as $payment): ?>
-                    <tr class="hover:bg-gray-50">
-                        <td class="px-3 md:px-6 py-4 whitespace-nowrap">
-                            <span class="font-mono text-xs md:text-sm text-primary"><?= htmlspecialchars($payment['folio']) ?></span>
-                        </td>
-                        <td class="px-3 md:px-6 py-4 whitespace-nowrap text-xs md:text-sm text-gray-500">
-                            <?= date('d/m/Y', strtotime($payment['payment_date'])) ?>
-                        </td>
-                        <td class="px-3 md:px-6 py-4 whitespace-nowrap">
-                            <span class="text-green-600 font-bold text-sm md:text-base">
-                                $<?= number_format($payment['amount'], 2) ?>
-                            </span>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                    
-                    <?php if (empty($stats['recent_payments'])): ?>
-                    <tr>
-                        <td colspan="3" class="px-3 md:px-6 py-8 text-center text-gray-500 text-sm md:text-base">
-                            No hay pagos registrados
-                        </td>
-                    </tr>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-        </div>
-    </div>
-    <?php endif; ?>
-</div>
+
 
 <!-- Solicitudes Recientes -->
 <div class="bg-white rounded-lg shadow">
