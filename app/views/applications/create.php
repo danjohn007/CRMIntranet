@@ -102,6 +102,21 @@ ob_start();
 
         <h3 class="text-xl font-bold text-gray-800 mb-4">Campos iniciales</h3>
 
+        <div class="mb-6">
+            <label class="block text-sm font-medium text-gray-700 mb-2">
+                Formulario de cliente <span class="text-red-500">*</span>
+            </label>
+            <select name="form_id" required
+                    class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500">
+                <option value="">-- Seleccione el formulario --</option>
+                <?php foreach ($forms as $form): ?>
+                <option value="<?= $form['id'] ?>">
+                    <?= htmlspecialchars($form['name']) ?> (<?= htmlspecialchars($form['type']) ?><?= !empty($form['subtype']) ? ' - ' . htmlspecialchars($form['subtype']) : '' ?>)
+                </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+
         <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-1">

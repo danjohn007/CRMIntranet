@@ -129,11 +129,29 @@ class ApplicationController extends BaseController {
         if ($isCanadianVisa) {
             $canadianTipo      = trim($_POST['canadian_tipo'] ?? '');
             $canadianModalidad = trim($_POST['canadian_modalidad'] ?? '');
+            $formId            = intval($_POST['form_id'] ?? 0);
 
             if (empty($canadianTipo) || empty($canadianModalidad)) {
                 $_SESSION['error'] = 'Debe seleccionar el Tipo y la Modalidad para Visa Canadiense';
                 $this->redirect('/solicitudes/crear');
             }
+
+            if ($formId <= 0) {
+                $_SESSION['error'] = 'Debe seleccionar el formulario de cliente para Visa Canadiense';
+                $this->redirect('/solicitudes/crear');
+            }
+
+            // Obtener versión del formulario seleccionado
+            $stmtForm = $this->db->prepare("SELECT id, version FROM forms WHERE id = ? AND is_published = 1");
+            $stmtForm->execute([$formId]);
+            $form = $stmtForm->fetch();
+
+            if (!$form) {
+                $_SESSION['error'] = 'El formulario seleccionado no es válido';
+                $this->redirect('/solicitudes/crear');
+            }
+
+            $formVersion = intval($form['version'] ?? 1);
 
             try {
                 $year = date('Y');
@@ -152,11 +170,13 @@ class ApplicationController extends BaseController {
                             (folio, form_id, form_version, type, subtype,
                              is_canadian_visa, canadian_tipo, canadian_modalidad,
                              data_json, client_name, created_by)
-                        VALUES (?, NULL, 0, 'Visa', ?, 1, ?, ?, ?, ?, ?)
+                        VALUES (?, ?, ?, 'Visa', ?, 1, ?, ?, ?, ?, ?)
                     ");
                     // subtype = canadian_modalidad for backward-compat with $isRenovacion check
                     $stmt->execute([
                         $folio,
+                        $formId,             // form_id
+                        $formVersion,        // form_version
                         $canadianModalidad,  // subtype (backward-compat)
                         $canadianTipo,       // canadian_tipo
                         $canadianModalidad,  // canadian_modalidad
@@ -169,10 +189,12 @@ class ApplicationController extends BaseController {
                     $stmt = $this->db->prepare("
                         INSERT INTO applications
                             (folio, form_id, form_version, type, subtype, data_json, created_by)
-                        VALUES (?, NULL, 0, 'Visa', ?, ?, ?)
+                        VALUES (?, ?, ?, 'Visa', ?, ?, ?)
                     ");
                     $stmt->execute([
                         $folio,
+                        $formId,
+                        $formVersion,
                         $canadianModalidad,
                         json_encode($filteredData, JSON_UNESCAPED_UNICODE),
                         $_SESSION['user_id']
@@ -877,8 +899,8 @@ class ApplicationController extends BaseController {
                         $stmtSheet2->execute([$id]);
                         $hasInfoSheet2 = $stmtSheet2->fetch();
 
-                        // form_link_status: optional for Canadian if no form linked
-                        $formOk = ($currentApp2['form_link_status'] === 'completado' || empty($currentApp2['form_link_id']));
+                        // form_link_status: required 'completado' if a form is assigned; optional only if no form assigned at all
+                        $formOk = ($currentApp2['form_link_status'] === 'completado' || (empty($currentApp2['form_link_id']) && empty($currentApp2['form_id'])));
 
                         if ($hasInfoSheet2 && $formOk) {
                             $stmtDoc2 = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
@@ -1174,8 +1196,8 @@ class ApplicationController extends BaseController {
                 $isCanadianVisa = !empty($currentApp['is_canadian_visa']);
 
                 if ($isCanadianVisa) {
-                    // Canadian visa auto-advance: info sheet + base docs (questionnaire optional if no form linked)
-                    $formOk = ($currentApp['form_link_status'] === 'completado' || empty($currentApp['form_link_id']));
+                    // form_link_status: required 'completado' if a form is assigned; optional only if no form assigned at all
+                    $formOk = ($currentApp['form_link_status'] === 'completado' || (empty($currentApp['form_link_id']) && empty($currentApp['form_id'])));
                     if ($formOk) {
                         $stmtDoc = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
                         $stmtDoc->execute([$id]);
