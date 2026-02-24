@@ -15,6 +15,7 @@ class ApplicationController extends BaseController {
         // Filtros
         $status = $_GET['status'] ?? '';
         $type = $_GET['type'] ?? '';
+        $flow = $_GET['flow'] ?? '';  // 'normal', 'canadiense', or '' (todos)
         
         try {
             // Construir query según rol
@@ -37,6 +38,12 @@ class ApplicationController extends BaseController {
             if (!empty($type)) {
                 $where[] = "a.type = ?";
                 $params[] = $type;
+            }
+
+            if ($flow === 'canadiense') {
+                $where[] = "a.is_canadian_visa = 1";
+            } elseif ($flow === 'normal') {
+                $where[] = "(a.is_canadian_visa = 0 OR a.is_canadian_visa IS NULL)";
             }
             
             $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
@@ -70,7 +77,8 @@ class ApplicationController extends BaseController {
                 'totalPages' => $totalPages,
                 'total' => $total,
                 'status' => $status,
-                'type' => $type
+                'type' => $type,
+                'flow' => $flow
             ]);
             
         } catch (PDOException $e) {
@@ -1161,6 +1169,16 @@ class ApplicationController extends BaseController {
             if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                 $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                 $this->redirect('/solicitudes');
+            }
+
+            // Asesor solo puede crear la hoja de información, no editarla
+            if ($role === ROLE_ASESOR) {
+                $stmtExisting = $this->db->prepare("SELECT id FROM information_sheets WHERE application_id = ?");
+                $stmtExisting->execute([$id]);
+                if ($stmtExisting->fetch()) {
+                    $_SESSION['error'] = 'Solo gerente o administrador puede editar la hoja de información';
+                    $this->redirect('/solicitudes/ver/' . $id);
+                }
             }
 
             $entryDate      = trim($_POST['entry_date'] ?? date('Y-m-d'));
