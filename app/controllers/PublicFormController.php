@@ -304,7 +304,7 @@ class PublicFormController extends BaseController {
                     ")->execute([$applicationId, $submissionId]);
 
                     // Auto-advance to ROJO if client form completed, info sheet exists, AND base documents are uploaded
-                    $stmtApp = $this->db->prepare("SELECT status, subtype FROM applications WHERE id = ?");
+                    $stmtApp = $this->db->prepare("SELECT status, subtype, is_canadian_visa, canadian_modalidad, canadian_tipo FROM applications WHERE id = ?");
                     $stmtApp->execute([$applicationId]);
                     $currentApp = $stmtApp->fetch();
                     $stmtSheet = $this->db->prepare("SELECT id FROM information_sheets WHERE application_id = ?");
@@ -316,20 +316,51 @@ class PublicFormController extends BaseController {
                         $stmtDoc->execute([$applicationId]);
                         $hasPasaporte = (bool) $stmtDoc->fetch();
 
-                        $isRenovacion = stripos($currentApp['subtype'] ?? '', 'renov') !== false;
-                        $hasVisaAnterior = true;
-                        if ($isRenovacion) {
-                            $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
-                            $stmtVisa->execute([$applicationId]);
-                            $hasVisaAnterior = (bool) $stmtVisa->fetch();
-                        }
+                        $isCanadianVisa = !empty($currentApp['is_canadian_visa']);
 
-                        if ($hasPasaporte && $hasVisaAnterior) {
-                            $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $applicationId]);
-                            $this->db->prepare("
-                                INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
-                                VALUES (?, ?, ?, ?, ?)
-                            ")->execute([$applicationId, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: cuestionario completado, hoja de información y documentos base registrados', $form['created_by']]);
+                        if ($isCanadianVisa) {
+                            // Canadian visa flow: check visa_canadiense_anterior and eta_anterior
+                            $isRenovacion = stripos($currentApp['canadian_modalidad'] ?? '', 'renov') !== false;
+                            $isETA        = stripos($currentApp['canadian_tipo'] ?? '', 'ETA') !== false;
+
+                            $hasVisaCanadiensPrev = true;
+                            if ($isRenovacion) {
+                                $stmtVC = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_canadiense_anterior'");
+                                $stmtVC->execute([$applicationId]);
+                                $hasVisaCanadiensPrev = (bool) $stmtVC->fetch();
+                            }
+
+                            $hasEtaAnterior = true;
+                            if ($isETA && $isRenovacion) {
+                                $stmtEta = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'eta_anterior'");
+                                $stmtEta->execute([$applicationId]);
+                                $hasEtaAnterior = (bool) $stmtEta->fetch();
+                            }
+
+                            if ($hasPasaporte && $hasVisaCanadiensPrev && $hasEtaAnterior) {
+                                $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $applicationId]);
+                                $this->db->prepare("
+                                    INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
+                                    VALUES (?, ?, ?, ?, ?)
+                                ")->execute([$applicationId, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: cuestionario completado, hoja de información y documentos base completos (Visa Canadiense)', $form['created_by']]);
+                            }
+                        } else {
+                            // Standard flow: check visa_anterior for renovation
+                            $isRenovacion = stripos($currentApp['subtype'] ?? '', 'renov') !== false;
+                            $hasVisaAnterior = true;
+                            if ($isRenovacion) {
+                                $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
+                                $stmtVisa->execute([$applicationId]);
+                                $hasVisaAnterior = (bool) $stmtVisa->fetch();
+                            }
+
+                            if ($hasPasaporte && $hasVisaAnterior) {
+                                $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $applicationId]);
+                                $this->db->prepare("
+                                    INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
+                                    VALUES (?, ?, ?, ?, ?)
+                                ")->execute([$applicationId, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: cuestionario completado, hoja de información y documentos base registrados', $form['created_by']]);
+                            }
                         }
                     }
 

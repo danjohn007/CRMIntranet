@@ -58,7 +58,7 @@ $canadianStatusLabels = [
             <p class="text-gray-600"><?= htmlspecialchars($application['form_name'] ?? '') ?></p>
         </div>
         <div class="flex space-x-3 flex-wrap gap-2">
-            <?php if ($isAsesor): ?>
+            <?php if (!$infoSheet || $isAdmin): ?>
             <button onclick="document.getElementById('infoSheetModal').classList.remove('hidden')"
                     class="bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition">
                 <i class="fas fa-file-alt mr-2"></i>
@@ -1105,8 +1105,8 @@ $canadianStatusLabels = [
 </div>
 <?php endif; ?>
 
-<!-- Modal: Hoja de Informacion (Asesor) -->
-<?php if ($isAsesor): ?>
+<!-- Modal: Hoja de Informacion -->
+<?php if (!$infoSheet || $isAdmin): ?>
 <div id="infoSheetModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
     <div class="bg-white rounded-lg p-6 w-full max-w-lg my-4">
         <div class="flex justify-between items-center mb-4">
