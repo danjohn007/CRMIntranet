@@ -237,7 +237,13 @@ INSERT INTO `global_config` (`config_key`, `config_value`, `config_type`) VALUES
 ('paypal_client_id', '', 'text'),
 ('paypal_secret', '', 'text'),
 ('qr_api_key', '', 'text'),
-('qr_api_url', '', 'text');
+('qr_api_url', '', 'text'),
+('smtp_user', 'crmvisas@recursoshumanos.digital', 'text'),
+('smtp_password', '', 'text'),
+('smtp_host', 'recursoshumanos.digital', 'text'),
+('smtp_port', '587', 'text'),
+('smtp_imap_port', '993', 'text'),
+('smtp_pop3_port', '995', 'text');
 
 -- Tabla de Dispositivos HikVision
 DROP TABLE IF EXISTS `hikvision_devices`;
