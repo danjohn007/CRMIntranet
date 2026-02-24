@@ -39,14 +39,14 @@ foreach ($documents as $doc) {
 // Canadian visa flags
 $canadianIsRenovacion = $isCanadianVisa && stripos($application['canadian_modalidad'] ?? '', 'renov') !== false;
 $canadianIsETA        = $isCanadianVisa && stripos($application['canadian_tipo'] ?? '', 'ETA') !== false;
-$isClosedStatus       = $isClosedStatus;
+$isClosedStatus       = $status === STATUS_TRAMITE_CERRADO || $status === STATUS_FINALIZADO;
 ?>
 
 <div class="mb-6">
     <div class="flex justify-between items-center flex-wrap gap-3">
         <div>
             <h2 class="text-3xl font-bold text-gray-800"><?= htmlspecialchars($application['folio']) ?></h2>
-            <p class="text-gray-600"><?= htmlspecialchars($application['form_name']) ?></p>
+            <p class="text-gray-600"><?= htmlspecialchars($application['form_name'] ?? '') ?></p>
         </div>
         <div class="flex space-x-3 flex-wrap gap-2">
             <?php if ($isAsesor): ?>
