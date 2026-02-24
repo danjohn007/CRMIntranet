@@ -108,13 +108,8 @@ class ApplicationController extends BaseController {
             $this->redirect('/solicitudes/crear');
         }
 
-        $formId   = intval($_POST['form_id'] ?? 0);
+        $isCanadianVisa = (($_POST['is_canadian_visa'] ?? '0') === '1');
         $formData = $_POST['form_data'] ?? [];
-
-        if ($formId <= 0) {
-            $_SESSION['error'] = 'Debe seleccionar un tipo de trámite';
-            $this->redirect('/solicitudes/crear');
-        }
 
         // Only keep the 4 basic fields; sanitise values
         $basicKeys    = ['nombre', 'apellidos', 'email', 'telefono'];
@@ -129,6 +124,91 @@ class ApplicationController extends BaseController {
         }
 
         $clientName = trim($filteredData['nombre'] . ' ' . $filteredData['apellidos']);
+
+        // ── Canadian Visa flow ────────────────────────────────────
+        if ($isCanadianVisa) {
+            $canadianTipo      = trim($_POST['canadian_tipo'] ?? '');
+            $canadianModalidad = trim($_POST['canadian_modalidad'] ?? '');
+
+            if (empty($canadianTipo) || empty($canadianModalidad)) {
+                $_SESSION['error'] = 'Debe seleccionar el Tipo y la Modalidad para Visa Canadiense';
+                $this->redirect('/solicitudes/crear');
+            }
+
+            try {
+                $year = date('Y');
+                $stmt = $this->db->prepare("
+                    SELECT MAX(CAST(SUBSTRING(folio, -6) AS UNSIGNED)) as last_number
+                    FROM applications WHERE folio LIKE ?
+                ");
+                $stmt->execute(["VISA-$year-%"]);
+                $result     = $stmt->fetch();
+                $nextNumber = ($result['last_number'] ?? 0) + 1;
+                $folio      = sprintf("VISA-%s-%06d", $year, $nextNumber);
+
+                try {
+                    $stmt = $this->db->prepare("
+                        INSERT INTO applications
+                            (folio, form_id, form_version, type, subtype,
+                             is_canadian_visa, canadian_tipo, canadian_modalidad,
+                             data_json, client_name, created_by)
+                        VALUES (?, NULL, 0, 'Visa', ?, 1, ?, ?, ?, ?, ?)
+                    ");
+                    // subtype = canadian_modalidad for backward-compat with $isRenovacion check
+                    $stmt->execute([
+                        $folio,
+                        $canadianModalidad,  // subtype (backward-compat)
+                        $canadianTipo,       // canadian_tipo
+                        $canadianModalidad,  // canadian_modalidad
+                        json_encode($filteredData, JSON_UNESCAPED_UNICODE),
+                        $clientName,
+                        $_SESSION['user_id']
+                    ]);
+                } catch (PDOException $e) {
+                    // Fallback if new columns don't exist yet
+                    $stmt = $this->db->prepare("
+                        INSERT INTO applications
+                            (folio, form_id, form_version, type, subtype, data_json, created_by)
+                        VALUES (?, NULL, 0, 'Visa', ?, ?, ?)
+                    ");
+                    $stmt->execute([
+                        $folio,
+                        $canadianModalidad,
+                        json_encode($filteredData, JSON_UNESCAPED_UNICODE),
+                        $_SESSION['user_id']
+                    ]);
+                }
+
+                $applicationId = $this->db->lastInsertId();
+
+                $this->db->prepare("
+                    INSERT INTO status_history (application_id, new_status, comment, changed_by)
+                    VALUES (?, ?, ?, ?)
+                ")->execute([$applicationId, STATUS_NUEVO, 'Solicitud Visa Canadiense creada', $_SESSION['user_id']]);
+
+                $this->db->prepare("
+                    INSERT INTO financial_status (application_id, total_costs, total_paid, balance, status)
+                    VALUES (?, 0, 0, 0, ?)
+                ")->execute([$applicationId, FINANCIAL_PENDIENTE]);
+
+                $_SESSION['success'] = "Solicitud Visa Canadiense creada: $folio";
+                $this->redirect('/solicitudes/ver/' . $applicationId);
+
+            } catch (PDOException $e) {
+                error_log("Error al crear solicitud canadiense: " . $e->getMessage());
+                $_SESSION['error'] = 'Error al crear solicitud';
+                $this->redirect('/solicitudes/crear');
+            }
+            return;
+        }
+
+        // ── Standard flow ─────────────────────────────────────────
+        $formId = intval($_POST['form_id'] ?? 0);
+
+        if ($formId <= 0) {
+            $_SESSION['error'] = 'Debe seleccionar un tipo de trámite';
+            $this->redirect('/solicitudes/crear');
+        }
 
         try {
             // Obtener información del formulario
@@ -422,6 +502,9 @@ class ApplicationController extends BaseController {
                 }
             }
 
+            // ── Detect Canadian Visa flag ───────────────────────────────────
+            $isCanadianVisa = !empty($application['is_canadian_visa']);
+
             // ── Validaciones antes de pasar de NUEVO → ROJO ────────────────────
             if ($previousStatus === STATUS_NUEVO && $newStatus === STATUS_LISTO_SOLICITUD) {
                 // 1. Pasaporte subido
@@ -432,42 +515,74 @@ class ApplicationController extends BaseController {
                     $this->redirect('/solicitudes/ver/' . $id);
                 }
 
-                // 2. Si es renovación, visa anterior subida
-                $isRenovacion = stripos($application['subtype'] ?? '', 'renov') !== false;
-                if ($isRenovacion) {
-                    $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
-                    $stmtVisa->execute([$id]);
-                    if (!$stmtVisa->fetch()) {
-                        $_SESSION['error'] = 'No se puede cambiar a este estado: para renovación se requiere cargar la visa anterior.';
-                        $this->redirect('/solicitudes/ver/' . $id);
+                if ($isCanadianVisa) {
+                    // Visa canadiense anterior (si Renovación)
+                    $isRenovacion = stripos($application['canadian_modalidad'] ?? '', 'renov') !== false;
+                    if ($isRenovacion) {
+                        $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_canadiense_anterior'");
+                        $stmtVisa->execute([$id]);
+                        if (!$stmtVisa->fetch()) {
+                            $_SESSION['error'] = 'No se puede cambiar a este estado: para renovación se requiere la visa canadiense anterior.';
+                            $this->redirect('/solicitudes/ver/' . $id);
+                        }
+                    }
+                    // ETA anterior (si ETA Canadiense + Renovación)
+                    $isETA = stripos($application['canadian_tipo'] ?? '', 'ETA') !== false;
+                    if ($isETA && $isRenovacion) {
+                        $stmtEta = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'eta_anterior'");
+                        $stmtEta->execute([$id]);
+                        if (!$stmtEta->fetch()) {
+                            $_SESSION['error'] = 'No se puede cambiar a este estado: se requiere el ETA anterior.';
+                            $this->redirect('/solicitudes/ver/' . $id);
+                        }
+                    }
+                } else {
+                    // 2. Si es renovación (estándar), visa anterior subida
+                    $isRenovacion = stripos($application['subtype'] ?? '', 'renov') !== false;
+                    if ($isRenovacion) {
+                        $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
+                        $stmtVisa->execute([$id]);
+                        if (!$stmtVisa->fetch()) {
+                            $_SESSION['error'] = 'No se puede cambiar a este estado: para renovación se requiere cargar la visa anterior.';
+                            $this->redirect('/solicitudes/ver/' . $id);
+                        }
                     }
                 }
             }
 
             // ── Validaciones antes de pasar de ROJO → AMARILLO ─────────────────
             if ($previousStatus === STATUS_LISTO_SOLICITUD && $newStatus === STATUS_EN_ESPERA_PAGO) {
-                // 1. Formulario del cliente completado
-                if ($application['form_link_status'] !== 'completado') {
-                    $_SESSION['error'] = 'No se puede cambiar a este estado: el cliente aún no ha completado el cuestionario.';
-                    $this->redirect('/solicitudes/ver/' . $id);
-                }
-
-                // 2. Pasaporte subido
-                $stmtDoc = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
-                $stmtDoc->execute([$id]);
-                if (!$stmtDoc->fetch()) {
-                    $_SESSION['error'] = 'No se puede cambiar a este estado: no se ha cargado el pasaporte vigente.';
-                    $this->redirect('/solicitudes/ver/' . $id);
-                }
-
-                // 3. Si es renovación, visa anterior subida
-                $isRenovacion = stripos($application['subtype'] ?? '', 'renov') !== false;
-                if ($isRenovacion) {
-                    $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
-                    $stmtVisa->execute([$id]);
-                    if (!$stmtVisa->fetch()) {
-                        $_SESSION['error'] = 'No se puede cambiar a este estado: para renovación se requiere cargar la visa anterior.';
+                if ($isCanadianVisa) {
+                    // Para Canadian visa: verificar que los documentos estén cargados en portal
+                    $docsUploaded = isset($_POST['canadian_docs_uploaded_portal']) ? 1 : intval($application['canadian_docs_uploaded_portal'] ?? 0);
+                    if (!$docsUploaded) {
+                        $_SESSION['error'] = 'No se puede avanzar: marque "Documentos cargados en portal Canadá" primero.';
                         $this->redirect('/solicitudes/ver/' . $id);
+                    }
+                } else {
+                    // 1. Formulario del cliente completado
+                    if ($application['form_link_status'] !== 'completado') {
+                        $_SESSION['error'] = 'No se puede cambiar a este estado: el cliente aún no ha completado el cuestionario.';
+                        $this->redirect('/solicitudes/ver/' . $id);
+                    }
+
+                    // 2. Pasaporte subido
+                    $stmtDoc = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
+                    $stmtDoc->execute([$id]);
+                    if (!$stmtDoc->fetch()) {
+                        $_SESSION['error'] = 'No se puede cambiar a este estado: no se ha cargado el pasaporte vigente.';
+                        $this->redirect('/solicitudes/ver/' . $id);
+                    }
+
+                    // 3. Si es renovación, visa anterior subida
+                    $isRenovacion = stripos($application['subtype'] ?? '', 'renov') !== false;
+                    if ($isRenovacion) {
+                        $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
+                        $stmtVisa->execute([$id]);
+                        if (!$stmtVisa->fetch()) {
+                            $_SESSION['error'] = 'No se puede cambiar a este estado: para renovación se requiere cargar la visa anterior.';
+                            $this->redirect('/solicitudes/ver/' . $id);
+                        }
                     }
                 }
             }
@@ -476,36 +591,68 @@ class ApplicationController extends BaseController {
             $extraSql    = '';
             $extraParams = [];
 
-            if ($previousStatus === STATUS_LISTO_SOLICITUD && $newStatus === STATUS_EN_ESPERA_PAGO) {
-                // Checkboxes vienen del estado ROJO (ya deben estar marcados)
-                $officialDone = isset($_POST['official_application_done']) ? 1 : 0;
-                $feeSent      = isset($_POST['consular_fee_sent']) ? 1 : 0;
-                $ds160Num     = trim($_POST['ds160_confirmation_number'] ?? '');
-                $extraSql    = ', official_application_done = ?, consular_fee_sent = ?, ds160_confirmation_number = ?';
-                $extraParams = [$officialDone, $feeSent, $ds160Num ?: null];
-            } elseif ($newStatus === STATUS_LISTO_SOLICITUD) {
-                // Saving checkboxes while still in ROJO (no status transition)
-                $officialDone = isset($_POST['official_application_done']) ? 1 : 0;
-                $feeSent      = isset($_POST['consular_fee_sent']) ? 1 : 0;
-                $ds160Num     = trim($_POST['ds160_confirmation_number'] ?? '');
-                $extraSql    = ', official_application_done = ?, consular_fee_sent = ?, ds160_confirmation_number = ?';
-                $extraParams = [$officialDone, $feeSent, $ds160Num ?: null];
-            } elseif ($newStatus === STATUS_EN_ESPERA_PAGO) {
-                // Updating AMARILLO fields
-                $consularPaymentConfirmed = isset($_POST['consular_payment_confirmed']) ? 1 : 0;
-                $appointmentDate = !empty($_POST['appointment_date']) ? $_POST['appointment_date'] : null;
-                if ($appointmentDate !== null) {
-                    $extraSql    = ', consular_payment_confirmed = ?, appointment_date = ?';
-                    $extraParams = [$consularPaymentConfirmed, $appointmentDate];
-                } else {
-                    $extraSql    = ', consular_payment_confirmed = ?';
-                    $extraParams = [$consularPaymentConfirmed];
+            if ($isCanadianVisa) {
+                // ── Canadian visa extra fields ──────────────────────────────
+                if ($newStatus === STATUS_LISTO_SOLICITUD || ($previousStatus === STATUS_LISTO_SOLICITUD && $newStatus === STATUS_EN_ESPERA_PAGO)) {
+                    $docsUploaded    = isset($_POST['canadian_docs_uploaded_portal']) ? 1 : 0;
+                    $applicationNum  = trim($_POST['canadian_application_number'] ?? '');
+                    $extraSql    = ', canadian_docs_uploaded_portal = ?, canadian_application_number = ?';
+                    $extraParams = [$docsUploaded, $applicationNum ?: null];
+                } elseif ($newStatus === STATUS_EN_ESPERA_PAGO) {
+                    // AMARILLO canadiense: biometric appointment fields
+                    $biometricGenerated = isset($_POST['canadian_biometric_appointment_generated']) ? 1 : 0;
+                    $biometricDate      = !empty($_POST['canadian_biometric_date']) ? $_POST['canadian_biometric_date'] : null;
+                    $biometricLocation  = trim($_POST['canadian_biometric_location'] ?? '');
+                    $extraSql    = ', canadian_biometric_appointment_generated = ?, canadian_biometric_date = ?, canadian_biometric_location = ?';
+                    $extraParams = [$biometricGenerated, $biometricDate, $biometricLocation ?: null];
+                } elseif ($newStatus === STATUS_CITA_PROGRAMADA) {
+                    // AZUL canadiense: biometrics attendance
+                    $attended     = isset($_POST['canadian_client_attended_biometrics']) ? 1 : 0;
+                    $attendedDate = !empty($_POST['canadian_biometric_attended_date']) ? $_POST['canadian_biometric_attended_date'] : null;
+                    $extraSql    = ', canadian_client_attended_biometrics = ?, canadian_biometric_attended_date = ?';
+                    $extraParams = [$attended, $attendedDate];
+                } elseif ($newStatus === STATUS_EN_ESPERA_RESULTADO || $newStatus === STATUS_TRAMITE_CERRADO) {
+                    // MORADO → VERDE canadiense: visa result
+                    $visaResult         = trim($_POST['canadian_visa_result'] ?? '');
+                    $resolutionDate     = !empty($_POST['canadian_resolution_date']) ? $_POST['canadian_resolution_date'] : null;
+                    $guideNumber        = trim($_POST['canadian_guide_number'] ?? '');
+                    $finalObservations  = trim($_POST['canadian_final_observations'] ?? '');
+                    $extraSql    = ', canadian_visa_result = ?, canadian_resolution_date = ?, canadian_guide_number = ?, canadian_final_observations = ?';
+                    $extraParams = [$visaResult ?: null, $resolutionDate, $guideNumber ?: null, $finalObservations ?: null];
                 }
-            } elseif ($newStatus === STATUS_TRAMITE_CERRADO) {
-                $dhlTracking  = trim($_POST['dhl_tracking'] ?? '');
-                $deliveryDate = !empty($_POST['delivery_date']) ? $_POST['delivery_date'] : null;
-                $extraSql    = ', dhl_tracking = ?, delivery_date = ?';
-                $extraParams = [$dhlTracking ?: null, $deliveryDate];
+            } else {
+                // ── Standard flow extra fields ──────────────────────────────
+                if ($previousStatus === STATUS_LISTO_SOLICITUD && $newStatus === STATUS_EN_ESPERA_PAGO) {
+                    // Checkboxes vienen del estado ROJO (ya deben estar marcados)
+                    $officialDone = isset($_POST['official_application_done']) ? 1 : 0;
+                    $feeSent      = isset($_POST['consular_fee_sent']) ? 1 : 0;
+                    $ds160Num     = trim($_POST['ds160_confirmation_number'] ?? '');
+                    $extraSql    = ', official_application_done = ?, consular_fee_sent = ?, ds160_confirmation_number = ?';
+                    $extraParams = [$officialDone, $feeSent, $ds160Num ?: null];
+                } elseif ($newStatus === STATUS_LISTO_SOLICITUD) {
+                    // Saving checkboxes while still in ROJO (no status transition)
+                    $officialDone = isset($_POST['official_application_done']) ? 1 : 0;
+                    $feeSent      = isset($_POST['consular_fee_sent']) ? 1 : 0;
+                    $ds160Num     = trim($_POST['ds160_confirmation_number'] ?? '');
+                    $extraSql    = ', official_application_done = ?, consular_fee_sent = ?, ds160_confirmation_number = ?';
+                    $extraParams = [$officialDone, $feeSent, $ds160Num ?: null];
+                } elseif ($newStatus === STATUS_EN_ESPERA_PAGO) {
+                    // Updating AMARILLO fields
+                    $consularPaymentConfirmed = isset($_POST['consular_payment_confirmed']) ? 1 : 0;
+                    $appointmentDate = !empty($_POST['appointment_date']) ? $_POST['appointment_date'] : null;
+                    if ($appointmentDate !== null) {
+                        $extraSql    = ', consular_payment_confirmed = ?, appointment_date = ?';
+                        $extraParams = [$consularPaymentConfirmed, $appointmentDate];
+                    } else {
+                        $extraSql    = ', consular_payment_confirmed = ?';
+                        $extraParams = [$consularPaymentConfirmed];
+                    }
+                } elseif ($newStatus === STATUS_TRAMITE_CERRADO) {
+                    $dhlTracking  = trim($_POST['dhl_tracking'] ?? '');
+                    $deliveryDate = !empty($_POST['delivery_date']) ? $_POST['delivery_date'] : null;
+                    $extraSql    = ', dhl_tracking = ?, delivery_date = ?';
+                    $extraParams = [$dhlTracking ?: null, $deliveryDate];
+                }
             }
 
             $stmt = $this->db->prepare("UPDATE applications SET status = ? $extraSql WHERE id = ?");
@@ -517,18 +664,30 @@ class ApplicationController extends BaseController {
                 $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([$newStatus, $id]);
             }
 
-            // Handle DS-160 file upload (ROJO state)
-            if (in_array($newStatus, [STATUS_LISTO_SOLICITUD]) && isset($_FILES['ds160_file']) && $_FILES['ds160_file']['error'] === UPLOAD_ERR_OK) {
+            // Handle DS-160 file upload (ROJO state, standard flow)
+            if (!$isCanadianVisa && $newStatus === STATUS_LISTO_SOLICITUD && isset($_FILES['ds160_file']) && $_FILES['ds160_file']['error'] === UPLOAD_ERR_OK) {
                 $this->saveApplicationFile($id, $_FILES['ds160_file'], 'ds160');
             }
 
-            // Handle consular payment evidence (AMARILLO state)
-            if ($newStatus === STATUS_EN_ESPERA_PAGO && isset($_FILES['consular_payment_file']) && $_FILES['consular_payment_file']['error'] === UPLOAD_ERR_OK) {
+            // Handle Canadian portal capture (ROJO state, Canadian flow)
+            if ($isCanadianVisa && in_array($newStatus, [STATUS_LISTO_SOLICITUD, STATUS_EN_ESPERA_PAGO])
+                && isset($_FILES['canadian_portal_capture']) && $_FILES['canadian_portal_capture']['error'] === UPLOAD_ERR_OK) {
+                $this->saveApplicationFile($id, $_FILES['canadian_portal_capture'], 'canadian_portal_capture');
+            }
+
+            // Handle VAC confirmation (AMARILLO state, Canadian flow)
+            if ($isCanadianVisa && in_array($newStatus, [STATUS_EN_ESPERA_PAGO, STATUS_CITA_PROGRAMADA])
+                && isset($_FILES['canadian_vac_confirmation']) && $_FILES['canadian_vac_confirmation']['error'] === UPLOAD_ERR_OK) {
+                $this->saveApplicationFile($id, $_FILES['canadian_vac_confirmation'], 'canadian_vac_confirmation');
+            }
+
+            // Handle consular payment evidence (AMARILLO state, standard flow)
+            if (!$isCanadianVisa && $newStatus === STATUS_EN_ESPERA_PAGO && isset($_FILES['consular_payment_file']) && $_FILES['consular_payment_file']['error'] === UPLOAD_ERR_OK) {
                 $this->saveApplicationFile($id, $_FILES['consular_payment_file'], 'consular_payment_evidence');
             }
 
-            // Handle appointment confirmation and official application (AMARILLO → AZUL)
-            if ($newStatus === STATUS_CITA_PROGRAMADA || $newStatus === STATUS_EN_ESPERA_PAGO) {
+            // Handle appointment confirmation and official application (AMARILLO → AZUL, standard flow)
+            if (!$isCanadianVisa && ($newStatus === STATUS_CITA_PROGRAMADA || $newStatus === STATUS_EN_ESPERA_PAGO)) {
                 if (isset($_FILES['appointment_confirmation_doc']) && $_FILES['appointment_confirmation_doc']['error'] === UPLOAD_ERR_OK) {
                     $this->saveApplicationFile($id, $_FILES['appointment_confirmation_doc'], 'appointment_confirmation');
                 }
@@ -622,7 +781,13 @@ class ApplicationController extends BaseController {
             
             // Tipo de documento
             $docType = trim($_POST['doc_type'] ?? 'adicional');
-            $allowedDocTypes = ['pasaporte_vigente', 'visa_anterior', 'ficha_pago_consular', 'consular_payment_evidence', 'adicional'];
+            $allowedDocTypes = [
+                'pasaporte_vigente', 'visa_anterior', 'ficha_pago_consular',
+                'consular_payment_evidence', 'adicional',
+                // Canadian visa doc types
+                'visa_canadiense_anterior', 'eta_anterior',
+                'canadian_vac_confirmation', 'canadian_portal_capture',
+            ];
             if (!in_array($docType, $allowedDocTypes)) {
                 $docType = 'adicional';
             }
@@ -697,34 +862,81 @@ class ApplicationController extends BaseController {
             }
             
             // Auto-advance to ROJO when a base doc is uploaded and all conditions are met
-            // (form completed, info sheet exists, and all required base documents present)
-            if (in_array($docType, ['pasaporte_vigente', 'visa_anterior'])) {
-                $stmtApp2 = $this->db->prepare("SELECT status, form_link_status, subtype FROM applications WHERE id = ?");
+            $canadianBaseDocTypes = ['pasaporte_vigente', 'visa_canadiense_anterior', 'eta_anterior'];
+            $standardBaseDocTypes = ['pasaporte_vigente', 'visa_anterior'];
+            if (in_array($docType, array_merge($standardBaseDocTypes, $canadianBaseDocTypes))) {
+                $stmtApp2 = $this->db->prepare("SELECT * FROM applications WHERE id = ?");
                 $stmtApp2->execute([$id]);
                 $currentApp2 = $stmtApp2->fetch();
-                if ($currentApp2 && $currentApp2['status'] === STATUS_NUEVO && $currentApp2['form_link_status'] === 'completado') {
-                    $stmtSheet2 = $this->db->prepare("SELECT id FROM information_sheets WHERE application_id = ?");
-                    $stmtSheet2->execute([$id]);
-                    $hasInfoSheet2 = $stmtSheet2->fetch();
-                    if ($hasInfoSheet2) {
-                        $stmtDoc2 = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
-                        $stmtDoc2->execute([$id]);
-                        $hasPasaporte2 = (bool) $stmtDoc2->fetch();
+                if ($currentApp2 && $currentApp2['status'] === STATUS_NUEVO) {
+                    $isCanadianVisa2 = !empty($currentApp2['is_canadian_visa']);
 
-                        $isRenovacion2 = stripos($currentApp2['subtype'] ?? '', 'renov') !== false;
-                        $hasVisaAnterior2 = true;
-                        if ($isRenovacion2) {
-                            $stmtVisa2 = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
-                            $stmtVisa2->execute([$id]);
-                            $hasVisaAnterior2 = (bool) $stmtVisa2->fetch();
+                    if ($isCanadianVisa2) {
+                        // Canadian visa auto-advance conditions
+                        $stmtSheet2 = $this->db->prepare("SELECT id FROM information_sheets WHERE application_id = ?");
+                        $stmtSheet2->execute([$id]);
+                        $hasInfoSheet2 = $stmtSheet2->fetch();
+
+                        // form_link_status: optional for Canadian if no form linked
+                        $formOk = ($currentApp2['form_link_status'] === 'completado' || empty($currentApp2['form_link_id']));
+
+                        if ($hasInfoSheet2 && $formOk) {
+                            $stmtDoc2 = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
+                            $stmtDoc2->execute([$id]);
+                            $hasPasaporte2 = (bool) $stmtDoc2->fetch();
+
+                            $isRenovacion2 = stripos($currentApp2['canadian_modalidad'] ?? '', 'renov') !== false;
+                            $isETA2        = stripos($currentApp2['canadian_tipo'] ?? '', 'ETA') !== false;
+
+                            $hasVisaCanadiensPrev2 = true;
+                            if ($isRenovacion2) {
+                                $stmtVC = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_canadiense_anterior'");
+                                $stmtVC->execute([$id]);
+                                $hasVisaCanadiensPrev2 = (bool) $stmtVC->fetch();
+                            }
+
+                            $hasEtaAnterior2 = true;
+                            if ($isETA2 && $isRenovacion2) {
+                                $stmtEta2 = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'eta_anterior'");
+                                $stmtEta2->execute([$id]);
+                                $hasEtaAnterior2 = (bool) $stmtEta2->fetch();
+                            }
+
+                            if ($hasPasaporte2 && $hasVisaCanadiensPrev2 && $hasEtaAnterior2) {
+                                $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $id]);
+                                $this->db->prepare("
+                                    INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
+                                    VALUES (?, ?, ?, ?, ?)
+                                ")->execute([$id, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: documentos base e hoja de información completos (Visa Canadiense)', $_SESSION['user_id']]);
+                            }
                         }
+                    } else {
+                        // Standard flow auto-advance
+                        if ($currentApp2['form_link_status'] === 'completado') {
+                            $stmtSheet2 = $this->db->prepare("SELECT id FROM information_sheets WHERE application_id = ?");
+                            $stmtSheet2->execute([$id]);
+                            $hasInfoSheet2 = $stmtSheet2->fetch();
+                            if ($hasInfoSheet2) {
+                                $stmtDoc2 = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
+                                $stmtDoc2->execute([$id]);
+                                $hasPasaporte2 = (bool) $stmtDoc2->fetch();
 
-                        if ($hasPasaporte2 && $hasVisaAnterior2) {
-                            $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $id]);
-                            $this->db->prepare("
-                                INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
-                                VALUES (?, ?, ?, ?, ?)
-                            ")->execute([$id, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: documentos base, cuestionario y hoja de información completos', $_SESSION['user_id']]);
+                                $isRenovacion2 = stripos($currentApp2['subtype'] ?? '', 'renov') !== false;
+                                $hasVisaAnterior2 = true;
+                                if ($isRenovacion2) {
+                                    $stmtVisa2 = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
+                                    $stmtVisa2->execute([$id]);
+                                    $hasVisaAnterior2 = (bool) $stmtVisa2->fetch();
+                                }
+
+                                if ($hasPasaporte2 && $hasVisaAnterior2) {
+                                    $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $id]);
+                                    $this->db->prepare("
+                                        INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
+                                        VALUES (?, ?, ?, ?, ?)
+                                    ")->execute([$id, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: documentos base, cuestionario y hoja de información completos', $_SESSION['user_id']]);
+                                }
+                            }
                         }
                     }
                 }
@@ -954,30 +1166,67 @@ class ApplicationController extends BaseController {
                 ")->execute([$amountPaid, $amountPaid, FINANCIAL_PAGADO, $id]);
             }
 
-            // Auto-advance to ROJO if client has completed the form and base documents are present
-            $stmtApp = $this->db->prepare("SELECT a.status, a.form_link_status, a.subtype FROM applications a WHERE a.id = ?");
+            // Auto-advance to ROJO if info sheet saved and base documents are present
+            $stmtApp = $this->db->prepare("SELECT * FROM applications WHERE id = ?");
             $stmtApp->execute([$id]);
             $currentApp = $stmtApp->fetch();
-            if ($currentApp && $currentApp['status'] === STATUS_NUEVO && $currentApp['form_link_status'] === 'completado') {
-                // Validate base documents before advancing
-                $stmtDoc = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
-                $stmtDoc->execute([$id]);
-                $hasPasaporte = (bool) $stmtDoc->fetch();
+            if ($currentApp && $currentApp['status'] === STATUS_NUEVO) {
+                $isCanadianVisa = !empty($currentApp['is_canadian_visa']);
 
-                $isRenovacion = stripos($currentApp['subtype'] ?? '', 'renov') !== false;
-                $hasVisaAnterior = true;
-                if ($isRenovacion) {
-                    $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
-                    $stmtVisa->execute([$id]);
-                    $hasVisaAnterior = (bool) $stmtVisa->fetch();
-                }
+                if ($isCanadianVisa) {
+                    // Canadian visa auto-advance: info sheet + base docs (questionnaire optional if no form linked)
+                    $formOk = ($currentApp['form_link_status'] === 'completado' || empty($currentApp['form_link_id']));
+                    if ($formOk) {
+                        $stmtDoc = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
+                        $stmtDoc->execute([$id]);
+                        $hasPasaporte = (bool) $stmtDoc->fetch();
 
-                if ($hasPasaporte && $hasVisaAnterior) {
-                    $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $id]);
-                    $this->db->prepare("
-                        INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
-                        VALUES (?, ?, ?, ?, ?)
-                    ")->execute([$id, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: hoja de información guardada y cuestionario completado', $_SESSION['user_id']]);
+                        $isRenovacion = stripos($currentApp['canadian_modalidad'] ?? '', 'renov') !== false;
+                        $isETA        = stripos($currentApp['canadian_tipo'] ?? '', 'ETA') !== false;
+
+                        $hasVisaCanadiensPrev = true;
+                        if ($isRenovacion) {
+                            $stmtVC = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_canadiense_anterior'");
+                            $stmtVC->execute([$id]);
+                            $hasVisaCanadiensPrev = (bool) $stmtVC->fetch();
+                        }
+
+                        $hasEtaAnterior = true;
+                        if ($isETA && $isRenovacion) {
+                            $stmtEta = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'eta_anterior'");
+                            $stmtEta->execute([$id]);
+                            $hasEtaAnterior = (bool) $stmtEta->fetch();
+                        }
+
+                        if ($hasPasaporte && $hasVisaCanadiensPrev && $hasEtaAnterior) {
+                            $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $id]);
+                            $this->db->prepare("
+                                INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
+                                VALUES (?, ?, ?, ?, ?)
+                            ")->execute([$id, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: hoja de información guardada y documentos base completos (Visa Canadiense)', $_SESSION['user_id']]);
+                        }
+                    }
+                } elseif ($currentApp['form_link_status'] === 'completado') {
+                    // Standard flow auto-advance
+                    $stmtDoc = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
+                    $stmtDoc->execute([$id]);
+                    $hasPasaporte = (bool) $stmtDoc->fetch();
+
+                    $isRenovacion = stripos($currentApp['subtype'] ?? '', 'renov') !== false;
+                    $hasVisaAnterior = true;
+                    if ($isRenovacion) {
+                        $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
+                        $stmtVisa->execute([$id]);
+                        $hasVisaAnterior = (bool) $stmtVisa->fetch();
+                    }
+
+                    if ($hasPasaporte && $hasVisaAnterior) {
+                        $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $id]);
+                        $this->db->prepare("
+                            INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
+                            VALUES (?, ?, ?, ?, ?)
+                        ")->execute([$id, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: hoja de información guardada y cuestionario completado', $_SESSION['user_id']]);
+                    }
                 }
             }
 
