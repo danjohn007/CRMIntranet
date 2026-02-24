@@ -145,6 +145,99 @@
                     <h1 class="text-sm md:text-xl font-bold truncate"><?= htmlspecialchars(getSiteName()) ?></h1>
                 </div>
                 <div class="flex items-center space-x-2 md:space-x-4 flex-shrink-0">
+                    <?php if (isset($_SESSION['user_id'])): ?>
+                    <?php
+                    $notifications   = getUpcomingNotifications();
+                    $unreadCount     = count(array_filter($notifications, fn($n) => !$n['is_read']));
+                    ?>
+                    <!-- Notification Bell -->
+                    <div class="relative" id="notification-wrapper">
+                        <button id="notification-btn"
+                                class="relative text-white hover:text-blue-200 focus:outline-none p-1"
+                                aria-label="Notificaciones"
+                                aria-haspopup="true"
+                                aria-expanded="false">
+                            <i class="fas fa-bell text-xl"></i>
+                            <?php if ($unreadCount > 0): ?>
+                            <span id="notif-badge"
+                                  class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center leading-none">
+                                <?= $unreadCount > 99 ? '99+' : $unreadCount ?>
+                            </span>
+                            <?php else: ?>
+                            <span id="notif-badge"
+                                  class="absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full h-5 w-5 flex items-center justify-center leading-none hidden">
+                                0
+                            </span>
+                            <?php endif; ?>
+                        </button>
+
+                        <!-- Dropdown -->
+                        <div id="notification-dropdown"
+                             class="hidden absolute right-0 mt-2 w-80 bg-white rounded-lg shadow-xl z-50 border border-gray-200"
+                             role="menu"
+                             aria-label="Lista de notificaciones">
+                            <div class="flex items-center justify-between px-4 py-3 border-b border-gray-200">
+                                <span class="font-semibold text-gray-800 text-sm">Citas próximas</span>
+                                <span class="text-xs text-gray-500">Próximos 2 días</span>
+                            </div>
+                            <ul class="max-h-80 overflow-y-auto divide-y divide-gray-100" id="notif-list">
+                                <?php if (empty($notifications)): ?>
+                                <li class="px-4 py-6 text-center text-gray-500 text-sm">
+                                    <i class="fas fa-check-circle text-green-400 text-2xl mb-2 block"></i>
+                                    No hay citas próximas
+                                </li>
+                                <?php else: ?>
+                                <?php foreach ($notifications as $notif): ?>
+                                <?php
+                                    $appId   = (int) $notif['application_id'];
+                                    $nType   = htmlspecialchars($notif['notification_type']);
+                                    $isRead  = (bool) $notif['is_read'];
+                                    $folio   = htmlspecialchars($notif['folio'] ?? '');
+                                    $client  = htmlspecialchars($notif['client_name'] ?? 'Cliente');
+                                    $apptDt  = $notif['appointment_date'];
+                                    $apptFmt = $apptDt ? date('d/m/Y H:i', strtotime($apptDt)) : '';
+                                    $location = $notif['location'] ? htmlspecialchars($notif['location']) : '';
+                                    $label   = $nType === 'biometric' ? 'Cita biométrica' : 'Cita consular';
+                                    $checkId = "notif-{$appId}-{$nType}";
+                                ?>
+                                <li class="px-4 py-3 <?= $isRead ? 'opacity-60' : 'bg-yellow-50' ?>"
+                                    data-app-id="<?= $appId ?>"
+                                    data-notif-type="<?= $nType ?>">
+                                    <div class="flex items-start space-x-3">
+                                        <div class="flex-shrink-0 mt-0.5">
+                                            <input type="checkbox"
+                                                   id="<?= $checkId ?>"
+                                                   class="notif-checkbox h-4 w-4 rounded border-gray-300 cursor-pointer accent-blue-600"
+                                                   data-app-id="<?= $appId ?>"
+                                                   data-notif-type="<?= $nType ?>"
+                                                   <?= $isRead ? 'checked' : '' ?>
+                                                   title="Marcar como visto">
+                                        </div>
+                                        <label for="<?= $checkId ?>" class="flex-1 cursor-pointer">
+                                            <p class="text-sm font-medium text-gray-800 leading-tight"><?= $client ?></p>
+                                            <p class="text-xs text-gray-500"><?= $folio ?></p>
+                                            <p class="text-xs text-blue-600 mt-0.5">
+                                                <i class="fas fa-calendar-alt mr-1"></i><?= $label ?>: <?= $apptFmt ?>
+                                            </p>
+                                            <?php if ($location): ?>
+                                            <p class="text-xs text-gray-400 mt-0.5">
+                                                <i class="fas fa-map-marker-alt mr-1"></i><?= $location ?>
+                                            </p>
+                                            <?php endif; ?>
+                                        </label>
+                                        <a href="<?= BASE_URL ?>/solicitudes/ver/<?= $appId ?>"
+                                           class="flex-shrink-0 text-blue-500 hover:text-blue-700"
+                                           title="Ver solicitud">
+                                            <i class="fas fa-external-link-alt text-xs"></i>
+                                        </a>
+                                    </div>
+                                </li>
+                                <?php endforeach; ?>
+                                <?php endif; ?>
+                            </ul>
+                        </div>
+                    </div>
+                    <?php endif; ?>
                     <div class="text-sm hidden md:block">
                         <p class="font-semibold"><?= $_SESSION['user_name'] ?? 'Usuario' ?></p>
                         <p class="text-blue-200 text-xs"><?= $_SESSION['user_role'] ?? '' ?></p>
@@ -290,6 +383,89 @@
                         mobileMenuButton.setAttribute('aria-expanded', 'false');
                         mobileMenuButton.focus();
                     }
+                });
+            }
+
+            // ── Notification bell ──────────────────────────────────────────
+            const notifBtn      = document.getElementById('notification-btn');
+            const notifDropdown = document.getElementById('notification-dropdown');
+            const notifBadge    = document.getElementById('notif-badge');
+
+            if (notifBtn && notifDropdown) {
+                // Toggle dropdown
+                notifBtn.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    const isHidden = notifDropdown.classList.toggle('hidden');
+                    notifBtn.setAttribute('aria-expanded', !isHidden);
+                });
+
+                // Close when clicking outside
+                document.addEventListener('click', function(e) {
+                    if (!notifDropdown.classList.contains('hidden') &&
+                        !notifDropdown.contains(e.target) &&
+                        e.target !== notifBtn) {
+                        notifDropdown.classList.add('hidden');
+                        notifBtn.setAttribute('aria-expanded', 'false');
+                    }
+                });
+
+                // Close on Escape
+                document.addEventListener('keydown', function(e) {
+                    if (e.key === 'Escape' && !notifDropdown.classList.contains('hidden')) {
+                        notifDropdown.classList.add('hidden');
+                        notifBtn.setAttribute('aria-expanded', 'false');
+                        notifBtn.focus();
+                    }
+                });
+
+                // Handle mark-read checkboxes
+                document.querySelectorAll('.notif-checkbox').forEach(function(checkbox) {
+                    checkbox.addEventListener('change', function() {
+                        const appId     = this.dataset.appId;
+                        const notifType = this.dataset.notifType;
+                        const action    = this.checked ? 'mark-read' : 'mark-unread';
+                        const li        = this.closest('li');
+
+                        const formData = new FormData();
+                        formData.append('application_id',    appId);
+                        formData.append('notification_type', notifType);
+
+                        fetch('<?= BASE_URL ?>/notifications/' + action, {
+                            method: 'POST',
+                            body: formData,
+                            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+                        })
+                        .then(function(r) { return r.json(); })
+                        .then(function(data) {
+                            if (data.success) {
+                                // Update badge count
+                                const count = data.unread_count;
+                                if (notifBadge) {
+                                    if (count > 0) {
+                                        notifBadge.textContent = count > 99 ? '99+' : count;
+                                        notifBadge.classList.remove('hidden');
+                                    } else {
+                                        notifBadge.classList.add('hidden');
+                                    }
+                                }
+                                // Dim/undim the list item
+                                if (li) {
+                                    if (action === 'mark-read') {
+                                        li.classList.add('opacity-60');
+                                        li.classList.remove('bg-yellow-50');
+                                    } else {
+                                        li.classList.remove('opacity-60');
+                                        li.classList.add('bg-yellow-50');
+                                    }
+                                }
+                            }
+                        })
+                        .catch(function(err) {
+                            console.error('Error updating notification:', err);
+                            // Revert checkbox state on error
+                            checkbox.checked = !checkbox.checked;
+                        });
+                    });
                 });
             }
         });

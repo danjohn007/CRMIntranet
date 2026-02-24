@@ -132,3 +132,98 @@ function logCustomerJourney($applicationId, $touchpointType, $title, $descriptio
         return false;
     }
 }
+
+/**
+ * Get upcoming appointment notifications for the current user.
+ * Returns appointments within the next 2 days that have not yet been attended.
+ * Advisors only see their own clients; Admin/Gerente see all.
+ *
+ * @return array List of notification items with keys:
+ *               application_id, folio, client_name, notification_type,
+ *               appointment_date, location, is_read
+ */
+function getUpcomingNotifications() {
+    $userId   = $_SESSION['user_id']   ?? null;
+    $userRole = $_SESSION['user_role'] ?? null;
+
+    if (!$userId || !$userRole) {
+        return [];
+    }
+
+    try {
+        $db = Database::getInstance()->getConnection();
+
+        $today    = date('Y-m-d');
+        $deadline = date('Y-m-d', strtotime('+2 days'));
+
+        // Generic (non-Canadian) upcoming appointments
+        $sqlGeneric = "
+            SELECT
+                a.id            AS application_id,
+                a.folio,
+                a.created_by,
+                JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.nombre')) AS client_name,
+                'appointment'   AS notification_type,
+                a.appointment_date AS appointment_date,
+                NULL            AS location,
+                CASE WHEN nr.id IS NOT NULL THEN 1 ELSE 0 END AS is_read
+            FROM applications a
+            LEFT JOIN notification_reads nr
+                   ON nr.application_id = a.id
+                  AND nr.notification_type = 'appointment'
+                  AND nr.user_id = ?
+            WHERE a.appointment_date IS NOT NULL
+              AND DATE(a.appointment_date) >= ?
+              AND DATE(a.appointment_date) <= ?
+              AND (a.client_attended IS NULL OR a.client_attended = 0)
+        ";
+
+        // Canadian visa biometric upcoming appointments
+        $sqlBiometric = "
+            SELECT
+                a.id            AS application_id,
+                a.folio,
+                a.created_by,
+                JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.nombre')) AS client_name,
+                'biometric'     AS notification_type,
+                a.canadian_biometric_date AS appointment_date,
+                a.canadian_biometric_location AS location,
+                CASE WHEN nr.id IS NOT NULL THEN 1 ELSE 0 END AS is_read
+            FROM applications a
+            LEFT JOIN notification_reads nr
+                   ON nr.application_id = a.id
+                  AND nr.notification_type = 'biometric'
+                  AND nr.user_id = ?
+            WHERE a.canadian_biometric_date IS NOT NULL
+              AND DATE(a.canadian_biometric_date) >= ?
+              AND DATE(a.canadian_biometric_date) <= ?
+              AND (a.canadian_client_attended_biometrics IS NULL OR a.canadian_client_attended_biometrics = 0)
+        ";
+
+        $advisorFilter = '';
+        if ($userRole === 'Asesor') {
+            $advisorFilter = ' AND a.created_by = ?';
+        }
+
+        $sql = "($sqlGeneric $advisorFilter) UNION ALL ($sqlBiometric $advisorFilter) ORDER BY appointment_date ASC";
+
+        $params = [$userId, $today, $deadline];
+        if ($userRole === 'Asesor') {
+            $params[] = $userId;
+        }
+        $params[] = $userId;
+        $params[] = $today;
+        $params[] = $deadline;
+        if ($userRole === 'Asesor') {
+            $params[] = $userId;
+        }
+
+        $stmt = $db->prepare($sql);
+        $stmt->execute($params);
+        return $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+    } catch (PDOException $e) {
+        error_log("Error fetching notifications: " . $e->getMessage());
+        return [];
+    }
+}
