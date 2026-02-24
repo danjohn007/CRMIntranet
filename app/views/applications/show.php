@@ -1040,7 +1040,7 @@ $canadianStatusLabels = [
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-bold text-gray-800">Financiero</h3>
-                <a href="<?= BASE_URL ?>/financiero/solicitud/<?= $application['id'] ?>" class="text-primary hover:underline"><i class="fas fa-arrow-right"></i></a>
+                <!-- <a href="<?= BASE_URL ?>/financiero/solicitud/<?= $application['id'] ?>" class="text-primary hover:underline"><i class="fas fa-arrow-right"></i></a> -->
             </div>
             <div class="space-y-3">
                 <div class="flex justify-between"><span class="text-gray-600">Total:</span><span class="font-bold">$<?= number_format($application['total_costs'], 2) ?></span></div>
