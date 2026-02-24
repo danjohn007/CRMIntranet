@@ -93,7 +93,7 @@ ob_start();
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Total Pagado</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Saldo</th>
                     <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Estado</th>
-                    <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
+                    <!-- <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th> -->
                 </tr>
             </thead>
             <tbody class="divide-y divide-gray-200">
@@ -136,12 +136,7 @@ ob_start();
                         <span class="text-xs text-gray-400">-</span>
                         <?php endif; ?>
                     </td>
-                    <td class="px-6 py-4 whitespace-nowrap">
-                        <a href="<?= BASE_URL ?>/financiero/solicitud/<?= $app['id'] ?>" 
-                           class="text-primary hover:underline">
-                            <i class="fas fa-eye mr-1"></i>Ver Detalles
-                        </a>
-                    </td>
+                    <!-- <td>  some link  </td> -->
                 </tr>
                 <?php endforeach; ?>
                 
