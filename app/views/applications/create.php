@@ -71,7 +71,9 @@ ob_start();
                     <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono <span class="text-red-500">*</span></label>
                     <input type="tel" name="form_data[telefono]" id="field_telefono" required
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
-                           placeholder="Número de teléfono">
+                           placeholder="Número de teléfono"
+                           pattern="[0-9+()\-\s]+" inputmode="tel"
+                           title="Solo se permiten números y caracteres telefónicos">
                 </div>
             </div>
         </div>
@@ -165,7 +167,9 @@ ob_start();
                 <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono <span class="text-red-500">*</span></label>
                 <input type="tel" name="form_data[telefono]" required
                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-red-500"
-                       placeholder="Número de teléfono">
+                       placeholder="Número de teléfono"
+                       pattern="[0-9+()\-\s]+" inputmode="tel"
+                       title="Solo se permiten números y caracteres telefónicos">
             </div>
         </div>
 
@@ -215,6 +219,13 @@ document.getElementById('form_id').addEventListener('change', function() {
         basicFields.classList.add('hidden');
         submitBtn.disabled = true;
     }
+});
+
+// Restrict phone inputs to numeric and allowed characters only
+document.querySelectorAll('input[type="tel"]').forEach(function(input) {
+    input.addEventListener('input', function() {
+        this.value = this.value.replace(/[^0-9+()\-\s]/g, '');
+    });
 });
 </script>
 

@@ -76,6 +76,9 @@ ob_start();
                     $esRenovación = stripos($subtype, 'renov') !== false;
                     $tipoLabel  = $esRenovación ? 'Renovación' : 'Primera vez';
 
+                    // Is Canadian visa flow?
+                    $appIsCanadian = !empty($app['is_canadian_visa']);
+
                     // Status color class
                     $sc = 'bg-gray-100 text-gray-800';
                     if (in_array($app['status'], [STATUS_TRAMITE_CERRADO, STATUS_FINALIZADO])) $sc = 'bg-green-100 text-green-800';
@@ -83,6 +86,15 @@ ob_start();
                     elseif ($app['status'] === STATUS_CITA_PROGRAMADA)     $sc = 'bg-blue-100 text-blue-800';
                     elseif ($app['status'] === STATUS_EN_ESPERA_PAGO)      $sc = 'bg-yellow-100 text-yellow-800';
                     elseif ($app['status'] === STATUS_LISTO_SOLICITUD)     $sc = 'bg-red-100 text-red-800';
+
+                    // Status display label (Canadian flow uses different labels)
+                    $statusLabel = $app['status'];
+                    if ($appIsCanadian) {
+                        if ($app['status'] === STATUS_LISTO_SOLICITUD)     $statusLabel = 'Listo para carga en portal';
+                        elseif ($app['status'] === STATUS_EN_ESPERA_PAGO)  $statusLabel = 'En espera de cita biométrica';
+                        elseif ($app['status'] === STATUS_CITA_PROGRAMADA) $statusLabel = 'Biométricos programados';
+                        elseif ($app['status'] === STATUS_EN_ESPERA_RESULTADO) $statusLabel = 'En espera de resolución';
+                    }
                 ?>
                 <tr class="hover:bg-gray-50">
                     <td class="px-3 md:px-6 py-4">
@@ -91,6 +103,9 @@ ob_start();
                     </td>
                     <td class="px-3 md:px-6 py-4 whitespace-nowrap">
                         <span class="text-sm text-gray-900"><?= htmlspecialchars($app['type']) ?></span>
+                        <?php if ($appIsCanadian): ?>
+                        <span class="ml-1 text-base" title="Visa Canadiense">🍁</span>
+                        <?php endif; ?>
                     </td>
                     <td class="px-3 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
                         <span class="text-sm <?= $esRenovación ? 'text-orange-600' : 'text-blue-600' ?>">
@@ -99,7 +114,7 @@ ob_start();
                     </td>
                     <td class="px-3 md:px-6 py-4 whitespace-nowrap">
                         <span class="px-2 py-1 text-xs rounded-full font-medium <?= $sc ?>">
-                            <?= htmlspecialchars($app['status']) ?>
+                            <?= htmlspecialchars($statusLabel) ?>
                         </span>
                     </td>
                     <td class="px-3 md:px-6 py-4 whitespace-nowrap text-sm text-gray-700 hidden md:table-cell">
