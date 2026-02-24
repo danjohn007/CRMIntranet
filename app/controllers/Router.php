@@ -83,6 +83,10 @@ class Router {
         // Public solicitudes (for asesoras confirming appointments)
         $this->routes['GET']['/public/solicitudes'] = ['ApplicationController', 'publicSolicitudes'];
         $this->routes['POST']['/solicitudes/confirmar-cita/{id}'] = ['ApplicationController', 'confirmAppointment'];
+
+        // Notifications
+        $this->routes['POST']['/notifications/mark-read']   = ['NotificationController', 'markRead'];
+        $this->routes['POST']['/notifications/mark-unread'] = ['NotificationController', 'markUnread'];
         
         // Test de Conexión
         $this->routes['GET']['/test-conexion'] = ['TestController', 'connection'];
