@@ -140,13 +140,17 @@ class DashboardController extends BaseController {
             // Datos para calendario de citas (solicitudes con cita programada)
             try {
                 $appointmentSql = "
-                    SELECT a.id, a.folio, a.appointment_date, a.type, a.subtype,
+                    SELECT a.id, a.folio, a.appointment_date, a.canadian_biometric_date,
+                           a.is_canadian_visa, a.type, a.subtype,
                            a.appointment_confirmed_day_before,
                            u.full_name as creator_name
                     FROM applications a
                     LEFT JOIN users u ON a.created_by = u.id
-                    WHERE a.appointment_date IS NOT NULL
-                      AND a.status = ?
+                    WHERE a.status = ?
+                      AND (
+                        (COALESCE(a.is_canadian_visa, 0) = 0 AND a.appointment_date IS NOT NULL)
+                        OR (a.is_canadian_visa = 1 AND a.canadian_biometric_date IS NOT NULL)
+                      )
                 ";
                 $appointmentParams = [STATUS_CITA_PROGRAMADA];
 
@@ -154,7 +158,7 @@ class DashboardController extends BaseController {
                     $appointmentSql .= " AND a.created_by = ?";
                     $appointmentParams[] = $userId;
                 }
-                $appointmentSql .= " ORDER BY a.appointment_date ASC";
+                $appointmentSql .= " ORDER BY COALESCE(a.canadian_biometric_date, a.appointment_date) ASC";
 
                 $stmt = $this->db->prepare($appointmentSql);
                 $stmt->execute($appointmentParams);

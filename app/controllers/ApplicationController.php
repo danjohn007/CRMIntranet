@@ -468,9 +468,9 @@ class ApplicationController extends BaseController {
         $role      = $this->getUserRole();
         $newStatus = $_POST['status'] ?? '';
 
-        // Asesor may only close a trámite (from morado) via this endpoint
+        // Asesor may only close a trámite (from morado) or confirm biometrics attendance (Canadian: azul → morado)
         if ($role === ROLE_ASESOR) {
-            if ($newStatus !== STATUS_TRAMITE_CERRADO) {
+            if ($newStatus !== STATUS_TRAMITE_CERRADO && $newStatus !== STATUS_EN_ESPERA_RESULTADO) {
                 http_response_code(403);
                 die("Acceso denegado. No tiene permisos para esta acción.");
             }
@@ -512,15 +512,23 @@ class ApplicationController extends BaseController {
 
             $previousStatus = $application['status'];
 
-            // Asesor can only close their own trámite from STATUS_EN_ESPERA_RESULTADO
+            // Asesor: validate specific allowed transitions
             if ($role === ROLE_ASESOR) {
                 if (intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
                 }
-                if ($previousStatus !== STATUS_EN_ESPERA_RESULTADO) {
-                    $_SESSION['error'] = 'No puede cerrar un trámite que no está en estado En espera de resultado';
-                    $this->redirect('/solicitudes/ver/' . $id);
+                if ($newStatus === STATUS_TRAMITE_CERRADO) {
+                    if ($previousStatus !== STATUS_EN_ESPERA_RESULTADO) {
+                        $_SESSION['error'] = 'No puede cerrar un trámite que no está en estado En espera de resultado';
+                        $this->redirect('/solicitudes/ver/' . $id);
+                    }
+                } elseif ($newStatus === STATUS_EN_ESPERA_RESULTADO) {
+                    // Only allowed for Canadian flow: asesor confirms biometrics attendance (AZUL → MORADO)
+                    if (empty($application['is_canadian_visa']) || $previousStatus !== STATUS_CITA_PROGRAMADA) {
+                        $_SESSION['error'] = 'No tiene permisos para esta acción';
+                        $this->redirect('/solicitudes/ver/' . $id);
+                    }
                 }
             }
 
@@ -633,7 +641,13 @@ class ApplicationController extends BaseController {
                     $attendedDate = !empty($_POST['canadian_biometric_attended_date']) ? $_POST['canadian_biometric_attended_date'] : null;
                     $extraSql    = ', canadian_client_attended_biometrics = ?, canadian_biometric_attended_date = ?';
                     $extraParams = [$attended, $attendedDate];
-                } elseif ($newStatus === STATUS_EN_ESPERA_RESULTADO || $newStatus === STATUS_TRAMITE_CERRADO) {
+                } elseif ($newStatus === STATUS_EN_ESPERA_RESULTADO) {
+                    // AZUL → MORADO canadiense: biometrics attendance
+                    $attended     = isset($_POST['canadian_client_attended_biometrics']) ? 1 : 0;
+                    $attendedDate = !empty($_POST['canadian_biometric_attended_date']) ? $_POST['canadian_biometric_attended_date'] : null;
+                    $extraSql    = ', canadian_client_attended_biometrics = ?, canadian_biometric_attended_date = ?';
+                    $extraParams = [$attended, $attendedDate];
+                } elseif ($newStatus === STATUS_TRAMITE_CERRADO) {
                     // MORADO → VERDE canadiense: visa result
                     $visaResult         = trim($_POST['canadian_visa_result'] ?? '');
                     $resolutionDate     = !empty($_POST['canadian_resolution_date']) ? $_POST['canadian_resolution_date'] : null;
