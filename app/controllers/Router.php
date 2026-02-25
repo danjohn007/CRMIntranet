@@ -90,6 +90,10 @@ class Router {
         
         // Test de Conexión
         $this->routes['GET']['/test-conexion'] = ['TestController', 'connection'];
+
+        // Test de Correo SMTP
+        $this->routes['GET']['/test-email']         = ['EmailController', 'testForm'];
+        $this->routes['POST']['/test-email/enviar'] = ['EmailController', 'sendTest'];
     }
     
     public function dispatch($uri) {
