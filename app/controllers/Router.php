@@ -63,6 +63,7 @@ class Router {
         // Configuración
         $this->routes['GET']['/configuracion'] = ['ConfigController', 'index'];
         $this->routes['POST']['/configuracion/guardar'] = ['ConfigController', 'save'];
+        $this->routes['POST']['/configuracion/test-email'] = ['ConfigController', 'testEmail'];
         
         // Logs de Errores
         $this->routes['GET']['/logs'] = ['LogController', 'index'];

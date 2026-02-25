@@ -39,9 +39,8 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
-# Ignorar archivos de composer si se usa
-vendor/
-composer.lock
+# Archivos de composer incluidos en el proyecto (dependencias necesarias)
+# vendor/ y composer.lock no se ignoran para que las dependencias estén siempre en el proyecto
 
 # Ignorar archivos de respaldo
 *.bak

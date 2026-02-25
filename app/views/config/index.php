@@ -226,11 +226,21 @@ ob_start();
                 <p class="text-xs text-gray-500 mt-1">Servidor: <?= htmlspecialchars($configs['smtp_host']['config_value'] ?? '') ?></p>
             </div>
         </div>
-        <div class="mt-4 flex justify-end">
+        <div class="mt-4 flex flex-wrap gap-3 justify-end items-center">
+            <!-- Test Email -->
+            <div class="flex items-center gap-2 flex-1 min-w-0 max-w-xs">
+                <input type="email" id="test_email_to" placeholder="Correo destinatario de prueba"
+                       class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-green-500 min-w-0">
+                <button type="button" onclick="sendTestEmail()"
+                        class="whitespace-nowrap bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-lg text-sm transition flex items-center gap-1">
+                    <i class="fas fa-paper-plane"></i><span class="hidden sm:inline">Enviar prueba</span>
+                </button>
+            </div>
             <button type="submit" class="btn-primary text-white px-6 py-2 rounded-lg hover:opacity-90 transition text-sm">
                 <i class="fas fa-save mr-2"></i>Guardar Correo
             </button>
         </div>
+        <div id="test_email_result" class="mt-3 hidden"></div>
     </div>
 
     <!-- Pagos -->
@@ -386,6 +396,43 @@ function showSection(sectionId) {
         setTimeout(function() { el.classList.remove('ring-2', 'ring-blue-400'); }, 2000);
     }
 }
+
+function sendTestEmail() {
+    const toEmail = document.getElementById('test_email_to').value.trim();
+    const resultEl = document.getElementById('test_email_result');
+    if (!toEmail) {
+        resultEl.innerHTML = '<p class="text-sm text-red-600"><i class="fas fa-exclamation-circle mr-1"></i>Ingresa un correo destinatario.</p>';
+        resultEl.classList.remove('hidden');
+        return;
+    }
+    const btn = document.querySelector('[onclick="sendTestEmail()"]');
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+    resultEl.innerHTML = '<p class="text-sm text-gray-500"><i class="fas fa-spinner fa-spin mr-1"></i>Enviando...</p>';
+    resultEl.classList.remove('hidden');
+
+    fetch('<?= BASE_URL ?>/configuracion/test-email', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+        body: 'to_email=' + encodeURIComponent(toEmail)
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            resultEl.innerHTML = '<p class="text-sm text-green-700 bg-green-50 border border-green-200 rounded px-3 py-2"><i class="fas fa-check-circle mr-1"></i>' + data.message + '</p>';
+        } else {
+            resultEl.innerHTML = '<p class="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2"><i class="fas fa-times-circle mr-1"></i>' + data.message + '</p>';
+        }
+    })
+    .catch(err => {
+        resultEl.innerHTML = '<p class="text-sm text-red-700 bg-red-50 border border-red-200 rounded px-3 py-2"><i class="fas fa-times-circle mr-1"></i>Error de red: ' + err.message + '</p>';
+    })
+    .finally(() => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fas fa-paper-plane"></i><span class="hidden sm:inline">Enviar prueba</span>';
+    });
+}
+
 
 function toggleSmtpPassword() {
     const input = document.getElementById('smtp_password');

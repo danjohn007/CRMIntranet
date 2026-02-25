@@ -93,4 +93,70 @@ class ConfigController extends BaseController {
             $this->redirect('/configuracion');
         }
     }
+
+    public function testEmail() {
+        $this->requireRole([ROLE_ADMIN]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->json(['success' => false, 'message' => 'Método no permitido'], 405);
+        }
+
+        $toEmail = trim($_POST['to_email'] ?? '');
+        if (!$toEmail || !filter_var($toEmail, FILTER_VALIDATE_EMAIL)) {
+            $this->json(['success' => false, 'message' => 'Ingresa un correo destinatario válido']);
+        }
+
+        // Leer configuración SMTP desde global_config (siempre de BD)
+        try {
+            $stmt = $this->db->query("SELECT config_key, config_value FROM global_config WHERE config_key IN ('smtp_user','smtp_password','smtp_host','smtp_port','email_from','site_name')");
+            $rows = $stmt->fetchAll(PDO::FETCH_KEY_PAIR);
+        } catch (PDOException $e) {
+            $this->json(['success' => false, 'message' => 'Error al leer configuración SMTP: ' . $e->getMessage()]);
+        }
+
+        $smtpHost     = $rows['smtp_host']     ?? '';
+        $smtpUser     = $rows['smtp_user']     ?? '';
+        $smtpPassword = $rows['smtp_password'] ?? '';
+        $smtpPort     = (int)($rows['smtp_port'] ?? 465);
+        $fromEmail    = $rows['email_from']    ?? $smtpUser;
+        $fromName     = $rows['site_name']     ?? 'CRM';
+
+        if (!$smtpHost || !$smtpUser || !$smtpPassword) {
+            $this->json(['success' => false, 'message' => 'Configuración SMTP incompleta en global_config (smtp_host, smtp_user, smtp_password son requeridos)']);
+        }
+
+        if (!class_exists('PHPMailer\PHPMailer\PHPMailer')) {
+            $this->json(['success' => false, 'message' => 'PHPMailer no está disponible. Verifica que vendor/autoload.php esté cargado.']);
+        }
+
+        $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+        try {
+            $mail->isSMTP();
+            $mail->Host       = $smtpHost;
+            $mail->SMTPAuth   = true;
+            $mail->Username   = $smtpUser;
+            $mail->Password   = $smtpPassword;
+            $mail->SMTPSecure = ($smtpPort === 465)
+                ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
+                : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+            $mail->Port       = $smtpPort;
+            $mail->CharSet    = 'UTF-8';
+
+            $mail->setFrom($fromEmail, $fromName);
+            $mail->addAddress($toEmail);
+            $mail->Subject = 'Correo de prueba - ' . $fromName;
+            $mail->isHTML(true);
+            $mail->Body = '<p>Este es un <strong>correo de prueba</strong> enviado desde <em>' . htmlspecialchars($fromName) . '</em>.</p>'
+                        . '<p>Configuración SMTP:<br>'
+                        . 'Servidor: ' . htmlspecialchars($smtpHost) . '<br>'
+                        . 'Puerto: ' . $smtpPort . '<br>'
+                        . 'Usuario: ' . htmlspecialchars($smtpUser) . '</p>';
+            $mail->AltBody = 'Correo de prueba desde ' . $fromName . '. Servidor: ' . $smtpHost . ', Puerto: ' . $smtpPort;
+
+            $mail->send();
+            $this->json(['success' => true, 'message' => 'Correo de prueba enviado correctamente a ' . htmlspecialchars($toEmail)]);
+        } catch (\PHPMailer\PHPMailer\Exception $e) {
+            $this->json(['success' => false, 'message' => 'Error al enviar correo: ' . $mail->ErrorInfo]);
+        }
+    }
 }
