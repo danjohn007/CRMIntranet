@@ -120,7 +120,7 @@ $canadianStatusLabels = [
 <?php /* ── OFFICE APPOINTMENT SECTION (only shown in AZUL state) ─── */ ?>
 <?php if ($status === STATUS_CITA_PROGRAMADA && ($isAsesor || $isAdmin)): ?>
 <div class="bg-white border border-blue-200 rounded-lg p-5 mb-6 shadow-sm">
-    <h4 class="text-base font-bold text-blue-800 mb-3"><i class="fas fa-building text-blue-500 mr-2"></i>Cita a oficinas — Indicaciones previas a consulado/biométrica</h4>
+    <h4 class="text-base font-bold text-blue-800 mb-3"><i class="fas fa-building text-blue-500 mr-2"></i>Cita a oficinas — Cita a oficinas para recibir indicaciones previas</h4>
     <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-cita-oficina/<?= $application['id'] ?>" class="flex flex-wrap gap-4 items-end">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Fecha y hora</label>
