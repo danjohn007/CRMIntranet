@@ -374,6 +374,10 @@ function sendAppointmentNotificationEmail($applicationId, $type, $appointmentDat
         . $locationRow
         . '<tr><th style="text-align:left;padding:8px 12px;color:#6b7280;font-weight:600;">Asesor</th><td style="padding:8px 12px;color:#111827;">' . $advisorName . '</td></tr>'
         . '</table>'
+        . '<div style="background-color:#fef9c3;border:2px solid #f59e0b;border-radius:8px;padding:16px;margin:20px 0;">'
+        . '<p style="margin:0;font-size:15px;color:#92400e;font-weight:bold;">⚠️ Recordatorio importante</p>'
+        . '<p style="margin:8px 0 0;font-size:14px;color:#78350f;">Recuerda verificar que tus citas sigan vigentes y listas para presentación enviando un WhatsApp al <strong>4424495675</strong>.</p>'
+        . '</div>'
         . '<p style="color:#6b7280;font-size:12px;margin-top:24px;border-top:1px solid #e5e7eb;padding-top:16px;">'
         . 'Este correo fue generado automáticamente por ' . htmlspecialchars($siteName, ENT_QUOTES, 'UTF-8') . '. Por favor no responda a este mensaje.'
         . '</p>'
@@ -382,7 +386,8 @@ function sendAppointmentNotificationEmail($applicationId, $type, $appointmentDat
 
     $altBody = "Folio: $folio | Cliente: $clientName | $appointmentLabel: $dateFormatted"
         . (!empty($location) ? " | Lugar: $location" : '')
-        . " | Asesor: {$application['creator_name']}";
+        . " | Asesor: {$application['creator_name']}"
+        . " | IMPORTANTE: Recuerda verificar que tus citas sigan vigentes enviando un WhatsApp al 4424495675.";
 
     // Send one email per unique recipient
     $sendErrors = [];
