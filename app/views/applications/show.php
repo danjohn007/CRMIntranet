@@ -116,6 +116,45 @@ $canadianStatusLabels = [
         <?php endif; ?>
     </div>
 </div>
+
+<?php /* ── OFFICE APPOINTMENT SECTION (only shown in AZUL state) ─── */ ?>
+<?php if ($status === STATUS_CITA_PROGRAMADA && ($isAsesor || $isAdmin)): ?>
+<div class="bg-white border border-blue-200 rounded-lg p-5 mb-6 shadow-sm">
+    <h4 class="text-base font-bold text-blue-800 mb-3"><i class="fas fa-building text-blue-500 mr-2"></i>Cita a oficinas — Indicaciones previas a consulado/biométrica</h4>
+    <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-cita-oficina/<?= $application['id'] ?>" class="flex flex-wrap gap-4 items-end">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Fecha y hora</label>
+            <input type="datetime-local" name="office_appointment_date"
+                   value="<?= !empty($application['office_appointment_date']) ? date('Y-m-d\TH:i', strtotime($application['office_appointment_date'])) : '' ?>"
+                   class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Modalidad</label>
+            <select name="office_appointment_modality"
+                    class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                <option value="">-- Seleccione --</option>
+                <option value="Zoom" <?= ($application['office_appointment_modality'] ?? '') === 'Zoom' ? 'selected' : '' ?>>Zoom</option>
+                <option value="Presencial" <?= ($application['office_appointment_modality'] ?? '') === 'Presencial' ? 'selected' : '' ?>>Presencial</option>
+            </select>
+        </div>
+        <div>
+            <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 transition">
+                <i class="fas fa-save mr-1"></i>Guardar cita
+            </button>
+        </div>
+    </form>
+    <?php if (!empty($application['office_appointment_date'])): ?>
+    <div class="mt-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
+        <i class="fas fa-calendar-check mr-1"></i>
+        <strong>Cita agendada:</strong>
+        <?= date('d/m/Y H:i', strtotime($application['office_appointment_date'])) ?>
+        <?php if (!empty($application['office_appointment_modality'])): ?>
+        — <span class="font-semibold"><?= htmlspecialchars($application['office_appointment_modality']) ?></span>
+        <?php endif; ?>
+    </div>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
 <?php elseif ($status === STATUS_EN_ESPERA_RESULTADO): ?>
 <div class="bg-purple-50 border-l-4 border-purple-500 rounded-lg p-4 mb-6 flex items-start gap-3">
     <i class="fas fa-clock text-purple-500 text-2xl mt-0.5"></i>
@@ -833,7 +872,7 @@ $canadianStatusLabels = [
                         </div>
                         <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($pasaporteDoc['name']) ?></p><?php endif; ?>
                     <?php else: ?>
-                        <?php if ($isAsesor && !$isClosedStatus): ?>
+                        <?php if (($isAsesor || $isAdmin) && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('pasaporte_vigente')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
                         <?php else: ?><p class="text-red-500 text-sm"><i class="fas fa-times-circle mr-1"></i>No subido</p><?php endif; ?>
                     <?php endif; ?>
@@ -852,7 +891,7 @@ $canadianStatusLabels = [
                         </div>
                         <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($visaCanadiensPrevDoc['name']) ?></p><?php endif; ?>
                     <?php else: ?>
-                        <?php if ($isAsesor && !$isClosedStatus): ?>
+                        <?php if (($isAsesor || $isAdmin) && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('visa_canadiense_anterior')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
                         <?php else: ?><p class="text-red-500 text-sm"><i class="fas fa-times-circle mr-1"></i>No subido</p><?php endif; ?>
                     <?php endif; ?>
@@ -871,7 +910,7 @@ $canadianStatusLabels = [
                         </div>
                         <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($etaAnteriorDoc['name']) ?></p><?php endif; ?>
                     <?php else: ?>
-                        <?php if ($isAsesor && !$isClosedStatus): ?>
+                        <?php if (($isAsesor || $isAdmin) && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('eta_anterior')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
                         <?php else: ?><p class="text-red-500 text-sm"><i class="fas fa-times-circle mr-1"></i>No subido</p><?php endif; ?>
                     <?php endif; ?>
@@ -891,7 +930,7 @@ $canadianStatusLabels = [
                         </div>
                         <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($visaAnteriorDoc['name']) ?></p><?php endif; ?>
                     <?php else: ?>
-                        <?php if ($isAsesor && !$isClosedStatus): ?>
+                        <?php if (($isAsesor || $isAdmin) && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('visa_anterior')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
                         <?php else: ?><p class="text-red-500 text-sm"><i class="fas fa-times-circle mr-1"></i>No subido</p><?php endif; ?>
                     <?php endif; ?>

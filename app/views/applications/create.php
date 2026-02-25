@@ -13,7 +13,7 @@ ob_start();
     <button type="button" id="btn-standard"
             onclick="setFlow('standard')"
             class="px-6 py-3 rounded-lg border-2 font-semibold transition border-blue-600 bg-blue-600 text-white">
-        <i class="fas fa-file-alt mr-2"></i>Nuevo trámite estándar
+        <i class="fas fa-file-alt mr-2"></i>Nuevo trámite Visa Americana
     </button>
     <button type="button" id="btn-canadian"
             onclick="setFlow('canadian')"

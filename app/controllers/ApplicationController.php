@@ -1402,6 +1402,50 @@ class ApplicationController extends BaseController {
     }
 
     /**
+     * Guardar cita a oficinas (fecha/hora y modalidad) para estado AZUL.
+     */
+    public function saveOfficeAppointment($id) {
+        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $role = $this->getUserRole();
+
+        try {
+            $stmt = $this->db->prepare("SELECT created_by, status FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                $this->redirect('/solicitudes');
+            }
+
+            $officeDate     = !empty($_POST['office_appointment_date']) ? $_POST['office_appointment_date'] : null;
+            $officeModality = in_array($_POST['office_appointment_modality'] ?? '', ['Zoom', 'Presencial'])
+                ? $_POST['office_appointment_modality'] : null;
+
+            $this->db->prepare("UPDATE applications SET office_appointment_date = ?, office_appointment_modality = ? WHERE id = ?")
+                ->execute([$officeDate, $officeModality, $id]);
+
+            $_SESSION['success'] = 'Cita a oficinas guardada correctamente';
+            $this->redirect('/solicitudes/ver/' . $id);
+
+        } catch (PDOException $e) {
+            error_log("Error al guardar cita a oficinas: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al guardar cita a oficinas';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
+    /**
      * Vista pública para que asesoras confirmen citas del día siguiente.
      */
     public function publicSolicitudes() {
