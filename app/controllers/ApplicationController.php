@@ -622,6 +622,10 @@ class ApplicationController extends BaseController {
             $extraSql    = '';
             $extraParams = [];
 
+            // Email notification tracking: set when an appointment date is being saved
+            $notifyAppointmentType = null;
+            $notifyAppointmentDate = null;
+
             if ($isCanadianVisa) {
                 // ── Canadian visa extra fields ──────────────────────────────
                 if ($newStatus === STATUS_LISTO_SOLICITUD || ($previousStatus === STATUS_LISTO_SOLICITUD && $newStatus === STATUS_EN_ESPERA_PAGO)) {
@@ -636,6 +640,11 @@ class ApplicationController extends BaseController {
                     $biometricLocation  = trim($_POST['canadian_biometric_location'] ?? '');
                     $extraSql    = ', canadian_biometric_appointment_generated = ?, canadian_biometric_date = ?, canadian_biometric_location = ?';
                     $extraParams = [$biometricGenerated, $biometricDate, $biometricLocation ?: null];
+                    // Trigger email if biometric date is new or changed
+                    if (!empty($biometricDate) && $biometricDate !== ($application['canadian_biometric_date'] ?? null)) {
+                        $notifyAppointmentType = 'biometric';
+                        $notifyAppointmentDate = $biometricDate;
+                    }
                 } elseif ($newStatus === STATUS_CITA_PROGRAMADA) {
                     // AZUL canadiense: biometrics attendance
                     $attended     = isset($_POST['canadian_client_attended_biometrics']) ? 1 : 0;
@@ -680,6 +689,11 @@ class ApplicationController extends BaseController {
                     if ($appointmentDate !== null) {
                         $extraSql    = ', consular_payment_confirmed = ?, appointment_date = ?';
                         $extraParams = [$consularPaymentConfirmed, $appointmentDate];
+                        // Trigger email if appointment date is new or changed
+                        if ($appointmentDate !== ($application['appointment_date'] ?? null)) {
+                            $notifyAppointmentType = 'consular';
+                            $notifyAppointmentDate = $appointmentDate;
+                        }
                     } else {
                         $extraSql    = ', consular_payment_confirmed = ?';
                         $extraParams = [$consularPaymentConfirmed];
@@ -758,6 +772,15 @@ class ApplicationController extends BaseController {
                 $comment,
                 'online'
             );
+
+            // Send appointment notification email when a new/changed appointment date is saved
+            if ($notifyAppointmentType !== null && $notifyAppointmentDate !== null) {
+                try {
+                    sendAppointmentNotificationEmail($id, $notifyAppointmentType, $notifyAppointmentDate, false, $this->db);
+                } catch (\Exception $e) {
+                    error_log("Error sending appointment notification email for application #$id: " . $e->getMessage());
+                }
+            }
             
             $_SESSION['success'] = 'Estatus actualizado correctamente';
             // Asesor cannot view a closed trámite, redirect them to the list
