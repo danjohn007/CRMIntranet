@@ -39,9 +39,8 @@ node_modules/
 npm-debug.log
 yarn-error.log
 
-# Ignorar archivos de composer si se usa
-vendor/
-composer.lock
+# Las dependencias de composer se incluyen en el proyecto (requerido para cPanel)
+# vendor/ y composer.lock se rastrean intencionalmente
 
 # Ignorar archivos de respaldo
 *.bak

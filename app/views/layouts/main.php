@@ -297,6 +297,11 @@
                     <span>Configuración</span>
                 </a>
                 
+                <a href="<?= BASE_URL ?>/test-email" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
+                    <i class="fas fa-paper-plane w-6"></i>
+                    <span>Test de Correo</span>
+                </a>
+                
                 <a href="<?= BASE_URL ?>/auditoria" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
                     <i class="fas fa-clipboard-list w-6"></i>
                     <span>Auditoría</span>
