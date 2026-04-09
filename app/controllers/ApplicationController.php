@@ -1203,13 +1203,14 @@ class ApplicationController extends BaseController {
             $clientEmail    = trim($_POST['client_email'] ?? '');
             $embassyEmail   = trim($_POST['embassy_email'] ?? '');
             $amountPaid     = !empty($_POST['amount_paid']) ? floatval($_POST['amount_paid']) : null;
+            $dhl            = trim($_POST['dhl'] ?? '');
             $observations   = trim($_POST['observations'] ?? '');
 
             // Upsert hoja de información
             $stmt = $this->db->prepare("
                 INSERT INTO information_sheets
-                    (application_id, entry_date, residence_place, address, client_email, embassy_email, amount_paid, observations, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    (application_id, entry_date, residence_place, address, client_email, embassy_email, amount_paid, dhl, observations, created_by)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ON DUPLICATE KEY UPDATE
                     entry_date = VALUES(entry_date),
                     residence_place = VALUES(residence_place),
@@ -1217,11 +1218,12 @@ class ApplicationController extends BaseController {
                     client_email = VALUES(client_email),
                     embassy_email = VALUES(embassy_email),
                     amount_paid = VALUES(amount_paid),
+                    dhl = VALUES(dhl),
                     observations = VALUES(observations)
             ");
             $stmt->execute([
                 $id, $entryDate, $residencePlace, $address,
-                $clientEmail, $embassyEmail, $amountPaid, $observations,
+                $clientEmail, $embassyEmail, $amountPaid, $dhl ?: null, $observations,
                 $_SESSION['user_id']
             ]);
 

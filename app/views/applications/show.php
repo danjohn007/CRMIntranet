@@ -296,6 +296,9 @@ $canadianStatusLabels = [
                 <div><p class="text-sm text-gray-600">Email solicitante</p><p class="font-semibold"><?= htmlspecialchars($infoSheet['client_email'] ?? '-') ?></p></div>
                 <div><p class="text-sm text-gray-600">Email embajada</p><p class="font-semibold"><?= htmlspecialchars($infoSheet['embassy_email'] ?? '-') ?></p></div>
                 <div><p class="text-sm text-gray-600">Honorarios</p><p class="font-semibold"><?= $infoSheet['amount_paid'] !== null ? '$' . number_format($infoSheet['amount_paid'], 2) : '-' ?></p></div>
+                <?php if (!empty($infoSheet['dhl'])): ?>
+                <div><p class="text-sm text-gray-600">DHL</p><p class="font-semibold"><?= htmlspecialchars($infoSheet['dhl']) ?></p></div>
+                <?php endif; ?>
                 <?php if (!empty($infoSheet['observations'])): ?>
                 <div class="md:col-span-2"><p class="text-sm text-gray-600">Observaciones</p><p class="font-semibold"><?= nl2br(htmlspecialchars($infoSheet['observations'])) ?></p></div>
                 <?php endif; ?>
@@ -956,18 +959,30 @@ $canadianStatusLabels = [
             <?php if (!empty($documents)): ?>
             <div class="space-y-3">
                 <?php foreach ($documents as $doc): ?>
-                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
-                    <div class="flex items-center space-x-3">
-                        <i class="fas fa-file-<?= $doc['file_type'] === 'pdf' ? 'pdf text-red-500' : 'alt text-blue-500' ?> text-2xl"></i>
-                        <div>
-                            <p class="font-medium text-gray-800"><?= htmlspecialchars($doc['name']) ?></p>
-                            <p class="text-sm text-gray-500"><?= htmlspecialchars($doc['uploaded_by_name']) ?> · <?= date('d/m/Y H:i', strtotime($doc['created_at'])) ?> · <?= number_format($doc['file_size']/1024, 0) ?> KB</p>
+                <?php $isImage = in_array(strtolower($doc['file_type']), ['jpg','jpeg','png','gif','webp']); ?>
+                <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-file-<?= $doc['file_type'] === 'pdf' ? 'pdf text-red-500' : 'alt text-blue-500' ?> text-2xl"></i>
+                            <div>
+                                <p class="font-medium text-gray-800"><?= htmlspecialchars($doc['name']) ?></p>
+                                <p class="text-sm text-gray-500"><?= htmlspecialchars($doc['uploaded_by_name']) ?> · <?= date('d/m/Y H:i', strtotime($doc['created_at'])) ?> · <?= number_format($doc['file_size']/1024, 0) ?> KB</p>
+                            </div>
                         </div>
+                        <?php if ($isAdmin): ?>
+                        <div class="flex items-center space-x-3">
+                            <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" target="_blank" class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></a>
+                            <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $doc['id'] ?>" class="text-primary hover:underline"><i class="fas fa-download"></i></a>
+                        </div>
+                        <?php endif; ?>
                     </div>
-                    <?php if ($isAdmin): ?>
-                    <div class="flex items-center space-x-3">
-                        <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" target="_blank" class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></a>
-                        <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $doc['id'] ?>" class="text-primary hover:underline"><i class="fas fa-download"></i></a>
+                    <?php if ($isAdmin && $isImage): ?>
+                    <div class="mt-2">
+                        <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" alt="<?= htmlspecialchars($doc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:400px;">
+                    </div>
+                    <?php elseif ($isAdmin && $doc['file_type'] === 'pdf'): ?>
+                    <div class="mt-2">
+                        <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" type="application/pdf" class="w-full rounded border border-gray-200" style="height:400px;">
                     </div>
                     <?php endif; ?>
                 </div>
@@ -1055,7 +1070,7 @@ $canadianStatusLabels = [
                         <option value="<?= STATUS_EN_ESPERA_RESULTADO ?>" <?= $status===STATUS_EN_ESPERA_RESULTADO ? 'selected':'' ?>><?= htmlspecialchars($canadianStatusLabels[STATUS_EN_ESPERA_RESULTADO]) ?></option>
                         <option value="<?= STATUS_TRAMITE_CERRADO ?>"     <?= $status===STATUS_TRAMITE_CERRADO     ? 'selected':'' ?>><?= htmlspecialchars($canadianStatusLabels[STATUS_TRAMITE_CERRADO]) ?></option>
                         <?php else: ?>
-                        <option value="<?= STATUS_LISTO_SOLICITUD ?>"     <?= $status===STATUS_LISTO_SOLICITUD     ? 'selected':'' ?>>Listo para solicitud</option>
+                        <option value="<?= STATUS_LISTO_SOLICITUD ?>"     <?= $status===STATUS_LISTO_SOLICITUD     ? 'selected':'' ?>>Listo para comenzar</option>
                         <option value="<?= STATUS_EN_ESPERA_PAGO ?>"      <?= $status===STATUS_EN_ESPERA_PAGO      ? 'selected':'' ?>>En espera de pago consular</option>
                         <option value="<?= STATUS_CITA_PROGRAMADA ?>"     <?= $status===STATUS_CITA_PROGRAMADA     ? 'selected':'' ?>>Cita programada</option>
                         <option value="<?= STATUS_EN_ESPERA_RESULTADO ?>" <?= $status===STATUS_EN_ESPERA_RESULTADO ? 'selected':'' ?>>En espera de resultado</option>
@@ -1165,6 +1180,8 @@ $canadianStatusLabels = [
                 <input type="email" name="embassy_email" value="<?= htmlspecialchars($infoSheet['embassy_email'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
             <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1"><?= $isCanadianVisa ? 'Costo que pagó el cliente' : 'Honorarios pagados' ?></label>
                 <input type="number" step="0.01" min="0" name="amount_paid" value="<?= htmlspecialchars($infoSheet['amount_paid'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
+            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">DHL</label>
+                <input type="text" name="dhl" value="<?= htmlspecialchars($infoSheet['dhl'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
             <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
                 <textarea name="observations" rows="3" class="w-full border rounded-lg px-4 py-2"><?= htmlspecialchars($infoSheet['observations'] ?? '') ?></textarea></div>
             <div class="flex gap-3">
