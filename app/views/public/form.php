@@ -650,7 +650,7 @@
                         const rname = input.name;
                         if (!processedRadioNames.has(rname)) {
                             processedRadioNames.add(rname);
-                            const group = document.querySelectorAll('input[name="' + CSS.escape(rname) + '"]');
+                            const group = document.getElementsByName(rname);
                             if (!Array.from(group).some(r => r.checked)) {
                                 missingFields.push({ label: label, pageNum: pageNum, pageId: pageId });
                             }

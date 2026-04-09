@@ -1404,7 +1404,7 @@ class ApplicationController extends BaseController {
                 ]);
             }
 
-            logAudit('create', 'solicitudes', "Familiar guardado para solicitud #$id");
+            logAudit($familiarId > 0 ? 'update' : 'create', 'solicitudes', "Familiar guardado para solicitud #$id");
 
             $_SESSION['success'] = 'Familiar guardado correctamente';
             $this->redirect('/solicitudes/ver/' . $id . '#familiar-tab');

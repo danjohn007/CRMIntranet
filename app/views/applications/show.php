@@ -1233,7 +1233,7 @@ $canadianStatusLabels = [
                         </div>
                         <div class="flex gap-2">
                             <button type="button"
-                                    onclick="editFamiliar(<?= htmlspecialchars(json_encode($fam), ENT_QUOTES) ?>)"
+                                    onclick="editFamiliar(<?= json_encode($fam, JSON_HEX_QUOT | JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS) ?>)"
                                     class="text-blue-600 hover:text-blue-800 text-sm"><i class="fas fa-edit"></i></button>
                             <?php if ($isAdmin): ?>
                             <form method="POST" action="<?= BASE_URL ?>/solicitudes/eliminar-familiar/<?= $application['id'] ?>" class="inline"
