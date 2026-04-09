@@ -418,10 +418,21 @@ class ApplicationController extends BaseController {
 
             // Obtener hoja de información si existe
             $infoSheet = null;
+            $familiarMembers = [];
             try {
                 $stmt = $this->db->prepare("SELECT * FROM information_sheets WHERE application_id = ?");
                 $stmt->execute([$id]);
                 $infoSheet = $stmt->fetch() ?: null;
+
+                if ($infoSheet) {
+                    try {
+                        $stmtFam = $this->db->prepare("SELECT * FROM information_sheet_familiar WHERE information_sheet_id = ? ORDER BY id");
+                        $stmtFam->execute([$infoSheet['id']]);
+                        $familiarMembers = $stmtFam->fetchAll();
+                    } catch (PDOException $e) {
+                        // Table may not exist yet
+                    }
+                }
             } catch (PDOException $e) {
                 // Tabla puede no existir aún
             }
@@ -452,6 +463,7 @@ class ApplicationController extends BaseController {
                 'costs' => $costs,
                 'payments' => $payments,
                 'infoSheet' => $infoSheet,
+                'familiarMembers' => $familiarMembers,
                 'publishedForms' => $publishedForms,
                 'formLinkToken' => $formLinkToken,
             ]);
@@ -1308,6 +1320,127 @@ class ApplicationController extends BaseController {
         } catch (PDOException $e) {
             error_log("Error al guardar hoja de información: " . $e->getMessage());
             $_SESSION['error'] = 'Error al guardar hoja de información';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
+    public function saveFamiliar($id) {
+        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $role = $this->getUserRole();
+
+        try {
+            $stmt = $this->db->prepare("SELECT * FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                $this->redirect('/solicitudes');
+            }
+
+            // Ensure the parent information_sheet exists
+            $stmtSheet = $this->db->prepare("SELECT id FROM information_sheets WHERE application_id = ?");
+            $stmtSheet->execute([$id]);
+            $sheet = $stmtSheet->fetch();
+
+            if (!$sheet) {
+                $_SESSION['error'] = 'Primero debe guardar la hoja de información Individual';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            $sheetId           = $sheet['id'];
+            $familiarId        = intval($_POST['familiar_id'] ?? 0);
+            $entryDate         = trim($_POST['fam_entry_date'] ?? '') ?: null;
+            $nombreCompleto    = trim($_POST['fam_nombre_completo'] ?? '');
+            $parentesco        = trim($_POST['fam_parentesco'] ?? '');
+            $fechaNacimiento   = trim($_POST['fam_fecha_nacimiento'] ?? '') ?: null;
+            $pasaporte         = trim($_POST['fam_pasaporte'] ?? '');
+            $residencePlace    = trim($_POST['fam_residence_place'] ?? '');
+            $address           = trim($_POST['fam_address'] ?? '');
+            $clientEmail       = trim($_POST['fam_client_email'] ?? '');
+            $embassyEmail      = trim($_POST['fam_embassy_email'] ?? '');
+            $amountPaid        = !empty($_POST['fam_amount_paid']) ? floatval($_POST['fam_amount_paid']) : null;
+            $dhl               = trim($_POST['fam_dhl'] ?? '');
+            $observations      = trim($_POST['fam_observations'] ?? '');
+
+            if ($familiarId > 0) {
+                // Update existing
+                $stmtUpd = $this->db->prepare("
+                    UPDATE information_sheet_familiar SET
+                        entry_date = ?, nombre_completo = ?, parentesco = ?, fecha_nacimiento = ?,
+                        pasaporte = ?, residence_place = ?, address = ?, client_email = ?,
+                        embassy_email = ?, amount_paid = ?, dhl = ?, observations = ?
+                    WHERE id = ? AND information_sheet_id = ?
+                ");
+                $stmtUpd->execute([
+                    $entryDate, $nombreCompleto, $parentesco, $fechaNacimiento,
+                    $pasaporte, $residencePlace, $address, $clientEmail,
+                    $embassyEmail, $amountPaid, $dhl ?: null, $observations,
+                    $familiarId, $sheetId
+                ]);
+            } else {
+                // Insert new
+                $stmtIns = $this->db->prepare("
+                    INSERT INTO information_sheet_familiar
+                        (information_sheet_id, entry_date, nombre_completo, parentesco, fecha_nacimiento,
+                         pasaporte, residence_place, address, client_email, embassy_email,
+                         amount_paid, dhl, observations, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ");
+                $stmtIns->execute([
+                    $sheetId, $entryDate, $nombreCompleto, $parentesco, $fechaNacimiento,
+                    $pasaporte, $residencePlace, $address, $clientEmail, $embassyEmail,
+                    $amountPaid, $dhl ?: null, $observations, $_SESSION['user_id']
+                ]);
+            }
+
+            logAudit('create', 'solicitudes', "Familiar guardado para solicitud #$id");
+
+            $_SESSION['success'] = 'Familiar guardado correctamente';
+            $this->redirect('/solicitudes/ver/' . $id . '#familiar-tab');
+
+        } catch (PDOException $e) {
+            error_log("Error al guardar familiar: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al guardar familiar: ' . $e->getMessage();
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
+    public function deleteFamiliar($id) {
+        $this->requireRole([ROLE_ADMIN, ROLE_GERENTE]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        try {
+            $familiarId = intval($_POST['familiar_id'] ?? 0);
+            if ($familiarId > 0) {
+                $this->db->prepare("
+                    DELETE isf FROM information_sheet_familiar isf
+                    INNER JOIN information_sheets ish ON ish.id = isf.information_sheet_id
+                    WHERE isf.id = ? AND ish.application_id = ?
+                ")->execute([$familiarId, $id]);
+            }
+
+            logAudit('delete', 'solicitudes', "Familiar #$familiarId eliminado para solicitud #$id");
+
+            $_SESSION['success'] = 'Familiar eliminado';
+            $this->redirect('/solicitudes/ver/' . $id . '#familiar-tab');
+
+        } catch (PDOException $e) {
+            error_log("Error al eliminar familiar: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al eliminar familiar';
             $this->redirect('/solicitudes/ver/' . $id);
         }
     }

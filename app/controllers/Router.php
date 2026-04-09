@@ -34,6 +34,8 @@ class Router {
         $this->routes['POST']['/formularios/publicar/{id}'] = ['FormController', 'publish'];
         
         $this->routes['POST']['/solicitudes/guardar-hoja-info/{id}'] = ['ApplicationController', 'saveInfoSheet'];
+        $this->routes['POST']['/solicitudes/guardar-familiar/{id}'] = ['ApplicationController', 'saveFamiliar'];
+        $this->routes['POST']['/solicitudes/eliminar-familiar/{id}'] = ['ApplicationController', 'deleteFamiliar'];
         $this->routes['POST']['/solicitudes/marcar-asistencia/{id}'] = ['ApplicationController', 'markClientAttended'];
         $this->routes['POST']['/solicitudes/vincular-formulario/{id}'] = ['ApplicationController', 'linkForm'];
         $this->routes['POST']['/solicitudes/guardar-cita-oficina/{id}'] = ['ApplicationController', 'saveOfficeAppointment'];

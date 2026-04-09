@@ -1162,36 +1162,191 @@ $canadianStatusLabels = [
 <!-- Modal: Hoja de Informacion -->
 <?php if (!$infoSheet || $isAdmin): ?>
 <div id="infoSheetModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 overflow-y-auto">
-    <div class="bg-white rounded-lg p-6 w-full max-w-lg my-4">
+    <div class="bg-white rounded-lg p-6 w-full max-w-2xl my-4">
         <div class="flex justify-between items-center mb-4">
             <h3 class="text-xl font-bold">Hoja de Informacion</h3>
             <button onclick="document.getElementById('infoSheetModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times text-xl"></i></button>
         </div>
-        <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-hoja-info/<?= $application['id'] ?>">
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
-                <input type="date" name="entry_date" required value="<?= htmlspecialchars($infoSheet['entry_date'] ?? date('Y-m-d')) ?>" class="w-full border rounded-lg px-4 py-2"></div>
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Lugar de residencia del solicitante</label>
-                <input type="text" name="residence_place" value="<?= htmlspecialchars($infoSheet['residence_place'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Domicilio completo</label>
-                <input type="text" name="address" value="<?= htmlspecialchars($infoSheet['address'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Email del solicitante</label>
-                <input type="email" name="client_email" value="<?= htmlspecialchars($infoSheet['client_email'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1"><?= $isCanadianVisa ? 'Email de la embajada canadiense' : 'Email de la embajada' ?></label>
-                <input type="email" name="embassy_email" value="<?= htmlspecialchars($infoSheet['embassy_email'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1"><?= $isCanadianVisa ? 'Costo que pagó el cliente' : 'Honorarios pagados' ?></label>
-                <input type="number" step="0.01" min="0" name="amount_paid" value="<?= htmlspecialchars($infoSheet['amount_paid'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">DHL</label>
-                <input type="text" name="dhl" value="<?= htmlspecialchars($infoSheet['dhl'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
-            <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
-                <textarea name="observations" rows="3" class="w-full border rounded-lg px-4 py-2"><?= htmlspecialchars($infoSheet['observations'] ?? '') ?></textarea></div>
-            <div class="flex gap-3">
-                <button type="submit" class="flex-1 btn-primary text-white py-2 rounded-lg hover:opacity-90"><i class="fas fa-save mr-2"></i>Guardar</button>
-                <button type="button" onclick="document.getElementById('infoSheetModal').classList.add('hidden')" class="flex-1 bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600">Cancelar</button>
+
+        <!-- Tabs -->
+        <div class="flex border-b mb-4">
+            <button type="button" id="tab-individual-btn"
+                    onclick="showInfoSheetTab('individual')"
+                    class="px-4 py-2 text-sm font-medium border-b-2 border-blue-600 text-blue-600 focus:outline-none">
+                <i class="fas fa-user mr-1"></i>Individual
+            </button>
+            <button type="button" id="tab-familiar-btn"
+                    onclick="showInfoSheetTab('familiar')"
+                    class="px-4 py-2 text-sm font-medium border-b-2 border-transparent text-gray-500 hover:text-gray-700 focus:outline-none">
+                <i class="fas fa-users mr-1"></i>Familiar
+            </button>
+        </div>
+
+        <!-- Tab: Individual -->
+        <div id="tab-individual">
+            <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-hoja-info/<?= $application['id'] ?>">
+                <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
+                    <input type="date" name="entry_date" required value="<?= htmlspecialchars($infoSheet['entry_date'] ?? date('Y-m-d')) ?>" class="w-full border rounded-lg px-4 py-2"></div>
+                <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Lugar de residencia del solicitante</label>
+                    <input type="text" name="residence_place" value="<?= htmlspecialchars($infoSheet['residence_place'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
+                <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Domicilio completo</label>
+                    <input type="text" name="address" value="<?= htmlspecialchars($infoSheet['address'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
+                <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Email del solicitante</label>
+                    <input type="email" name="client_email" value="<?= htmlspecialchars($infoSheet['client_email'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
+                <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1"><?= $isCanadianVisa ? 'Email de la embajada canadiense' : 'Email de la embajada' ?></label>
+                    <input type="email" name="embassy_email" value="<?= htmlspecialchars($infoSheet['embassy_email'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
+                <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1"><?= $isCanadianVisa ? 'Costo que pagó el cliente' : 'Honorarios pagados' ?></label>
+                    <input type="number" step="0.01" min="0" name="amount_paid" value="<?= htmlspecialchars($infoSheet['amount_paid'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
+                <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">DHL</label>
+                    <input type="text" name="dhl" value="<?= htmlspecialchars($infoSheet['dhl'] ?? '') ?>" class="w-full border rounded-lg px-4 py-2"></div>
+                <div class="mb-3"><label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                    <textarea name="observations" rows="3" class="w-full border rounded-lg px-4 py-2"><?= htmlspecialchars($infoSheet['observations'] ?? '') ?></textarea></div>
+                <div class="flex gap-3">
+                    <button type="submit" class="flex-1 btn-primary text-white py-2 rounded-lg hover:opacity-90"><i class="fas fa-save mr-2"></i>Guardar</button>
+                    <button type="button" onclick="document.getElementById('infoSheetModal').classList.add('hidden')" class="flex-1 bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600">Cancelar</button>
+                </div>
+            </form>
+        </div>
+
+        <!-- Tab: Familiar -->
+        <div id="tab-familiar" class="hidden">
+            <?php if (!$infoSheet): ?>
+            <div class="text-center py-6 text-gray-500">
+                <i class="fas fa-info-circle text-2xl mb-2"></i>
+                <p>Primero guarde la información en la pestaña <strong>Individual</strong> para poder agregar familiares.</p>
             </div>
-        </form>
+            <?php else: ?>
+
+            <!-- Existing family members -->
+            <?php if (!empty($familiarMembers)): ?>
+            <div class="mb-4 space-y-3" id="familiar-list">
+                <?php foreach ($familiarMembers as $fam): ?>
+                <div class="border rounded-lg p-3 bg-gray-50">
+                    <div class="flex justify-between items-start">
+                        <div>
+                            <p class="font-semibold text-gray-800"><?= htmlspecialchars($fam['nombre_completo'] ?: 'Sin nombre') ?></p>
+                            <p class="text-sm text-gray-500">
+                                <?= htmlspecialchars($fam['parentesco'] ?? '') ?>
+                                <?php if (!empty($fam['pasaporte'])): ?> &bull; Pasaporte: <?= htmlspecialchars($fam['pasaporte']) ?><?php endif; ?>
+                                <?php if (!empty($fam['fecha_nacimiento'])): ?> &bull; <?= date('d/m/Y', strtotime($fam['fecha_nacimiento'])) ?><?php endif; ?>
+                            </p>
+                        </div>
+                        <div class="flex gap-2">
+                            <button type="button"
+                                    onclick="editFamiliar(<?= htmlspecialchars(json_encode($fam), ENT_QUOTES) ?>)"
+                                    class="text-blue-600 hover:text-blue-800 text-sm"><i class="fas fa-edit"></i></button>
+                            <?php if ($isAdmin): ?>
+                            <form method="POST" action="<?= BASE_URL ?>/solicitudes/eliminar-familiar/<?= $application['id'] ?>" class="inline"
+                                  onsubmit="return confirm('¿Eliminar este familiar?')">
+                                <input type="hidden" name="familiar_id" value="<?= $fam['id'] ?>">
+                                <button type="submit" class="text-red-500 hover:text-red-700 text-sm"><i class="fas fa-trash"></i></button>
+                            </form>
+                            <?php endif; ?>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
+
+            <!-- Add / Edit familiar form -->
+            <form method="POST" id="familiar-form" action="<?= BASE_URL ?>/solicitudes/guardar-familiar/<?= $application['id'] ?>">
+                <input type="hidden" name="familiar_id" id="fam-id-input" value="0">
+                <p class="text-sm font-semibold text-gray-700 mb-2" id="familiar-form-title"><i class="fas fa-user-plus mr-1"></i>Agregar familiar</p>
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Nombre completo</label>
+                        <input type="text" name="fam_nombre_completo" id="fam_nombre_completo" class="w-full border rounded-lg px-4 py-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Parentesco</label>
+                        <input type="text" name="fam_parentesco" id="fam_parentesco" placeholder="Cónyuge, Hijo, etc." class="w-full border rounded-lg px-4 py-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Fecha de nacimiento</label>
+                        <input type="date" name="fam_fecha_nacimiento" id="fam_fecha_nacimiento" class="w-full border rounded-lg px-4 py-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Pasaporte</label>
+                        <input type="text" name="fam_pasaporte" id="fam_pasaporte" class="w-full border rounded-lg px-4 py-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Fecha de ingreso</label>
+                        <input type="date" name="fam_entry_date" id="fam_entry_date" class="w-full border rounded-lg px-4 py-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Lugar de residencia</label>
+                        <input type="text" name="fam_residence_place" id="fam_residence_place" class="w-full border rounded-lg px-4 py-2"></div>
+                    <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700 mb-1">Domicilio completo</label>
+                        <input type="text" name="fam_address" id="fam_address" class="w-full border rounded-lg px-4 py-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">Email del familiar</label>
+                        <input type="email" name="fam_client_email" id="fam_client_email" class="w-full border rounded-lg px-4 py-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1"><?= $isCanadianVisa ? 'Email de la embajada canadiense' : 'Email de la embajada' ?></label>
+                        <input type="email" name="fam_embassy_email" id="fam_embassy_email" class="w-full border rounded-lg px-4 py-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1"><?= $isCanadianVisa ? 'Costo que pagó' : 'Honorarios pagados' ?></label>
+                        <input type="number" step="0.01" min="0" name="fam_amount_paid" id="fam_amount_paid" class="w-full border rounded-lg px-4 py-2"></div>
+                    <div><label class="block text-sm font-medium text-gray-700 mb-1">DHL</label>
+                        <input type="text" name="fam_dhl" id="fam_dhl" class="w-full border rounded-lg px-4 py-2"></div>
+                    <div class="md:col-span-2"><label class="block text-sm font-medium text-gray-700 mb-1">Observaciones</label>
+                        <textarea name="fam_observations" id="fam_observations" rows="2" class="w-full border rounded-lg px-4 py-2"></textarea></div>
+                </div>
+                <div class="flex gap-3 mt-3">
+                    <button type="submit" class="flex-1 btn-primary text-white py-2 rounded-lg hover:opacity-90"><i class="fas fa-save mr-2"></i>Guardar familiar</button>
+                    <button type="button" onclick="resetFamiliarForm()" class="flex-1 bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600">Cancelar</button>
+                </div>
+            </form>
+            <?php endif; ?>
+        </div><!-- /tab-familiar -->
+
     </div>
 </div>
 <?php endif; ?>
+
+<script>
+function showInfoSheetTab(tab) {
+    var indDiv = document.getElementById('tab-individual');
+    var famDiv = document.getElementById('tab-familiar');
+    var indBtn = document.getElementById('tab-individual-btn');
+    var famBtn = document.getElementById('tab-familiar-btn');
+    if (tab === 'individual') {
+        indDiv.classList.remove('hidden');
+        famDiv.classList.add('hidden');
+        indBtn.classList.add('border-blue-600', 'text-blue-600');
+        indBtn.classList.remove('border-transparent', 'text-gray-500');
+        famBtn.classList.remove('border-blue-600', 'text-blue-600');
+        famBtn.classList.add('border-transparent', 'text-gray-500');
+    } else {
+        famDiv.classList.remove('hidden');
+        indDiv.classList.add('hidden');
+        famBtn.classList.add('border-blue-600', 'text-blue-600');
+        famBtn.classList.remove('border-transparent', 'text-gray-500');
+        indBtn.classList.remove('border-blue-600', 'text-blue-600');
+        indBtn.classList.add('border-transparent', 'text-gray-500');
+    }
+}
+function editFamiliar(fam) {
+    document.getElementById('fam-id-input').value = fam.id || 0;
+    document.getElementById('fam_nombre_completo').value = fam.nombre_completo || '';
+    document.getElementById('fam_parentesco').value = fam.parentesco || '';
+    document.getElementById('fam_fecha_nacimiento').value = fam.fecha_nacimiento || '';
+    document.getElementById('fam_pasaporte').value = fam.pasaporte || '';
+    document.getElementById('fam_entry_date').value = fam.entry_date || '';
+    document.getElementById('fam_residence_place').value = fam.residence_place || '';
+    document.getElementById('fam_address').value = fam.address || '';
+    document.getElementById('fam_client_email').value = fam.client_email || '';
+    document.getElementById('fam_embassy_email').value = fam.embassy_email || '';
+    document.getElementById('fam_amount_paid').value = fam.amount_paid || '';
+    document.getElementById('fam_dhl').value = fam.dhl || '';
+    document.getElementById('fam_observations').value = fam.observations || '';
+    var title = document.getElementById('familiar-form-title');
+    if (title) title.innerHTML = '<i class="fas fa-user-edit mr-1"></i>Editar familiar';
+    document.getElementById('familiar-form').scrollIntoView({ behavior: 'smooth' });
+}
+function resetFamiliarForm() {
+    document.getElementById('fam-id-input').value = 0;
+    document.getElementById('familiar-form').reset();
+    var title = document.getElementById('familiar-form-title');
+    if (title) title.innerHTML = '<i class="fas fa-user-plus mr-1"></i>Agregar familiar';
+}
+// Auto-open the modal on the Familiar tab if redirected after saving a familiar
+if (window.location.hash === '#familiar-tab') {
+    var modal = document.getElementById('infoSheetModal');
+    if (modal) {
+        modal.classList.remove('hidden');
+        showInfoSheetTab('familiar');
+        history.replaceState(null, '', window.location.pathname);
+    }
+}
+</script>
 
 <script>
 function openDocUpload(docType) {
