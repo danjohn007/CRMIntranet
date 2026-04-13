@@ -14,10 +14,11 @@ define('ROOT_PATH', dirname(__DIR__));
 
 // Configuración de Base de Datos
 define('DB_HOST', 'localhost');
-define('DB_NAME', 'recursos_visas');
-define('DB_USER', 'recursos_visas');
-define('DB_PASS', '}hwFM2gahfZ%');
+define('DB_NAME', 'tramitev_crmvisas');
+define('DB_USER', 'tramitev_crmvisasadmin');
+define('DB_PASS', '+svewHaWjf;u');
 define('DB_CHARSET', 'utf8mb4');
+
 
 // Configuración de Timezone
 date_default_timezone_set('America/Mexico_City');
