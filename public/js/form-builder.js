@@ -10,6 +10,8 @@ class FormBuilder {
         this.currentPage = 1;
         this.paginationEnabled = false;
         this.draggedElement = null;
+        this.draggedFieldType = null;
+        this.draggedFieldIndex = null;
         this.nextId = 1;
         this.nextPageId = 2;
         
@@ -45,6 +47,48 @@ class FormBuilder {
         this.render();
     }
     
+    injectStyles() {
+        if (document.getElementById('form-builder-styles')) return;
+        const style = document.createElement('style');
+        style.id = 'form-builder-styles';
+        style.textContent = `
+            .field-drop-zone {
+                height: 4px;
+                margin: 2px 0;
+                border-radius: 4px;
+                position: relative;
+                transition: all 0.15s ease;
+            }
+            .field-drop-zone.dragging-active {
+                height: 14px;
+                background: rgba(59, 130, 246, 0.05);
+                border: 1px dashed #93c5fd;
+                border-radius: 4px;
+            }
+            .field-drop-zone.drag-over {
+                height: 36px !important;
+                background: rgba(59, 130, 246, 0.15) !important;
+                border: 2px solid #3b82f6 !important;
+                border-radius: 6px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+            }
+            .field-drop-zone.drag-over::after {
+                content: '↓ Insertar aquí';
+                font-size: 11px;
+                color: #2563eb;
+                font-weight: 600;
+                pointer-events: none;
+            }
+            .field-item.field-dragging {
+                opacity: 0.45;
+                border: 2px dashed #6b7280 !important;
+            }
+        `;
+        document.head.appendChild(style);
+    }
+
     checkPaginationEnabled() {
         const paginationCheckbox = document.getElementById('pagination_enabled');
         if (paginationCheckbox) {
@@ -58,6 +102,7 @@ class FormBuilder {
     }
     
     render() {
+        this.injectStyles();
         this.container.innerHTML = `
             <div class="form-builder">
                 <!-- Field Types Palette -->
@@ -177,10 +222,16 @@ class FormBuilder {
             btn.addEventListener('dragstart', (e) => {
                 e.dataTransfer.setData('fieldType', btn.dataset.fieldType);
                 btn.style.opacity = '0.5';
+                this.draggedFieldType = btn.dataset.fieldType;
+                this.draggedFieldIndex = null;
+                // Activate drop zones so user can see where to insert
+                document.querySelectorAll('.field-drop-zone').forEach(z => z.classList.add('dragging-active'));
             });
             
             btn.addEventListener('dragend', (e) => {
                 btn.style.opacity = '1';
+                this.draggedFieldType = null;
+                document.querySelectorAll('.field-drop-zone').forEach(z => z.classList.remove('dragging-active', 'drag-over'));
             });
             
             // Click to add field (mobile friendly)
@@ -189,15 +240,21 @@ class FormBuilder {
             });
         });
         
-        // Drop area events
+        // Drop area events — fallback when not dropped on a specific drop zone
         const dropArea = document.getElementById('fields-drop-area');
         dropArea.addEventListener('dragover', (e) => {
             e.preventDefault();
-            dropArea.classList.add('border-blue-500', 'bg-blue-50');
+            // Only highlight the whole area if no drop zone is already highlighted
+            if (!document.querySelector('.field-drop-zone.drag-over')) {
+                dropArea.classList.add('border-blue-500', 'bg-blue-50');
+            }
         });
         
         dropArea.addEventListener('dragleave', (e) => {
-            dropArea.classList.remove('border-blue-500', 'bg-blue-50');
+            // Only remove highlight if leaving the drop area entirely
+            if (!dropArea.contains(e.relatedTarget)) {
+                dropArea.classList.remove('border-blue-500', 'bg-blue-50');
+            }
         });
         
         dropArea.addEventListener('drop', (e) => {
@@ -206,7 +263,10 @@ class FormBuilder {
             
             const fieldType = e.dataTransfer.getData('fieldType');
             if (fieldType) {
-                this.addField(fieldType);
+                // Only add to end if this drop was NOT on a specific drop zone
+                if (!e.target.classList.contains('field-drop-zone')) {
+                    this.addField(fieldType);
+                }
             }
         });
         
@@ -235,7 +295,7 @@ class FormBuilder {
         }
     }
     
-    addField(type) {
+    addField(type, insertIndex = null) {
         const fieldType = this.fieldTypes.find(ft => ft.id === type);
         if (!fieldType) return;
         
@@ -251,7 +311,12 @@ class FormBuilder {
             newField.options = ['Opción 1', 'Opción 2'];
         }
         
-        this.fields.push(newField);
+        // Insert at specific position or at the end
+        if (insertIndex !== null && insertIndex >= 0 && insertIndex <= this.fields.length) {
+            this.fields.splice(insertIndex, 0, newField);
+        } else {
+            this.fields.push(newField);
+        }
         
         // If pagination is enabled, add field to current page
         if (this.paginationEnabled && this.currentPage) {
@@ -260,6 +325,19 @@ class FormBuilder {
                 page.fieldIds.push(newField.id);
             }
         }
+        
+        this.renderFields();
+        this.updateJSON();
+    }
+    
+    moveField(fromIndex, toIndex) {
+        if (fromIndex === toIndex) return;
+        
+        const field = this.fields.splice(fromIndex, 1)[0];
+        // When moving a field down (toIndex > fromIndex), the removal shifts all subsequent
+        // indices down by 1, so we must decrement toIndex to compensate.
+        const adjustedIndex = toIndex > fromIndex ? toIndex - 1 : toIndex;
+        this.fields.splice(adjustedIndex, 0, field);
         
         this.renderFields();
         this.updateJSON();
@@ -280,21 +358,26 @@ class FormBuilder {
         
         if (fieldsToShow.length === 0) {
             fieldsList.innerHTML = `
+                <div class="field-drop-zone" data-insert-index="0"></div>
                 <div class="empty-state text-center py-12 text-gray-400">
                     <i class="fas fa-arrow-up text-4xl mb-3"></i>
                     <p class="text-sm">${!this.isShowingAllPages() ? 'Arrastra campos aquí para agregarlos a esta página' : 'Arrastra campos aquí para construir tu formulario'}</p>
                 </div>
             `;
+            this.attachFieldEventListeners();
             return;
         }
         
-        fieldsList.innerHTML = fieldsToShow.map((field) => {
+        // Build HTML with drop zones between each field for precise insertion
+        let html = `<div class="field-drop-zone" data-insert-index="0"></div>`;
+        
+        fieldsToShow.forEach((field) => {
             const index = this.fields.indexOf(field);
-            return `
-            <div class="field-item bg-gray-50 border border-gray-300 rounded-lg p-4 mb-3" data-index="${index}">
+            html += `
+            <div class="field-item bg-gray-50 border border-gray-300 rounded-lg p-4 mb-0" data-index="${index}" draggable="true">
                 <div class="flex items-start justify-between mb-3">
                     <div class="flex items-center flex-1">
-                        <i class="fas fa-grip-vertical text-gray-400 mr-3 cursor-move"></i>
+                        <i class="fas fa-grip-vertical text-gray-400 mr-3 cursor-move field-drag-handle" title="Arrastrar para reordenar"></i>
                         <div>
                             <div class="font-semibold text-gray-800">${field.label}</div>
                             <div class="text-xs text-gray-500">ID: ${field.id} | Tipo: ${field.type}</div>
@@ -349,7 +432,11 @@ class FormBuilder {
                     </div>
                 </div>
             </div>
-        `}).join('');
+            <div class="field-drop-zone" data-insert-index="${index + 1}"></div>
+            `;
+        });
+        
+        fieldsList.innerHTML = html;
         
         // Attach event listeners after rendering
         this.attachFieldEventListeners();
@@ -447,6 +534,74 @@ class FormBuilder {
             button.addEventListener('click', (e) => {
                 const index = parseInt(e.currentTarget.dataset.index);
                 this.deleteField(index);
+            });
+        });
+        
+        // Field item drag-to-reorder: start drag on existing field
+        document.querySelectorAll('.field-item').forEach(item => {
+            item.addEventListener('dragstart', (e) => {
+                // Ignore if user is interacting with an input/select inside the field
+                if (['INPUT', 'SELECT', 'BUTTON', 'TEXTAREA'].includes(e.target.tagName)) {
+                    e.preventDefault();
+                    return;
+                }
+                const index = parseInt(item.dataset.index);
+                e.dataTransfer.setData('existingFieldIndex', index);
+                e.dataTransfer.effectAllowed = 'move';
+                this.draggedFieldIndex = index;
+                this.draggedFieldType = null;
+                item.classList.add('field-dragging');
+                // Activate drop zones
+                document.querySelectorAll('.field-drop-zone').forEach(z => z.classList.add('dragging-active'));
+            });
+            
+            item.addEventListener('dragend', (e) => {
+                item.classList.remove('field-dragging');
+                this.draggedFieldIndex = null;
+                document.querySelectorAll('.field-drop-zone').forEach(z => z.classList.remove('dragging-active', 'drag-over'));
+            });
+        });
+        
+        // Drop zone events: highlight and handle drops for both new fields and reordering
+        document.querySelectorAll('.field-drop-zone').forEach(zone => {
+            zone.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                e.dataTransfer.dropEffect = 'move';
+                // Remove highlight from all other zones, add to this one
+                document.querySelectorAll('.field-drop-zone').forEach(z => z.classList.remove('drag-over'));
+                zone.classList.add('drag-over');
+                // Remove the whole-area highlight when a specific zone is targeted
+                const dropArea = document.getElementById('fields-drop-area');
+                if (dropArea) dropArea.classList.remove('border-blue-500', 'bg-blue-50');
+            });
+            
+            zone.addEventListener('dragleave', (e) => {
+                // Only remove if actually leaving this zone (not entering a child element)
+                if (!zone.contains(e.relatedTarget)) {
+                    zone.classList.remove('drag-over');
+                }
+            });
+            
+            zone.addEventListener('drop', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                zone.classList.remove('drag-over', 'dragging-active');
+                document.querySelectorAll('.field-drop-zone').forEach(z => z.classList.remove('dragging-active', 'drag-over'));
+                
+                const insertIndex = parseInt(zone.dataset.insertIndex);
+                const fieldType = e.dataTransfer.getData('fieldType');
+                const existingIndexStr = e.dataTransfer.getData('existingFieldIndex');
+                
+                if (fieldType) {
+                    // New field from palette — insert at specific position
+                    this.addField(fieldType, insertIndex);
+                } else if (existingIndexStr !== '') {
+                    const existingIndex = parseInt(existingIndexStr);
+                    if (!isNaN(existingIndex)) {
+                        this.moveField(existingIndex, insertIndex);
+                    }
+                }
             });
         });
     }
