@@ -112,6 +112,21 @@ class FormBuilder {
             this.paginationEnabled = paginationCheckbox.checked;
             paginationCheckbox.addEventListener('change', (e) => {
                 this.paginationEnabled = e.target.checked;
+
+                // When enabling pagination, assign all unassigned fields to page 1
+                // so existing fields are not lost
+                if (this.paginationEnabled) {
+                    const page1 = this.pages.find(p => p.id === 1) || this.pages[0];
+                    if (page1) {
+                        this.fields.forEach(field => {
+                            const isAssigned = this.pages.some(p => p.fieldIds.includes(field.id));
+                            if (!isAssigned) {
+                                page1.fieldIds.push(field.id);
+                            }
+                        });
+                    }
+                }
+
                 this.render();
                 this.updateJSON();
             });
@@ -173,10 +188,8 @@ class FormBuilder {
                      id="fields-drop-area">
                     ${this.paginationEnabled ? `
                         <div class="text-sm text-blue-700 mb-3 flex items-center justify-between">
-                            <span><i class="fas fa-info-circle mr-1"></i>Mostrando campos de: <strong>${this.getPageName(this.currentPage)}</strong></span>
-                            <button type="button" id="show-all-fields-btn" class="text-blue-600 hover:underline text-xs">
-                                Ver todos los campos
-                            </button>
+                            <span><i class="fas fa-info-circle mr-1"></i>${this.getPageInfoMessage()}</span>
+                            ${this.getPageNavigationButton()}
                         </div>
                     ` : ''}
                     <div class="fields-list" id="fields-list">
@@ -198,6 +211,24 @@ class FormBuilder {
     getPageName(pageId) {
         const page = this.pages.find(p => p.id === pageId);
         return page ? page.name : 'Página desconocida';
+    }
+
+    getPageInfoMessage() {
+        if (this.currentPage === 0) {
+            return 'Mostrando <strong>todos los campos</strong> — usa el menú desplegable para mover campos entre páginas';
+        }
+        return `Mostrando campos de: <strong>${this.getPageName(this.currentPage)}</strong>`;
+    }
+
+    getPageNavigationButton() {
+        if (this.currentPage !== 0) {
+            return `<button type="button" id="show-all-fields-btn" class="text-blue-600 hover:underline text-xs">
+                                Ver todos los campos
+                            </button>`;
+        }
+        return `<button type="button" id="hide-all-fields-btn" class="text-blue-600 hover:underline text-xs">
+                                Volver a página actual
+                            </button>`;
     }
     
     addPage() {
@@ -306,7 +337,15 @@ class FormBuilder {
             if (showAllBtn) {
                 showAllBtn.addEventListener('click', () => {
                     this.currentPage = 0; // Use 0 to indicate "show all"
-                    this.renderFields();
+                    this.render();
+                });
+            }
+
+            const hideAllBtn = document.getElementById('hide-all-fields-btn');
+            if (hideAllBtn) {
+                hideAllBtn.addEventListener('click', () => {
+                    this.currentPage = this.pages[0] ? this.pages[0].id : 1;
+                    this.render();
                 });
             }
         }
