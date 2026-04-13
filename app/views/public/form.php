@@ -260,6 +260,19 @@
         // Submit form
         form.addEventListener('submit', function(e) {
             e.preventDefault();
+            const missingFields = validateRequiredFields();
+            if (missingFields.length > 0) {
+                let msg = 'Completa todos los campos, en caso de que no aplique para tu caso contestar con un N/A\n\nCampos faltantes:';
+                missingFields.forEach(function(f) {
+                    msg += '\n• ' + f.label + (f.pageNum ? ' (Página ' + f.pageNum + ')' : '');
+                });
+                alert(msg);
+                // Navigate to the page with the first missing field
+                if (paginationEnabled && pages.length > 0 && missingFields[0].pageId) {
+                    showPage(missingFields[0].pageId);
+                }
+                return;
+            }
             saveForm(true);
         });
         
@@ -594,6 +607,72 @@
                 progressBar.style.width = percentage + '%';
                 progressText.textContent = Math.round(percentage) + '%';
             }
+        }
+
+        function validateRequiredFields() {
+            const missingFields = [];
+
+            // Build page lookup: pageId -> sequential page number
+            const pageMap = {};
+            if (paginationEnabled && pages.length > 0) {
+                pages.forEach(function(page, index) {
+                    pageMap[String(page.id)] = { num: index + 1, id: page.id };
+                });
+            }
+
+            // Build field -> page mapping from data-page attribute on .form-field divs
+            const fieldPageMap = {};
+            document.querySelectorAll('.form-field').forEach(function(fieldDiv) {
+                const fid = fieldDiv.getAttribute('data-field-id');
+                const pid = fieldDiv.getAttribute('data-page');
+                if (fid) {
+                    fieldPageMap[fid] = pid;
+                }
+            });
+
+            const processedRadioNames = new Set();
+
+            document.querySelectorAll('.form-field').forEach(function(fieldDiv) {
+                const fieldId = fieldDiv.getAttribute('data-field-id');
+                const pageIdAttr = fieldDiv.getAttribute('data-page');
+                const pageInfo = paginationEnabled && pageIdAttr ? pageMap[String(pageIdAttr)] : null;
+                const pageNum = pageInfo ? pageInfo.num : null;
+                const pageId = pageInfo ? pageInfo.id : null;
+
+                // Get display label from the first <label> in the div
+                const labelEl = fieldDiv.querySelector('label');
+                const label = labelEl ? labelEl.textContent.replace('*', '').trim() : fieldId;
+
+                // Check required inputs, selects, and textareas
+                const inputs = fieldDiv.querySelectorAll('input[required], select[required], textarea[required]');
+                inputs.forEach(function(input) {
+                    if (input.type === 'radio') {
+                        const rname = input.name;
+                        if (!processedRadioNames.has(rname)) {
+                            processedRadioNames.add(rname);
+                            const group = document.getElementsByName(rname);
+                            if (!Array.from(group).some(r => r.checked)) {
+                                missingFields.push({ label: label, pageNum: pageNum, pageId: pageId });
+                            }
+                        }
+                    } else if (input.type === 'checkbox') {
+                        if (!input.checked) {
+                            missingFields.push({ label: label, pageNum: pageNum, pageId: pageId });
+                        }
+                    } else if (input.type === 'file') {
+                        // File inputs: check if a file has been selected
+                        if (!input.files || input.files.length === 0) {
+                            missingFields.push({ label: label, pageNum: pageNum, pageId: pageId });
+                        }
+                    } else {
+                        if (!input.value || input.value.trim() === '') {
+                            missingFields.push({ label: label, pageNum: pageNum, pageId: pageId });
+                        }
+                    }
+                });
+            });
+
+            return missingFields;
         }
     </script>
 </body>
