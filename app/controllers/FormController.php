@@ -227,6 +227,8 @@ class FormController extends BaseController {
         $type = $_POST['type'] ?? '';
         $subtype = trim($_POST['subtype'] ?? '');
         $fieldsJson = $_POST['fields_json'] ?? '';
+        $paginationEnabled = isset($_POST['pagination_enabled']) ? 1 : 0;
+        $pagesJson = $paginationEnabled ? ($_POST['pages_json'] ?? null) : null;
         
         if (empty($name) || empty($type) || empty($fieldsJson)) {
             $_SESSION['error'] = 'Todos los campos obligatorios deben estar completos';
@@ -240,10 +242,56 @@ class FormController extends BaseController {
             $this->redirect('/formularios/editar/' . $id);
         }
         
+        // Validar pages JSON si está habilitada la paginación
+        if ($paginationEnabled && !empty($pagesJson)) {
+            $pages = json_decode($pagesJson, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                $_SESSION['error'] = 'El JSON de páginas no es válido';
+                $this->redirect('/formularios/editar/' . $id);
+            }
+            
+            if (!is_array($pages) || empty($pages)) {
+                $_SESSION['error'] = 'El JSON de páginas debe ser un arreglo no vacío';
+                $this->redirect('/formularios/editar/' . $id);
+            }
+            
+            $validFieldIds = array_column($fields['fields'], 'id');
+            
+            foreach ($pages as $page) {
+                if (!isset($page['id']) || !isset($page['name']) || !isset($page['fieldIds'])) {
+                    $_SESSION['error'] = 'Cada página debe tener id, name y fieldIds';
+                    $this->redirect('/formularios/editar/' . $id);
+                }
+                
+                if (!is_numeric($page['id']) || (int)$page['id'] < 1) {
+                    $_SESSION['error'] = 'El id de la página debe ser un entero positivo';
+                    $this->redirect('/formularios/editar/' . $id);
+                }
+                
+                if (!is_string($page['name']) || trim($page['name']) === '') {
+                    $_SESSION['error'] = 'El nombre de la página debe ser una cadena no vacía';
+                    $this->redirect('/formularios/editar/' . $id);
+                }
+                
+                if (!is_array($page['fieldIds'])) {
+                    $_SESSION['error'] = 'fieldIds debe ser un arreglo';
+                    $this->redirect('/formularios/editar/' . $id);
+                }
+                
+                foreach ($page['fieldIds'] as $fieldId) {
+                    if (!in_array($fieldId, $validFieldIds)) {
+                        $_SESSION['error'] = "Campo inválido '$fieldId' encontrado en páginas";
+                        $this->redirect('/formularios/editar/' . $id);
+                    }
+                }
+            }
+        }
+        
         try {
             $stmt = $this->db->prepare("
                 UPDATE forms 
-                SET name = ?, description = ?, type = ?, subtype = ?, fields_json = ?, version = version + 1
+                SET name = ?, description = ?, type = ?, subtype = ?, fields_json = ?,
+                    pagination_enabled = ?, pages_json = ?, version = version + 1
                 WHERE id = ?
             ");
             $stmt->execute([
@@ -252,6 +300,8 @@ class FormController extends BaseController {
                 $type,
                 $subtype,
                 $fieldsJson,
+                $paginationEnabled,
+                $pagesJson,
                 $id
             ]);
             

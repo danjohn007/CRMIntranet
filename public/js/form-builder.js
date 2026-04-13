@@ -41,10 +41,27 @@ class FormBuilder {
             }
         }
         
+        // Parse initial pages if provided (for edit mode with existing pagination data)
+        const initialPagesData = this.container ? this.container.dataset.initialPages : null;
+        if (initialPagesData) {
+            try {
+                const parsedPages = JSON.parse(initialPagesData);
+                if (parsedPages && Array.isArray(parsedPages) && parsedPages.length > 0) {
+                    this.pages = parsedPages;
+                    this.currentPage = parsedPages[0].id;
+                    this.nextPageId = Math.max(...parsedPages.map(p => p.id)) + 1;
+                }
+            } catch (e) {
+                console.error('Error parsing initial pages:', e);
+            }
+        }
+        
         // Check if pagination is enabled
         this.checkPaginationEnabled();
         
         this.render();
+        // Serialize initial state so hidden inputs are always populated on page load
+        this.updateJSON();
     }
     
     injectStyles() {
