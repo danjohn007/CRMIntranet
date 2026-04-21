@@ -25,6 +25,8 @@ WHERE f.is_published = 1
   AND (f.public_enabled IS NULL OR f.public_enabled = 0)
   AND a.form_link_status IN ('enviado', 'completado');
 
+-- Mantener esta segunda actualización separada para compatibilidad con registros legacy
+-- y mejor uso de índices (evita OR en la condición de JOIN).
 UPDATE forms f
 INNER JOIN applications a ON a.form_id = f.id
 SET f.public_enabled = 1
