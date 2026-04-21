@@ -448,9 +448,15 @@ class ApplicationController extends BaseController {
             $formLinkToken = null;
             $linkedFormId = null;
             if (!empty($application['form_link_id'])) {
-                $linkedFormId = intval($application['form_link_id']);
+                $candidateFormId = intval($application['form_link_id']);
+                if ($candidateFormId > 0) {
+                    $linkedFormId = $candidateFormId;
+                }
             } elseif (!empty($application['form_id'])) {
-                $linkedFormId = intval($application['form_id']);
+                $candidateFormId = intval($application['form_id']);
+                if ($candidateFormId > 0) {
+                    $linkedFormId = $candidateFormId;
+                }
             }
             if ($linkedFormId !== null) {
                 try {
