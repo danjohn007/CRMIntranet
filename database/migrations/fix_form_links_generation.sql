@@ -12,7 +12,10 @@ WHERE form_link_id IS NULL
 
 -- 2) Asegurar token público para formularios existentes sin token.
 UPDATE forms
-SET public_token = LOWER(SHA2(CONCAT(id, '-', UUID(), '-', NOW(6)), 256))
+SET public_token = CONCAT(
+    LOWER(REPLACE(UUID(), '-', '')),
+    LOWER(REPLACE(UUID(), '-', ''))
+)
 WHERE public_token IS NULL
    OR public_token = '';
 
