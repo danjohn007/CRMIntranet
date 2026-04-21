@@ -446,10 +446,11 @@ class ApplicationController extends BaseController {
 
             // Obtener token público del formulario vinculado (para generar enlace de cliente)
             $formLinkToken = null;
-            if (!empty($application['form_link_id'])) {
+            $linkedFormId = !empty($application['form_link_id']) ? intval($application['form_link_id']) : intval($application['form_id'] ?? 0);
+            if ($linkedFormId > 0) {
                 try {
                     $stmt = $this->db->prepare("SELECT public_token FROM forms WHERE id = ?");
-                    $stmt->execute([$application['form_link_id']]);
+                    $stmt->execute([$linkedFormId]);
                     $linkedFormRow = $stmt->fetch();
                     $formLinkToken = $linkedFormRow['public_token'] ?? null;
                 } catch (PDOException $e) {}
