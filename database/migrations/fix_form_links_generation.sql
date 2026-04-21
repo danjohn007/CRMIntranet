@@ -12,15 +12,17 @@ WHERE form_link_id IS NULL
 
 -- 2) Asegurar token público para formularios existentes sin token.
 UPDATE forms
-SET public_token = LOWER(SHA2(CONCAT(id, '-', UUID(), '-', RAND()), 256))
+SET public_token = LOWER(SHA2(CONCAT(id, '-', UUID(), '-', NOW(6)), 256))
 WHERE public_token IS NULL
    OR public_token = '';
 
--- 3) Mantener funcionalidad actual de formularios publicados:
---    formularios publicados también deben estar habilitados para acceso público.
-UPDATE forms
-SET public_enabled = 1
-WHERE is_published = 1
-  AND (public_enabled IS NULL OR public_enabled = 0);
+-- 3) Mantener funcionalidad actual sin exponer formularios no utilizados:
+--    habilitar acceso público únicamente para formularios ya vinculados y enviados/completados.
+UPDATE forms f
+INNER JOIN applications a ON a.form_link_id = f.id
+SET f.public_enabled = 1
+WHERE f.is_published = 1
+  AND (f.public_enabled IS NULL OR f.public_enabled = 0)
+  AND a.form_link_status IN ('enviado', 'completado');
 
 COMMIT;
