@@ -1,6 +1,7 @@
 -- Corrección de generación de enlaces de formularios (compatibilidad de datos legacy)
 -- Ejecutar en la base de datos actual: tramitev_crmvisas
 
+-- Si alguna sentencia falla durante ejecución manual, ejecutar ROLLBACK.
 START TRANSACTION;
 
 -- 1) Mantener compatibilidad con solicitudes históricas:
@@ -11,6 +12,7 @@ WHERE form_link_id IS NULL
   AND form_id IS NOT NULL;
 
 -- 2) Asegurar token público para formularios existentes sin token.
+--    RANDOM_BYTES(32) -> HEX = 64 caracteres (compatible con forms.public_token VARCHAR(64)).
 UPDATE forms
 SET public_token = LOWER(HEX(RANDOM_BYTES(32)))
 WHERE public_token IS NULL
