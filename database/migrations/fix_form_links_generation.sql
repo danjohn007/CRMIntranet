@@ -19,7 +19,7 @@ WHERE public_token IS NULL
 -- 3) Mantener funcionalidad actual sin exponer formularios no utilizados:
 --    habilitar acceso público únicamente para formularios ya vinculados y enviados/completados.
 UPDATE forms f
-INNER JOIN applications a ON a.form_link_id = f.id
+INNER JOIN applications a ON (a.form_link_id = f.id OR a.form_id = f.id)
 SET f.public_enabled = 1
 WHERE f.is_published = 1
   AND (f.public_enabled IS NULL OR f.public_enabled = 0)
