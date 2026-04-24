@@ -25,7 +25,8 @@ class FormBuilder {
             { id: 'select', label: 'Selección', icon: 'fa-list' },
             { id: 'textarea', label: 'Área de Texto', icon: 'fa-align-left' },
             { id: 'checkbox', label: 'Casilla', icon: 'fa-check-square' },
-            { id: 'file', label: 'Archivo', icon: 'fa-file-upload' }
+            { id: 'file', label: 'Archivo', icon: 'fa-file-upload' },
+            { id: 'label', label: 'Etiqueta', icon: 'fa-tag' }
         ];
         
         // Parse initial data if provided
@@ -64,6 +65,15 @@ class FormBuilder {
         this.updateJSON();
     }
     
+    escapeHtml(str) {
+        return String(str)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
     injectStyles() {
         if (document.getElementById('form-builder-styles')) return;
         const style = document.createElement('style');
@@ -358,7 +368,7 @@ class FormBuilder {
         const newField = {
             id: `campo_${this.nextId++}`,
             type: type,
-            label: fieldType.label,
+            label: type === 'label' ? 'Nueva Sección' : fieldType.label,
             required: false
         };
         
@@ -429,14 +439,15 @@ class FormBuilder {
         
         fieldsToShow.forEach((field) => {
             const index = this.fields.indexOf(field);
+            const isLabel = field.type === 'label';
             html += `
-            <div class="field-item bg-gray-50 border border-gray-300 rounded-lg p-4 mb-0" data-index="${index}" draggable="true">
+            <div class="field-item ${isLabel ? 'bg-blue-50 border border-blue-300' : 'bg-gray-50 border border-gray-300'} rounded-lg p-4 mb-0" data-index="${index}" draggable="true">
                 <div class="flex items-start justify-between mb-3">
                     <div class="flex items-center flex-1">
                         <i class="fas fa-grip-vertical text-gray-400 mr-3 cursor-move field-drag-handle" title="Arrastrar para reordenar"></i>
                         <div>
-                            <div class="font-semibold text-gray-800">${field.label}</div>
-                            <div class="text-xs text-gray-500">ID: ${field.id} | Tipo: ${field.type}</div>
+                            <div class="font-semibold ${isLabel ? 'text-blue-800' : 'text-gray-800'}">${isLabel ? '<i class="fas fa-tag mr-1 text-blue-500"></i>' : ''}${this.escapeHtml(field.label)}</div>
+                            <div class="text-xs text-gray-500">ID: ${this.escapeHtml(field.id)} | Tipo: ${this.escapeHtml(field.type)}${isLabel ? ' — Separador de sección' : ''}</div>
                         </div>
                     </div>
                     <div class="flex items-center space-x-2">
@@ -459,8 +470,8 @@ class FormBuilder {
                 
                 <div class="grid grid-cols-2 gap-3 text-sm">
                     <div class="col-span-2">
-                        <label class="block text-xs text-gray-600 mb-1">Nombre de campo</label>
-                        <input type="text" value="${field.label}" 
+                        <label class="block text-xs text-gray-600 mb-1">${isLabel ? 'Texto de la etiqueta' : 'Nombre de campo'}</label>
+                        <input type="text" value="${this.escapeHtml(field.label)}" 
                                class="field-label-input w-full border border-gray-300 rounded px-2 py-1 text-sm"
                                data-index="${index}">
                     </div>
@@ -478,6 +489,7 @@ class FormBuilder {
                                    data-index="${index}">
                         </div>
                     ` : ''}
+                    ${!isLabel ? `
                     <div class="col-span-2">
                         <label class="flex items-center">
                             <input type="checkbox" ${field.required ? 'checked' : ''} 
@@ -486,6 +498,13 @@ class FormBuilder {
                             <span class="text-xs text-gray-700">Campo obligatorio</span>
                         </label>
                     </div>
+                    ` : `
+                    <div class="col-span-2">
+                        <div class="border-t-2 border-blue-400 mt-1 pt-2">
+                            <span class="text-xs text-blue-600 font-semibold uppercase tracking-wide">${this.escapeHtml(field.label)}</span>
+                        </div>
+                    </div>
+                    `}
                 </div>
             </div>
             <div class="field-drop-zone" data-insert-index="${index + 1}"></div>
