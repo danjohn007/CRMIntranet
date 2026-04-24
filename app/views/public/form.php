@@ -101,11 +101,20 @@
                         echo '1';
                     }
                 ?>">
+                    <?php if ($field['type'] !== 'label'): ?>
                     <label class="block text-sm font-medium text-gray-700 mb-2 <?= !empty($field['required']) ? 'form-field-required' : '' ?>">
                         <?= htmlspecialchars($field['label']) ?>
                     </label>
+                    <?php endif; ?>
                     
-                    <?php if ($field['type'] === 'text' || $field['type'] === 'email' || $field['type'] === 'tel'): ?>
+                    <?php if ($field['type'] === 'label'): ?>
+                        <div class="col-span-full border-b-2 border-gray-300 pb-1">
+                            <h3 class="text-base font-bold text-gray-800 uppercase tracking-wide">
+                                <?= htmlspecialchars($field['label']) ?>
+                            </h3>
+                        </div>
+                    
+                    <?php elseif ($field['type'] === 'text' || $field['type'] === 'email' || $field['type'] === 'tel'): ?>
                         <input type="<?= htmlspecialchars($field['type']) ?>" 
                                name="<?= htmlspecialchars($field['id']) ?>"
                                id="field_<?= htmlspecialchars($field['id']) ?>"
