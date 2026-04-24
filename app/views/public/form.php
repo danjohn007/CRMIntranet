@@ -82,25 +82,28 @@
                 <input type="hidden" id="current-page" name="currentPage" value="1">
                 
                 <?php foreach ($fields['fields'] as $field): ?>
-                <div class="form-field" data-field-id="<?= htmlspecialchars($field['id']) ?>" data-page="<?php
-                    // Find which page this field belongs to
-                    $pageAssigned = false;
+                <?php
+                    // Calculate page assignment (used for both label and regular fields)
+                    $fieldPage = '1';
                     if (!empty($form['pagination_enabled']) && !empty($pages)) {
                         foreach ($pages as $page) {
                             if (in_array($field['id'], $page['fieldIds'])) {
-                                echo $page['id'];
-                                $pageAssigned = true;
+                                $fieldPage = $page['id'];
                                 break;
                             }
                         }
-                        // If not assigned to any page, default to page 1
-                        if (!$pageAssigned) {
-                            echo '1';
-                        }
-                    } else {
-                        echo '1';
                     }
-                ?>">
+                ?>
+                <?php if ($field['type'] === 'label'): ?>
+                <div class="form-field form-section-label" data-field-id="<?= htmlspecialchars($field['id']) ?>" data-page="<?= htmlspecialchars($fieldPage) ?>">
+                    <div class="border-b-2 border-gray-300 pb-2 mt-4 mb-2">
+                        <h3 id="section_<?= htmlspecialchars($field['id']) ?>" class="text-lg font-semibold text-gray-700">
+                            <?= htmlspecialchars($field['label']) ?>
+                        </h3>
+                    </div>
+                </div>
+                <?php else: ?>
+                <div class="form-field" data-field-id="<?= htmlspecialchars($field['id']) ?>" data-page="<?= htmlspecialchars($fieldPage) ?>">
                     <label class="block text-sm font-medium text-gray-700 mb-2 <?= !empty($field['required']) ? 'form-field-required' : '' ?>">
                         <?= htmlspecialchars($field['label']) ?>
                     </label>
@@ -169,6 +172,7 @@
                         </p>
                     <?php endif; ?>
                 </div>
+                <?php endif; ?>
                 <?php endforeach; ?>
                 
                 <!-- Auto-save status -->

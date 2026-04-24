@@ -25,7 +25,8 @@ class FormBuilder {
             { id: 'select', label: 'Selección', icon: 'fa-list' },
             { id: 'textarea', label: 'Área de Texto', icon: 'fa-align-left' },
             { id: 'checkbox', label: 'Casilla', icon: 'fa-check-square' },
-            { id: 'file', label: 'Archivo', icon: 'fa-file-upload' }
+            { id: 'file', label: 'Archivo', icon: 'fa-file-upload' },
+            { id: 'label', label: 'Etiqueta', icon: 'fa-tag' }
         ];
         
         // Parse initial data if provided
@@ -429,6 +430,56 @@ class FormBuilder {
         
         fieldsToShow.forEach((field) => {
             const index = this.fields.indexOf(field);
+
+            if (field.type === 'label') {
+                html += `
+                <div class="field-item bg-blue-50 border-2 border-blue-200 rounded-lg p-4 mb-0" data-index="${index}" draggable="true">
+                    <div class="flex items-start justify-between mb-3">
+                        <div class="flex items-center flex-1">
+                            <i class="fas fa-grip-vertical text-gray-400 mr-3 cursor-move field-drag-handle" title="Arrastrar para reordenar"></i>
+                            <div>
+                                <div class="font-semibold text-blue-800"><i class="fas fa-tag mr-1"></i>Etiqueta de Sección</div>
+                                <div class="text-xs text-blue-600">Separador visual de secciones</div>
+                            </div>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            ${this.paginationEnabled ? `
+                                <select class="field-page-select text-xs border border-gray-300 rounded px-2 py-1"
+                                        data-field-id="${field.id}"
+                                        aria-label="Asignar campo a página">
+                                    ${this.pages.map(page => `
+                                        <option value="${page.id}" ${page.fieldIds.includes(field.id) ? 'selected' : ''}>
+                                            ${page.name}
+                                        </option>
+                                    `).join('')}
+                                </select>
+                            ` : ''}
+                            <button type="button" class="btn-delete-field text-red-600 hover:text-red-800" data-index="${index}">
+                                <i class="fas fa-trash"></i>
+                            </button>
+                        </div>
+                    </div>
+                    <div class="text-sm">
+                        <div class="col-span-2 mb-2">
+                            <label class="block text-xs text-blue-700 mb-1">Texto de la etiqueta</label>
+                            <input type="text" value="${field.label}"
+                                   class="field-label-input w-full border border-blue-300 rounded px-2 py-1 text-sm"
+                                   data-index="${index}"
+                                   placeholder="Título de sección...">
+                        </div>
+                        <div class="border-t border-blue-200 pt-2 mt-2">
+                            <span class="text-xs text-blue-600 font-medium">Vista previa:</span>
+                            <div class="mt-1 border-b-2 border-gray-400 pb-1">
+                                <span class="text-base font-semibold text-gray-700">${field.label}</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="field-drop-zone" data-insert-index="${index + 1}"></div>
+                `;
+                return;
+            }
+
             html += `
             <div class="field-item bg-gray-50 border border-gray-300 rounded-lg p-4 mb-0" data-index="${index}" draggable="true">
                 <div class="flex items-start justify-between mb-3">
