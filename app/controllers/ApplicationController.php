@@ -1535,8 +1535,20 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
 
+            // Verify the form exists and is published before generating a link
+            $stmtForm = $this->db->prepare("SELECT id FROM forms WHERE id = ? AND is_published = 1");
+            $stmtForm->execute([$formLinkId]);
+            if (!$stmtForm->fetch()) {
+                $_SESSION['error'] = 'El formulario seleccionado no está publicado o no existe';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
             $this->db->prepare("UPDATE applications SET form_link_id = ?, form_link_status = 'enviado', form_link_sent_at = NOW() WHERE id = ?")
                 ->execute([$formLinkId, $id]);
+
+            // Ensure the linked form is publicly accessible when a link is generated
+            $this->db->prepare("UPDATE forms SET public_enabled = 1 WHERE id = ?")
+                ->execute([$formLinkId]);
 
             $_SESSION['success'] = 'Formulario vinculado. Copia el enlace y compártelo con el cliente.';
             $this->redirect('/solicitudes/ver/' . $id . '?copiar_enlace=1');

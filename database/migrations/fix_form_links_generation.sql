@@ -15,8 +15,16 @@ SET public_token = LOWER(HEX(RANDOM_BYTES(32)))
 WHERE public_token IS NULL
    OR public_token = '';
 
--- 3) Mantener funcionalidad actual sin exponer formularios no utilizados:
---    habilitar acceso público únicamente para formularios ya vinculados y enviados/completados.
+-- 3) Sincronizar public_enabled con is_published para todos los formularios publicados.
+--    Esto corrige formularios publicados que quedaron con public_enabled = 0 tras
+--    ejecutar la migración add_enhancements_features.sql en una base de datos existente.
+UPDATE forms
+SET public_enabled = 1
+WHERE is_published = 1
+  AND (public_enabled IS NULL OR public_enabled = 0);
+
+-- 4) También habilitar acceso público para formularios vinculados a solicitudes enviadas/completadas
+--    que pudieran estar publicados pero aún con public_enabled = 0.
 UPDATE forms f
 INNER JOIN (
     SELECT DISTINCT form_link_id AS linked_form_id
