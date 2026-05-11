@@ -53,27 +53,81 @@ ob_start();
 
 <!-- Estadísticas por Estado -->
 <div class="bg-white rounded-lg shadow p-4 md:p-6 mb-4 md:mb-6">
-    <h3 class="text-lg md:text-xl font-bold text-gray-800 mb-4">Distribución por Estado Financiero</h3>
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div class="flex items-center justify-between p-4 bg-red-50 rounded-lg">
-            <span class="font-medium text-gray-700 text-sm md:text-base">Pendiente</span>
-            <span class="bg-red-600 text-white px-3 md:px-4 py-1 md:py-2 rounded-full text-base md:text-lg font-bold">
-                <?= $summary['pending_count'] ?? 0 ?>
-            </span>
+    <?php
+    $totalByType = (int) ($totalApplicationsByType ?? 0);
+    $typeStyles = [
+        'Visa' => [
+            'container' => 'bg-blue-50 border-blue-100',
+            'icon' => 'text-blue-500 bg-blue-100',
+            'badge' => 'bg-blue-600 text-white',
+            'progress' => 'bg-blue-600'
+        ],
+        'Pasaporte' => [
+            'container' => 'bg-emerald-50 border-emerald-100',
+            'icon' => 'text-emerald-500 bg-emerald-100',
+            'badge' => 'bg-emerald-600 text-white',
+            'progress' => 'bg-emerald-600'
+        ]
+    ];
+    ?>
+    <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-2 mb-4">
+        <div>
+            <h3 class="text-lg md:text-xl font-bold text-gray-800">Distribución por Tipo de Formulario</h3>
+            <p class="text-sm text-gray-500">Solicitudes registradas según el tipo capturado en el sistema.</p>
         </div>
-        <div class="flex items-center justify-between p-4 bg-yellow-50 rounded-lg">
-            <span class="font-medium text-gray-700 text-sm md:text-base">Parcial</span>
-            <span class="bg-yellow-600 text-white px-3 md:px-4 py-1 md:py-2 rounded-full text-base md:text-lg font-bold">
-                <?= $summary['partial_count'] ?? 0 ?>
-            </span>
-        </div>
-        <div class="flex items-center justify-between p-4 bg-green-50 rounded-lg">
-            <span class="font-medium text-gray-700">Pagado</span>
-            <span class="bg-green-600 text-white px-4 py-2 rounded-full text-lg font-bold">
-                <?= $summary['paid_count'] ?? 0 ?>
-            </span>
-        </div>
+        <span class="inline-flex items-center self-start md:self-auto px-3 py-1 rounded-full bg-gray-100 text-gray-600 text-sm font-medium">
+            Total: <?= $totalByType ?>
+        </span>
     </div>
+
+    <?php if (!empty($applicationsByType)): ?>
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <?php foreach ($applicationsByType as $typeItem): ?>
+            <?php
+            $typeName = $typeItem['type'] ?? 'Sin tipo';
+            $typeCount = (int) ($typeItem['count'] ?? 0);
+            $typePercentage = $totalByType > 0 ? (int) round(($typeCount / $totalByType) * 100) : 0;
+            $styles = $typeStyles[$typeName] ?? [
+                'container' => 'bg-gray-50 border-gray-100',
+                'icon' => 'text-gray-500 bg-gray-100',
+                'badge' => 'bg-gray-700 text-white',
+                'progress' => 'bg-gray-700'
+            ];
+            $typeIcon = $typeName === 'Pasaporte' ? 'fa-passport' : 'fa-file-alt';
+            ?>
+        <div class="border rounded-xl p-4 md:p-5 <?= $styles['container'] ?>">
+            <div class="flex items-start justify-between gap-4">
+                <div class="flex items-center gap-3 min-w-0">
+                    <span class="w-12 h-12 rounded-full flex items-center justify-center <?= $styles['icon'] ?>">
+                        <i class="fas <?= $typeIcon ?> text-lg"></i>
+                    </span>
+                    <div class="min-w-0">
+                        <p class="text-sm text-gray-500">Tipo de formulario</p>
+                        <p class="text-lg font-semibold text-gray-800 truncate"><?= htmlspecialchars($typeName) ?></p>
+                    </div>
+                </div>
+                <span class="px-3 py-1 rounded-full text-sm font-bold <?= $styles['badge'] ?>">
+                    <?= $typeCount ?>
+                </span>
+            </div>
+            <div class="mt-4">
+                <div class="flex items-center justify-between text-sm text-gray-500 mb-2">
+                    <span>Participación</span>
+                    <span><?= $typePercentage ?>%</span>
+                </div>
+                <div class="w-full h-2 rounded-full bg-white/80 overflow-hidden">
+                    <div class="h-full rounded-full <?= $styles['progress'] ?>" style="width: <?= $typePercentage ?>%;"></div>
+                </div>
+            </div>
+        </div>
+        <?php endforeach; ?>
+    </div>
+    <?php else: ?>
+    <div class="py-8 text-center text-gray-500">
+        <i class="fas fa-chart-pie text-3xl mb-3 text-gray-300"></i>
+        <p>No hay tipos de formulario registrados todavía.</p>
+    </div>
+    <?php endif; ?>
 </div>
 
 <!-- Lista de Solicitudes -->
