@@ -48,12 +48,16 @@ class FinancialController extends BaseController {
                 ORDER BY count DESC, type ASC
             ");
             $applicationsByType = $stmt->fetchAll();
+            $totalApplicationsByType = array_sum(array_map(static function ($item) {
+                return (int) ($item['count'] ?? 0);
+            }, $applicationsByType));
             
             $totalPages = ceil($total / $limit);
             
             $this->view('financial/index', [
                 'summary' => $summary,
                 'applicationsByType' => $applicationsByType,
+                'totalApplicationsByType' => $totalApplicationsByType,
                 'applications' => $applications,
                 'page' => $page,
                 'totalPages' => $totalPages

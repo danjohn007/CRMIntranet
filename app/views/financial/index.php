@@ -54,9 +54,7 @@ ob_start();
 <!-- Estadísticas por Estado -->
 <div class="bg-white rounded-lg shadow p-4 md:p-6 mb-4 md:mb-6">
     <?php
-    $totalByType = array_sum(array_map(static function ($item) {
-        return (int) ($item['count'] ?? 0);
-    }, $applicationsByType ?? []));
+    $totalByType = (int) ($totalApplicationsByType ?? 0);
     $typeStyles = [
         'Visa' => [
             'container' => 'bg-blue-50 border-blue-100',
