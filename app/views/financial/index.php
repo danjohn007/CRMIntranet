@@ -86,7 +86,7 @@ ob_start();
             <?php
             $typeName = $typeItem['type'] ?? 'Sin tipo';
             $typeCount = (int) ($typeItem['count'] ?? 0);
-            $typePercentage = $totalByType > 0 ? round(($typeCount / $totalByType) * 100) : 0;
+            $typePercentage = $totalByType > 0 ? round(($typeCount / $totalByType) * 100, 0) : 0;
             $styles = $typeStyles[$typeName] ?? [
                 'container' => 'bg-gray-50 border-gray-100',
                 'icon' => 'text-gray-500 bg-gray-100',
