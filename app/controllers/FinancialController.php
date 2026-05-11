@@ -48,9 +48,9 @@ class FinancialController extends BaseController {
                 ORDER BY count DESC, type ASC
             ");
             $applicationsByType = $stmt->fetchAll();
-            $totalApplicationsByType = array_sum(array_map(static function ($item) {
-                return (int) ($item['count'] ?? 0);
-            }, $applicationsByType));
+            $totalApplicationsByType = array_reduce($applicationsByType, static function ($total, $item) {
+                return $total + (int) ($item['count'] ?? 0);
+            }, 0);
             
             $totalPages = ceil($total / $limit);
             
