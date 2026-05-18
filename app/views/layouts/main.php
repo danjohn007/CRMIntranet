@@ -279,6 +279,11 @@
                     <i class="fas fa-dollar-sign w-6"></i>
                     <span>Módulo Financiero</span>
                 </a>
+
+                <a href="<?= BASE_URL ?>/ingresos-egresos" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
+                    <i class="fas fa-scale-balanced w-6"></i>
+                    <span>Ingresos vs Egresos</span>
+                </a>
                 
                 <a href="<?= BASE_URL ?>/reportes" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
                     <i class="fas fa-chart-bar w-6"></i>
