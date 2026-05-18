@@ -5,7 +5,7 @@
 -- 2) El pago
 -- 3) Fecha de la cita
 
-SET @target_forms := (
+SET @target_forms = (
   SELECT COUNT(*)
   FROM `forms`
   WHERE `name` = 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO'

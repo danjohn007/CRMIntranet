@@ -216,7 +216,11 @@ $canadianStatusLabels = [
         <!-- Datos basicos del solicitante -->
         <?php
         $basicData = json_decode($application['data_json'], true) ?: [];
-        if (!empty($basicData['nombre_cliente']) || !empty($basicData['pago']) || !empty($basicData['fecha_cita'])) {
+        $isUniqueUsPassportForm =
+            trim($application['form_name'] ?? '') === 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO' &&
+            trim($application['type'] ?? '') === 'Pasaporte' &&
+            trim($application['subtype'] ?? '') === 'Única Vez';
+        if ($isUniqueUsPassportForm) {
             $basicFields = ['nombre_cliente' => 'Nombre del cliente', 'pago' => 'El pago', 'fecha_cita' => 'Fecha de la cita'];
             if (empty($basicData['nombre_cliente']) && !empty($application['client_name'])) {
                 $basicData['nombre_cliente'] = $application['client_name'];
