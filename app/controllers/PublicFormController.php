@@ -279,12 +279,12 @@ class PublicFormController extends BaseController {
                     }
 
                     // Update application with submitted form data and mark as completado
-                    // Preserve basic applicant fields (nombre/apellidos/email/telefono) registered at creation
+                    // Preserve basic applicant fields registered at creation
                     $stmtBasicData = $this->db->prepare("SELECT data_json FROM applications WHERE id = ?");
                     $stmtBasicData->execute([$applicationId]);
                     $existingAppRow = $stmtBasicData->fetch();
                     $existingBasic  = json_decode($existingAppRow['data_json'] ?? '{}', true) ?: [];
-                    $basicKeys      = ['nombre', 'apellidos', 'email', 'telefono'];
+                    $basicKeys      = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita'];
                     foreach ($basicKeys as $bk) {
                         if (!empty($existingBasic[$bk])) {
                             $data[$bk] = $existingBasic[$bk];

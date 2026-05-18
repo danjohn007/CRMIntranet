@@ -310,7 +310,7 @@ function sendAppointmentNotificationEmail($applicationId, $type, $appointmentDat
 
     // Build email content
     $data       = json_decode($application['data_json'], true) ?: [];
-    $clientName = trim(($application['client_name'] ?? '') ?: (($data['nombre'] ?? '') . ' ' . ($data['apellidos'] ?? '')));
+    $clientName = trim(($application['client_name'] ?? '') ?: ($data['nombre_cliente'] ?? '') ?: (($data['nombre'] ?? '') . ' ' . ($data['apellidos'] ?? '')));
     if (empty($clientName)) {
         $clientName = 'Cliente';
     }

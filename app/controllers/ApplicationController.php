@@ -110,27 +110,43 @@ class ApplicationController extends BaseController {
         }
 
         $isCanadianVisa = (($_POST['is_canadian_visa'] ?? '0') === '1');
+        $formId = intval($_POST['form_id'] ?? 0);
         $formData = $_POST['form_data'] ?? [];
 
-        // Only keep the 4 basic fields; sanitise values
-        $basicKeys    = ['nombre', 'apellidos', 'email', 'telefono'];
+        // Keep basic creation fields; sanitise values
+        $basicKeys    = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita'];
         $filteredData = [];
         foreach ($basicKeys as $key) {
             $filteredData[$key] = trim($formData[$key] ?? '');
         }
 
-        if (empty($filteredData['nombre'])) {
-            $_SESSION['error'] = 'El nombre del solicitante es obligatorio';
-            $this->redirect('/solicitudes/crear');
+        $isUniqueUsPassportData = !empty($filteredData['nombre_cliente']) || !empty($filteredData['pago']) || !empty($filteredData['fecha_cita']);
+        if ($isUniqueUsPassportData) {
+            if (empty($filteredData['nombre_cliente'])) {
+                $_SESSION['error'] = 'El nombre del cliente es obligatorio';
+                $this->redirect('/solicitudes/crear');
+            }
+            if (empty($filteredData['pago'])) {
+                $_SESSION['error'] = 'El pago es obligatorio';
+                $this->redirect('/solicitudes/crear');
+            }
+            if (empty($filteredData['fecha_cita'])) {
+                $_SESSION['error'] = 'La fecha de la cita es obligatoria';
+                $this->redirect('/solicitudes/crear');
+            }
+            $clientName = trim($filteredData['nombre_cliente']);
+        } else {
+            if (empty($filteredData['nombre'])) {
+                $_SESSION['error'] = 'El nombre del solicitante es obligatorio';
+                $this->redirect('/solicitudes/crear');
+            }
+            $clientName = trim($filteredData['nombre'] . ' ' . $filteredData['apellidos']);
         }
-
-        $clientName = trim($filteredData['nombre'] . ' ' . $filteredData['apellidos']);
 
         // ── Canadian Visa flow ────────────────────────────────────
         if ($isCanadianVisa) {
             $canadianTipo      = trim($_POST['canadian_tipo'] ?? '');
             $canadianModalidad = trim($_POST['canadian_modalidad'] ?? '');
-            $formId            = intval($_POST['form_id'] ?? 0);
 
             if (empty($canadianTipo) || empty($canadianModalidad)) {
                 $_SESSION['error'] = 'Debe seleccionar el Tipo y la Modalidad para Visa Canadiense';
@@ -226,8 +242,6 @@ class ApplicationController extends BaseController {
         }
 
         // ── Standard flow ─────────────────────────────────────────
-        $formId = intval($_POST['form_id'] ?? 0);
-
         if ($formId <= 0) {
             $_SESSION['error'] = 'Debe seleccionar un tipo de trámite';
             $this->redirect('/solicitudes/crear');
