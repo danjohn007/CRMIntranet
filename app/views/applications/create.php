@@ -247,12 +247,15 @@ function isUniqueUsPassportForm(selectEl) {
 function setInputsEnabled(container, enabled) {
     if (!container) return;
     container.querySelectorAll('input, select, textarea').forEach(function(input) {
+        if (typeof input.dataset.initialRequired === 'undefined') {
+            input.dataset.initialRequired = input.required ? '1' : '0';
+        }
         input.disabled = !enabled;
-        input.required = enabled;
+        input.required = enabled ? input.dataset.initialRequired === '1' : false;
     });
 }
 
-function setUsPassportFieldsVisible(container, visible) {
+function setContainerVisibility(container, visible) {
     if (!container) return;
     if (visible) {
         container.classList.remove('hidden');
@@ -273,11 +276,11 @@ document.getElementById('form_id').addEventListener('change', function() {
         submitBtn.disabled = false;
         if (isUniqueUsPassportForm(this)) {
             defaultBasicFields.classList.add('hidden');
-            setUsPassportFieldsVisible(usPassportBasicFields, true);
+            setContainerVisibility(usPassportBasicFields, true);
             setInputsEnabled(defaultBasicFields, false);
             setInputsEnabled(usPassportBasicFields, true);
         } else {
-            setUsPassportFieldsVisible(usPassportBasicFields, false);
+            setContainerVisibility(usPassportBasicFields, false);
             defaultBasicFields.classList.remove('hidden');
             setInputsEnabled(usPassportBasicFields, false);
             setInputsEnabled(defaultBasicFields, true);
@@ -285,7 +288,7 @@ document.getElementById('form_id').addEventListener('change', function() {
     } else {
         basicFields.classList.add('hidden');
         submitBtn.disabled = true;
-        setUsPassportFieldsVisible(usPassportBasicFields, false);
+        setContainerVisibility(usPassportBasicFields, false);
         setInputsEnabled(defaultBasicFields, false);
         setInputsEnabled(usPassportBasicFields, false);
     }
