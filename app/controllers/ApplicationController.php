@@ -120,8 +120,24 @@ class ApplicationController extends BaseController {
             $filteredData[$key] = trim($formData[$key] ?? '');
         }
 
-        $isUniqueUsPassportData = !empty($filteredData['nombre_cliente']) || !empty($filteredData['pago']) || !empty($filteredData['fecha_cita']);
-        if ($isUniqueUsPassportData) {
+        $isUniqueUsPassportForm = false;
+        if (!$isCanadianVisa && $formId > 0) {
+            $stmtFormType = $this->db->prepare("
+                SELECT name, type, subtype
+                FROM forms
+                WHERE id = ? AND is_published = 1
+            ");
+            $stmtFormType->execute([$formId]);
+            $selectedForm = $stmtFormType->fetch();
+            if ($selectedForm) {
+                $isUniqueUsPassportForm =
+                    trim($selectedForm['name']) === 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO' &&
+                    trim($selectedForm['type']) === 'Pasaporte' &&
+                    trim($selectedForm['subtype'] ?? '') === 'Única Vez';
+            }
+        }
+
+        if ($isUniqueUsPassportForm) {
             if (empty($filteredData['nombre_cliente'])) {
                 $_SESSION['error'] = 'El nombre del cliente es obligatorio';
                 $this->redirect('/solicitudes/crear');

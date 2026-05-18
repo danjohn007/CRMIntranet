@@ -54,25 +54,25 @@ ob_start();
             <div id="basic-fields-default" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
-                    <input type="text" name="form_data[nombre]" id="field_nombre" required
+                    <input type="text" name="form_data[nombre]" id="field_nombre" required disabled
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                            placeholder="Nombre(s)">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Apellidos <span class="text-red-500">*</span></label>
-                    <input type="text" name="form_data[apellidos]" id="field_apellidos" required
+                    <input type="text" name="form_data[apellidos]" id="field_apellidos" required disabled
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                            placeholder="Apellido paterno y materno">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
-                    <input type="email" name="form_data[email]" id="field_email" required
+                    <input type="email" name="form_data[email]" id="field_email" required disabled
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                            placeholder="correo@ejemplo.com">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono <span class="text-red-500">*</span></label>
-                    <input type="tel" name="form_data[telefono]" id="field_telefono" required
+                    <input type="tel" name="form_data[telefono]" id="field_telefono" required disabled
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                            placeholder="Número de teléfono"
                            pattern="[0-9+()\-\s]+" inputmode="tel"
@@ -82,19 +82,19 @@ ob_start();
             <div id="basic-fields-us-passport" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del cliente <span class="text-red-500">*</span></label>
-                    <input type="text" name="form_data[nombre_cliente]" id="field_nombre_cliente"
+                    <input type="text" name="form_data[nombre_cliente]" id="field_nombre_cliente" required disabled
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                            placeholder="Nombre del cliente">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">El pago <span class="text-red-500">*</span></label>
-                    <input type="text" name="form_data[pago]" id="field_pago"
+                    <input type="text" name="form_data[pago]" id="field_pago" required disabled
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                            placeholder="Monto o referencia de pago">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de la cita <span class="text-red-500">*</span></label>
-                    <input type="date" name="form_data[fecha_cita]" id="field_fecha_cita"
+                    <input type="date" name="form_data[fecha_cita]" id="field_fecha_cita" required disabled
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
             </div>
@@ -244,11 +244,10 @@ function isUniqueUsPassportForm(selectEl) {
         && formSubtype === 'ÚNICA VEZ';
 }
 
-function setRequiredInputs(container, enabled) {
+function setInputsEnabled(container, enabled) {
     if (!container) return;
     container.querySelectorAll('input, select, textarea').forEach(function(input) {
         input.disabled = !enabled;
-        input.required = enabled;
     });
 }
 
@@ -263,19 +262,19 @@ document.getElementById('form_id').addEventListener('change', function() {
         if (isUniqueUsPassportForm(this)) {
             defaultBasicFields.classList.add('hidden');
             usPassportBasicFields.classList.remove('hidden');
-            setRequiredInputs(defaultBasicFields, false);
-            setRequiredInputs(usPassportBasicFields, true);
+            setInputsEnabled(defaultBasicFields, false);
+            setInputsEnabled(usPassportBasicFields, true);
         } else {
             usPassportBasicFields.classList.add('hidden');
             defaultBasicFields.classList.remove('hidden');
-            setRequiredInputs(usPassportBasicFields, false);
-            setRequiredInputs(defaultBasicFields, true);
+            setInputsEnabled(usPassportBasicFields, false);
+            setInputsEnabled(defaultBasicFields, true);
         }
     } else {
         basicFields.classList.add('hidden');
         submitBtn.disabled = true;
-        setRequiredInputs(defaultBasicFields, false);
-        setRequiredInputs(usPassportBasicFields, false);
+        setInputsEnabled(defaultBasicFields, false);
+        setInputsEnabled(usPassportBasicFields, false);
     }
 });
 
