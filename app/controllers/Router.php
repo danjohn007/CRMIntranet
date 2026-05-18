@@ -58,6 +58,10 @@ class Router {
         $this->routes['GET']['/financiero/solicitud/{id}'] = ['FinancialController', 'show'];
         $this->routes['POST']['/financiero/agregar-costo/{id}'] = ['FinancialController', 'addCost'];
         $this->routes['POST']['/financiero/registrar-pago/{id}'] = ['FinancialController', 'registerPayment'];
+
+        // Ingresos vs Egresos
+        $this->routes['GET']['/ingresos-egresos'] = ['IncomeExpenseController', 'index'];
+        $this->routes['POST']['/ingresos-egresos/nuevo-egreso'] = ['IncomeExpenseController', 'storeExpense'];
         
         // Reportes
         $this->routes['GET']['/reportes'] = ['ReportController', 'index'];

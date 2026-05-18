@@ -190,6 +190,23 @@ INSERT INTO `payments` (`application_id`, `amount`, `payment_method`, `reference
 (3, 3145.00, 'Tarjeta', 'CARD-****1234', 2, '2026-01-10'),
 (4, 6000.00, 'PayPal', 'PP-20260120-456', 2, '2026-01-20');
 
+-- Tabla de Egresos Generales
+DROP TABLE IF EXISTS `financial_expenses`;
+CREATE TABLE `financial_expenses` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `concept` varchar(200) NOT NULL,
+  `amount` decimal(10,2) NOT NULL,
+  `notes` text DEFAULT NULL,
+  `expense_date` date NOT NULL,
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_financial_expenses_expense_date` (`expense_date`),
+  KEY `idx_financial_expenses_concept` (`concept`),
+  KEY `idx_financial_expenses_created_by` (`created_by`),
+  CONSTRAINT `financial_expenses_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Tabla de Estado Financiero por Solicitud
 DROP TABLE IF EXISTS `financial_status`;
 CREATE TABLE `financial_status` (
