@@ -248,7 +248,19 @@ function setInputsEnabled(container, enabled) {
     if (!container) return;
     container.querySelectorAll('input, select, textarea').forEach(function(input) {
         input.disabled = !enabled;
+        input.required = enabled;
     });
+}
+
+function setUsPassportFieldsVisible(container, visible) {
+    if (!container) return;
+    if (visible) {
+        container.classList.remove('hidden');
+        container.classList.add('grid', 'grid-cols-1', 'md:grid-cols-2', 'gap-4');
+        return;
+    }
+    container.classList.add('hidden');
+    container.classList.remove('grid', 'grid-cols-1', 'md:grid-cols-2', 'gap-4');
 }
 
 document.getElementById('form_id').addEventListener('change', function() {
@@ -261,13 +273,11 @@ document.getElementById('form_id').addEventListener('change', function() {
         submitBtn.disabled = false;
         if (isUniqueUsPassportForm(this)) {
             defaultBasicFields.classList.add('hidden');
-            usPassportBasicFields.classList.remove('hidden');
-            usPassportBasicFields.classList.add('grid', 'grid-cols-1', 'md:grid-cols-2', 'gap-4');
+            setUsPassportFieldsVisible(usPassportBasicFields, true);
             setInputsEnabled(defaultBasicFields, false);
             setInputsEnabled(usPassportBasicFields, true);
         } else {
-            usPassportBasicFields.classList.add('hidden');
-            usPassportBasicFields.classList.remove('grid', 'grid-cols-1', 'md:grid-cols-2', 'gap-4');
+            setUsPassportFieldsVisible(usPassportBasicFields, false);
             defaultBasicFields.classList.remove('hidden');
             setInputsEnabled(usPassportBasicFields, false);
             setInputsEnabled(defaultBasicFields, true);
@@ -275,7 +285,7 @@ document.getElementById('form_id').addEventListener('change', function() {
     } else {
         basicFields.classList.add('hidden');
         submitBtn.disabled = true;
-        usPassportBasicFields.classList.remove('grid', 'grid-cols-1', 'md:grid-cols-2', 'gap-4');
+        setUsPassportFieldsVisible(usPassportBasicFields, false);
         setInputsEnabled(defaultBasicFields, false);
         setInputsEnabled(usPassportBasicFields, false);
     }

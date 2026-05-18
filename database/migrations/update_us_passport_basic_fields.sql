@@ -5,11 +5,15 @@
 -- 2) El pago
 -- 3) Fecha de la cita
 
-SELECT COUNT(*) AS `target_forms`
-FROM `forms`
-WHERE `name` = 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO'
-  AND `type` = 'Pasaporte'
-  AND `subtype` = 'Única Vez';
+SET @target_forms := (
+  SELECT COUNT(*)
+  FROM `forms`
+  WHERE `name` = 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO'
+    AND `type` = 'Pasaporte'
+    AND `subtype` = 'Única Vez'
+);
+
+SELECT @target_forms AS `target_forms`;
 
 UPDATE `forms`
 SET
@@ -18,6 +22,7 @@ SET
   `updated_at` = CURRENT_TIMESTAMP
 WHERE `name` = 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO'
   AND `type` = 'Pasaporte'
-  AND `subtype` = 'Única Vez';
+  AND `subtype` = 'Única Vez'
+  AND @target_forms = 1;
 
 SELECT ROW_COUNT() AS `updated_forms`;
