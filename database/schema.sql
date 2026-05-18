@@ -204,7 +204,7 @@ CREATE TABLE `financial_expenses` (
   KEY `idx_financial_expenses_expense_date` (`expense_date`),
   KEY `idx_financial_expenses_concept` (`concept`),
   KEY `idx_financial_expenses_created_by` (`created_by`),
-  CONSTRAINT `financial_expenses_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
+  CONSTRAINT `financial_expenses_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE RESTRICT
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Tabla de Estado Financiero por Solicitud

@@ -102,8 +102,17 @@ class IncomeExpenseController extends BaseController
             $this->redirect('/ingresos-egresos');
         }
 
-        if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $expenseDate)) {
-            $expenseDate = date('Y-m-d');
+        $parsedDate = DateTime::createFromFormat('Y-m-d', $expenseDate);
+        $isValidDate = $parsedDate !== false && $parsedDate->format('Y-m-d') === $expenseDate;
+
+        if (!$isValidDate) {
+            $_SESSION['error'] = 'La fecha del egreso no es válida';
+            $this->redirect('/ingresos-egresos');
+        }
+
+        if ($expenseDate > date('Y-m-d')) {
+            $_SESSION['error'] = 'La fecha del egreso no puede ser futura';
+            $this->redirect('/ingresos-egresos');
         }
 
         try {

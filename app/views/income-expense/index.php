@@ -6,8 +6,9 @@ $dailyLabels = [];
 $dailyIncome = [];
 $dailyExpenses = [];
 foreach ($dailyEvolution ?? [] as $row) {
-    $date = !empty($row['movement_date']) ? date('d/m', strtotime($row['movement_date'])) : '';
-    $dailyLabels[] = $date;
+    $movementDate = $row['movement_date'] ?? '';
+    $dateObject = $movementDate !== '' ? DateTime::createFromFormat('Y-m-d', $movementDate) : false;
+    $dailyLabels[] = $dateObject !== false ? $dateObject->format('d/m') : $movementDate;
     $dailyIncome[] = (float) ($row['total_income'] ?? 0);
     $dailyExpenses[] = (float) ($row['total_expenses'] ?? 0);
 }
@@ -23,8 +24,9 @@ $monthlyLabels = [];
 $monthlyIncome = [];
 $monthlyExpenses = [];
 foreach ($monthlyComparison ?? [] as $row) {
-    $monthDate = DateTime::createFromFormat('Y-m', $row['movement_month'] ?? '');
-    $monthlyLabels[] = $monthDate ? $monthDate->format('M y') : ($row['movement_month'] ?? '');
+    $movementMonth = $row['movement_month'] ?? '';
+    $monthDate = $movementMonth !== '' ? DateTime::createFromFormat('Y-m', $movementMonth) : false;
+    $monthlyLabels[] = $monthDate !== false ? $monthDate->format('M Y') : $movementMonth;
     $monthlyIncome[] = (float) ($row['total_income'] ?? 0);
     $monthlyExpenses[] = (float) ($row['total_expenses'] ?? 0);
 }
@@ -57,7 +59,7 @@ foreach ($monthlyComparison ?? [] as $row) {
         </div>
         <div class="md:col-span-1">
             <label class="block text-sm font-medium text-gray-700 mb-1">Fecha</label>
-            <input type="date" name="expense_date" value="<?= date('Y-m-d') ?>" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
+            <input type="date" name="expense_date" value="<?= date('Y-m-d') ?>" max="<?= date('Y-m-d') ?>" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent">
         </div>
         <div class="md:col-span-1 flex items-end">
             <button type="submit" class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition">
