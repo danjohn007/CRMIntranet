@@ -79,7 +79,7 @@ ob_start();
                            title="Solo se permiten números y caracteres telefónicos">
                 </div>
             </div>
-            <div id="basic-fields-us-passport" class="hidden grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div id="basic-fields-us-passport" class="hidden">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del cliente <span class="text-red-500">*</span></label>
                     <input type="text" name="form_data[nombre_cliente]" id="field_nombre_cliente" required disabled
@@ -236,12 +236,12 @@ function isUniqueUsPassportForm(selectEl) {
         return false;
     }
     var selected = selectEl.selectedOptions[0];
-    var formName = (selected.dataset.formName || '').trim().toUpperCase();
-    var formType = (selected.dataset.formType || '').trim().toUpperCase();
-    var formSubtype = (selected.dataset.formSubtype || '').trim().toUpperCase();
+    var formName = (selected.dataset.formName || '').trim();
+    var formType = (selected.dataset.formType || '').trim();
+    var formSubtype = (selected.dataset.formSubtype || '').trim();
     return formName === 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO'
-        && formType === 'PASAPORTE'
-        && formSubtype === 'ÚNICA VEZ';
+        && formType === 'Pasaporte'
+        && formSubtype === 'Única Vez';
 }
 
 function setInputsEnabled(container, enabled) {
@@ -262,10 +262,12 @@ document.getElementById('form_id').addEventListener('change', function() {
         if (isUniqueUsPassportForm(this)) {
             defaultBasicFields.classList.add('hidden');
             usPassportBasicFields.classList.remove('hidden');
+            usPassportBasicFields.classList.add('grid', 'grid-cols-1', 'md:grid-cols-2', 'gap-4');
             setInputsEnabled(defaultBasicFields, false);
             setInputsEnabled(usPassportBasicFields, true);
         } else {
             usPassportBasicFields.classList.add('hidden');
+            usPassportBasicFields.classList.remove('grid', 'grid-cols-1', 'md:grid-cols-2', 'gap-4');
             defaultBasicFields.classList.remove('hidden');
             setInputsEnabled(usPassportBasicFields, false);
             setInputsEnabled(defaultBasicFields, true);
@@ -273,6 +275,7 @@ document.getElementById('form_id').addEventListener('change', function() {
     } else {
         basicFields.classList.add('hidden');
         submitBtn.disabled = true;
+        usPassportBasicFields.classList.remove('grid', 'grid-cols-1', 'md:grid-cols-2', 'gap-4');
         setInputsEnabled(defaultBasicFields, false);
         setInputsEnabled(usPassportBasicFields, false);
     }

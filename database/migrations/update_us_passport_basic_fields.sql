@@ -5,6 +5,12 @@
 -- 2) El pago
 -- 3) Fecha de la cita
 
+SELECT COUNT(*) AS `target_forms`
+FROM `forms`
+WHERE `name` = 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO'
+  AND `type` = 'Pasaporte'
+  AND `subtype` = 'Única Vez';
+
 UPDATE `forms`
 SET
   `fields_json` = '{"fields":[{"id":"nombre_cliente","type":"text","label":"Nombre del cliente","required":true},{"id":"pago","type":"text","label":"El pago","required":true},{"id":"fecha_cita","type":"date","label":"Fecha de la cita","required":true}]}',
@@ -13,3 +19,5 @@ SET
 WHERE `name` = 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO'
   AND `type` = 'Pasaporte'
   AND `subtype` = 'Única Vez';
+
+SELECT ROW_COUNT() AS `updated_forms`;
