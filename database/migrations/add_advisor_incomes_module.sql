@@ -1,5 +1,5 @@
 -- ============================================================
--- Migración: Ingresos adicionales para asesoras
+-- Migración: Ingresos adicionales para asesores
 -- ============================================================
 
 SET NAMES utf8mb4;

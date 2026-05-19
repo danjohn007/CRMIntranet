@@ -88,11 +88,17 @@ class AdvisorIncomeController extends BaseController
             $this->redirect('/ingresos');
         }
 
-        $parsedDatetime = DateTime::createFromFormat('Y-m-d\TH:i', $incomeDatetimeRaw);
+        $timezone = new DateTimeZone('America/Mexico_City');
+        $parsedDatetime = DateTime::createFromFormat('Y-m-d\TH:i', $incomeDatetimeRaw, $timezone);
         $isValidDatetime = $parsedDatetime !== false && $parsedDatetime->format('Y-m-d\TH:i') === $incomeDatetimeRaw;
 
         if (!$isValidDatetime) {
             $_SESSION['error'] = 'La fecha y hora del ingreso no es válida';
+            $this->redirect('/ingresos');
+        }
+
+        if ($parsedDatetime > new DateTime('now', $timezone)) {
+            $_SESSION['error'] = 'La fecha y hora del ingreso no puede ser futura';
             $this->redirect('/ingresos');
         }
 
