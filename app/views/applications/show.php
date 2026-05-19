@@ -215,14 +215,25 @@ $canadianStatusLabels = [
 
         <!-- Datos basicos del solicitante -->
         <?php
-        $basicData   = json_decode($application['data_json'], true) ?: [];
-        $basicFields = ['nombre' => 'Nombre', 'apellidos' => 'Apellidos', 'email' => 'Email', 'telefono' => 'Telefono'];
-        // If basic fields are missing from data_json (overwritten after form submission),
-        // reconstruct from client_name stored at creation time
-        if (empty($basicData['nombre']) && !empty($application['client_name'])) {
-            $nameParts = explode(' ', $application['client_name'], 2);
-            $basicData['nombre']    = $nameParts[0] ?? $application['client_name'];
-            $basicData['apellidos'] = $nameParts[1] ?? '';
+        $basicData = json_decode($application['data_json'], true) ?: [];
+        $isUniqueUsPassportForm =
+            trim($application['form_name'] ?? '') === 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO' &&
+            trim($application['type'] ?? '') === 'Pasaporte' &&
+            trim($application['subtype'] ?? '') === 'Única Vez';
+        if ($isUniqueUsPassportForm) {
+            $basicFields = ['nombre_cliente' => 'Nombre del cliente', 'pago' => 'El pago', 'fecha_cita' => 'Fecha de la cita'];
+            if (empty($basicData['nombre_cliente']) && !empty($application['client_name'])) {
+                $basicData['nombre_cliente'] = $application['client_name'];
+            }
+        } else {
+            $basicFields = ['nombre' => 'Nombre', 'apellidos' => 'Apellidos', 'email' => 'Email', 'telefono' => 'Telefono'];
+            // If basic fields are missing from data_json (overwritten after form submission),
+            // reconstruct from client_name stored at creation time
+            if (empty($basicData['nombre']) && !empty($application['client_name'])) {
+                $nameParts = explode(' ', $application['client_name'], 2);
+                $basicData['nombre']    = $nameParts[0] ?? $application['client_name'];
+                $basicData['apellidos'] = $nameParts[1] ?? '';
+            }
         }
         ?>
         <div class="bg-white rounded-lg shadow p-6">
@@ -251,7 +262,7 @@ $canadianStatusLabels = [
                 $fieldLabels[$f['id']] = $f['label'] ?? $f['id'];
             }
         }
-        $basicKeys = ['nombre', 'apellidos', 'email', 'telefono'];
+        $basicKeys = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita'];
         ?>
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-2">

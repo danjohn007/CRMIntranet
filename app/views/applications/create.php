@@ -34,7 +34,10 @@ ob_start();
                     class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 <option value="">-- Seleccione el tipo de trámite --</option>
                 <?php foreach ($forms as $form): ?>
-                <option value="<?= $form['id'] ?>">
+                <option value="<?= $form['id'] ?>"
+                        data-form-name="<?= htmlspecialchars($form['name'], ENT_QUOTES, 'UTF-8') ?>"
+                        data-form-type="<?= htmlspecialchars($form['type'], ENT_QUOTES, 'UTF-8') ?>"
+                        data-form-subtype="<?= htmlspecialchars($form['subtype'] ?? '', ENT_QUOTES, 'UTF-8') ?>">
                     <?= htmlspecialchars($form['name']) ?> (<?= htmlspecialchars($form['type']) ?><?= !empty($form['subtype']) ? ' - ' . htmlspecialchars($form['subtype']) : '' ?>)
                 </option>
                 <?php endforeach; ?>
@@ -48,32 +51,51 @@ ob_start();
                 <i class="fas fa-info-circle text-blue-500 mr-1"></i>
                 El cuestionario completo será enviado al cliente vía enlace para que lo llene directamente.
             </p>
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div id="basic-fields-default" class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Nombre <span class="text-red-500">*</span></label>
-                    <input type="text" name="form_data[nombre]" id="field_nombre" required
+                    <input type="text" name="form_data[nombre]" id="field_nombre" required disabled
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                            placeholder="Nombre(s)">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Apellidos <span class="text-red-500">*</span></label>
-                    <input type="text" name="form_data[apellidos]" id="field_apellidos" required
+                    <input type="text" name="form_data[apellidos]" id="field_apellidos" required disabled
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                            placeholder="Apellido paterno y materno">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Email <span class="text-red-500">*</span></label>
-                    <input type="email" name="form_data[email]" id="field_email" required
+                    <input type="email" name="form_data[email]" id="field_email" required disabled
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                            placeholder="correo@ejemplo.com">
                 </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono <span class="text-red-500">*</span></label>
-                    <input type="tel" name="form_data[telefono]" id="field_telefono" required
+                    <input type="tel" name="form_data[telefono]" id="field_telefono" required disabled
                            class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
                            placeholder="Número de teléfono"
                            pattern="[0-9+()\-\s]+" inputmode="tel"
                            title="Solo se permiten números y caracteres telefónicos">
+                </div>
+            </div>
+            <div id="basic-fields-us-passport" class="hidden">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del cliente <span class="text-red-500">*</span></label>
+                    <input type="text" name="form_data[nombre_cliente]" id="field_nombre_cliente" required disabled
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Nombre del cliente">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">El pago <span class="text-red-500">*</span></label>
+                    <input type="text" name="form_data[pago]" id="field_pago" required disabled
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                           placeholder="Monto o referencia de pago">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Fecha de la cita <span class="text-red-500">*</span></label>
+                    <input type="date" name="form_data[fecha_cita]" id="field_fecha_cita" required disabled
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500">
                 </div>
             </div>
         </div>
@@ -209,15 +231,66 @@ function setFlow(flow) {
     }
 }
 
+function isUniqueUsPassportForm(selectEl) {
+    if (!selectEl || !selectEl.value || !selectEl.selectedOptions.length) {
+        return false;
+    }
+    var selected = selectEl.selectedOptions[0];
+    var formName = (selected.dataset.formName || '').trim();
+    var formType = (selected.dataset.formType || '').trim();
+    var formSubtype = (selected.dataset.formSubtype || '').trim();
+    return formName === 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO'
+        && formType === 'Pasaporte'
+        && formSubtype === 'Única Vez';
+}
+
+function setInputsEnabled(container, enabled) {
+    if (!container) return;
+    container.querySelectorAll('input, select, textarea').forEach(function(input) {
+        if (typeof input.dataset.initialRequired === 'undefined') {
+            input.dataset.initialRequired = input.required ? '1' : '0';
+        }
+        input.disabled = !enabled;
+        input.required = enabled ? input.dataset.initialRequired === '1' : false;
+    });
+}
+
+function setContainerVisibility(container, visible) {
+    if (!container) return;
+    if (visible) {
+        container.classList.remove('hidden');
+        container.classList.add('grid', 'grid-cols-1', 'md:grid-cols-2', 'gap-4');
+        return;
+    }
+    container.classList.add('hidden');
+    container.classList.remove('grid', 'grid-cols-1', 'md:grid-cols-2', 'gap-4');
+}
+
 document.getElementById('form_id').addEventListener('change', function() {
     var basicFields = document.getElementById('basic-fields');
+    var defaultBasicFields = document.getElementById('basic-fields-default');
+    var usPassportBasicFields = document.getElementById('basic-fields-us-passport');
     var submitBtn   = document.getElementById('submit-btn');
     if (this.value) {
         basicFields.classList.remove('hidden');
         submitBtn.disabled = false;
+        if (isUniqueUsPassportForm(this)) {
+            defaultBasicFields.classList.add('hidden');
+            setContainerVisibility(usPassportBasicFields, true);
+            setInputsEnabled(defaultBasicFields, false);
+            setInputsEnabled(usPassportBasicFields, true);
+        } else {
+            setContainerVisibility(usPassportBasicFields, false);
+            defaultBasicFields.classList.remove('hidden');
+            setInputsEnabled(usPassportBasicFields, false);
+            setInputsEnabled(defaultBasicFields, true);
+        }
     } else {
         basicFields.classList.add('hidden');
         submitBtn.disabled = true;
+        setContainerVisibility(usPassportBasicFields, false);
+        setInputsEnabled(defaultBasicFields, false);
+        setInputsEnabled(usPassportBasicFields, false);
     }
 });
 

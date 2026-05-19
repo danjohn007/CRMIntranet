@@ -108,7 +108,10 @@ document.addEventListener('DOMContentLoaded', updateStatusOptions);
                 <?php foreach ($applications as $app):
                     // Extract applicant name from data_json or client_name column
                     $appData = json_decode($app['data_json'] ?? '{}', true) ?: [];
-                    $clientName = trim(($appData['nombre'] ?? '') . ' ' . ($appData['apellidos'] ?? ''));
+                    $clientName = trim($appData['nombre_cliente'] ?? '');
+                    if (empty($clientName)) {
+                        $clientName = trim(($appData['nombre'] ?? '') . ' ' . ($appData['apellidos'] ?? ''));
+                    }
                     if (empty($clientName)) $clientName = $app['client_name'] ?? '-';
 
                     // Determine primera vez / renovación
