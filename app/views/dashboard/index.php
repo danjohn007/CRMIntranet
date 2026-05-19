@@ -334,9 +334,11 @@ document.addEventListener('DOMContentLoaded', function() {
     
     // Calendar for appointments
     const appointments = <?= json_encode(array_map(function($a) {
-        $date = (!empty($a['is_canadian_visa']) && !empty($a['canadian_biometric_date']))
+        $date = !empty($a['office_appointment_date'])
+            ? $a['office_appointment_date']
+            : ((!empty($a['is_canadian_visa']) && !empty($a['canadian_biometric_date']))
             ? $a['canadian_biometric_date']
-            : ($a['appointment_date'] ?? '');
+            : ($a['appointment_date'] ?? ''));
         return [
             'id' => $a['id'],
             'folio' => $a['folio'] ?? '',

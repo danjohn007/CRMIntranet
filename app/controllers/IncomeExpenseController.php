@@ -8,30 +8,79 @@ class IncomeExpenseController extends BaseController
         $this->requireRole([ROLE_ADMIN, ROLE_GERENTE]);
 
         try {
-            $stmt = $this->db->query("
-                SELECT
-                    (SELECT COALESCE(SUM(amount), 0) FROM payments) AS total_income,
-                    (SELECT COALESCE(SUM(amount), 0) FROM financial_expenses) AS total_expenses
-            ");
-            $summary = $stmt->fetch() ?: ['total_income' => 0, 'total_expenses' => 0];
+            $advisorIncomeEnabled = false;
+            try {
+                $tablesStmt = $this->db->query("
+                    SELECT COUNT(*) AS total
+                    FROM information_schema.tables
+                    WHERE table_schema = DATABASE()
+                      AND table_name IN ('advisor_income_catalog', 'advisor_income_records')
+                ");
+                $advisorIncomeEnabled = ((int) ($tablesStmt->fetch()['total'] ?? 0)) === 2;
+            } catch (PDOException $e) {
+                $advisorIncomeEnabled = false;
+            }
+
+            if ($advisorIncomeEnabled) {
+                $stmt = $this->db->query("
+                    SELECT
+                        (SELECT COALESCE(SUM(amount), 0) FROM payments) + (SELECT COALESCE(SUM(amount), 0) FROM advisor_income_records) AS total_income,
+                        (SELECT COALESCE(SUM(amount), 0) FROM advisor_income_records) AS total_extra_income,
+                        (SELECT COALESCE(SUM(amount), 0) FROM financial_expenses) AS total_expenses
+                ");
+            } else {
+                $stmt = $this->db->query("
+                    SELECT
+                        (SELECT COALESCE(SUM(amount), 0) FROM payments) AS total_income,
+                        0 AS total_extra_income,
+                        (SELECT COALESCE(SUM(amount), 0) FROM financial_expenses) AS total_expenses
+                ");
+            }
+            $summary = $stmt->fetch() ?: ['total_income' => 0, 'total_extra_income' => 0, 'total_expenses' => 0];
+            $summary['total_income_requests'] = (float) ($summary['total_income'] ?? 0) - (float) ($summary['total_extra_income'] ?? 0);
             $summary['balance'] = (float) ($summary['total_income'] ?? 0) - (float) ($summary['total_expenses'] ?? 0);
 
-            $stmt = $this->db->query("
-                SELECT movement_date, SUM(income_amount) AS total_income, SUM(expense_amount) AS total_expenses
-                FROM (
-                    SELECT payment_date AS movement_date, amount AS income_amount, 0 AS expense_amount
-                    FROM payments
-                    WHERE payment_date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+            if ($advisorIncomeEnabled) {
+                $stmt = $this->db->query("
+                    SELECT movement_date, SUM(income_amount) AS total_income, SUM(expense_amount) AS total_expenses
+                    FROM (
+                        SELECT payment_date AS movement_date, amount AS income_amount, 0 AS expense_amount
+                        FROM payments
+                        WHERE payment_date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
 
-                    UNION ALL
+                        UNION ALL
 
-                    SELECT expense_date AS movement_date, 0 AS income_amount, amount AS expense_amount
-                    FROM financial_expenses
-                    WHERE expense_date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
-                ) AS movement_data
-                GROUP BY movement_date
-                ORDER BY movement_date ASC
-            ");
+                        SELECT DATE(income_datetime) AS movement_date, amount AS income_amount, 0 AS expense_amount
+                        FROM advisor_income_records
+                        WHERE income_datetime >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+
+                        UNION ALL
+
+                        SELECT expense_date AS movement_date, 0 AS income_amount, amount AS expense_amount
+                        FROM financial_expenses
+                        WHERE expense_date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+                    ) AS movement_data
+                    GROUP BY movement_date
+                    ORDER BY movement_date ASC
+                ");
+            } else {
+                $stmt = $this->db->query("
+                    SELECT movement_date, SUM(income_amount) AS total_income, SUM(expense_amount) AS total_expenses
+                    FROM (
+                        SELECT payment_date AS movement_date, amount AS income_amount, 0 AS expense_amount
+                        FROM payments
+                        WHERE payment_date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+
+                        UNION ALL
+
+                        SELECT expense_date AS movement_date, 0 AS income_amount, amount AS expense_amount
+                        FROM financial_expenses
+                        WHERE expense_date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+                    ) AS movement_data
+                    GROUP BY movement_date
+                    ORDER BY movement_date ASC
+                ");
+            }
             $dailyEvolution = $stmt->fetchAll();
 
             $stmt = $this->db->query("
@@ -43,22 +92,47 @@ class IncomeExpenseController extends BaseController
             ");
             $topExpenses = $stmt->fetchAll();
 
-            $stmt = $this->db->query("
-                SELECT movement_month, SUM(income_amount) AS total_income, SUM(expense_amount) AS total_expenses
-                FROM (
-                    SELECT DATE_FORMAT(payment_date, '%Y-%m') AS movement_month, amount AS income_amount, 0 AS expense_amount
-                    FROM payments
-                    WHERE payment_date >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+            if ($advisorIncomeEnabled) {
+                $stmt = $this->db->query("
+                    SELECT movement_month, SUM(income_amount) AS total_income, SUM(expense_amount) AS total_expenses
+                    FROM (
+                        SELECT DATE_FORMAT(payment_date, '%Y-%m') AS movement_month, amount AS income_amount, 0 AS expense_amount
+                        FROM payments
+                        WHERE payment_date >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
 
-                    UNION ALL
+                        UNION ALL
 
-                    SELECT DATE_FORMAT(expense_date, '%Y-%m') AS movement_month, 0 AS income_amount, amount AS expense_amount
-                    FROM financial_expenses
-                    WHERE expense_date >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
-                ) AS monthly_data
-                GROUP BY movement_month
-                ORDER BY movement_month ASC
-            ");
+                        SELECT DATE_FORMAT(income_datetime, '%Y-%m') AS movement_month, amount AS income_amount, 0 AS expense_amount
+                        FROM advisor_income_records
+                        WHERE income_datetime >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+
+                        UNION ALL
+
+                        SELECT DATE_FORMAT(expense_date, '%Y-%m') AS movement_month, 0 AS income_amount, amount AS expense_amount
+                        FROM financial_expenses
+                        WHERE expense_date >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+                    ) AS monthly_data
+                    GROUP BY movement_month
+                    ORDER BY movement_month ASC
+                ");
+            } else {
+                $stmt = $this->db->query("
+                    SELECT movement_month, SUM(income_amount) AS total_income, SUM(expense_amount) AS total_expenses
+                    FROM (
+                        SELECT DATE_FORMAT(payment_date, '%Y-%m') AS movement_month, amount AS income_amount, 0 AS expense_amount
+                        FROM payments
+                        WHERE payment_date >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+
+                        UNION ALL
+
+                        SELECT DATE_FORMAT(expense_date, '%Y-%m') AS movement_month, 0 AS income_amount, amount AS expense_amount
+                        FROM financial_expenses
+                        WHERE expense_date >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+                    ) AS monthly_data
+                    GROUP BY movement_month
+                    ORDER BY movement_month ASC
+                ");
+            }
             $monthlyComparison = $stmt->fetchAll();
 
             $stmt = $this->db->query("

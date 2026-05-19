@@ -139,26 +139,54 @@ class DashboardController extends BaseController {
 
             // Datos para calendario de citas (solicitudes con cita programada)
             try {
-                $appointmentSql = "
-                    SELECT a.id, a.folio, a.appointment_date, a.canadian_biometric_date,
-                           a.is_canadian_visa, a.type, a.subtype,
-                           a.appointment_confirmed_day_before,
-                           u.full_name as creator_name
-                    FROM applications a
-                    LEFT JOIN users u ON a.created_by = u.id
-                    WHERE a.status = ?
-                      AND (
-                        (COALESCE(a.is_canadian_visa, 0) = 0 AND a.appointment_date IS NOT NULL)
-                        OR (a.is_canadian_visa = 1 AND a.canadian_biometric_date IS NOT NULL)
-                      )
-                ";
-                $appointmentParams = [STATUS_CITA_PROGRAMADA];
+                $officeAppointmentExistsStmt = $this->db->query("
+                    SELECT COUNT(*) AS total
+                    FROM information_schema.columns
+                    WHERE table_schema = DATABASE()
+                      AND table_name = 'applications'
+                      AND column_name = 'office_appointment_date'
+                ");
+                $hasOfficeAppointmentDate = ((int) ($officeAppointmentExistsStmt->fetch()['total'] ?? 0)) > 0;
+
+                if ($hasOfficeAppointmentDate) {
+                    $appointmentSql = "
+                        SELECT a.id, a.folio, a.appointment_date, a.canadian_biometric_date, a.office_appointment_date,
+                               a.is_canadian_visa, a.type, a.subtype,
+                               a.appointment_confirmed_day_before,
+                               u.full_name as creator_name
+                        FROM applications a
+                        LEFT JOIN users u ON a.created_by = u.id
+                        WHERE (
+                            (COALESCE(a.is_canadian_visa, 0) = 0 AND a.appointment_date IS NOT NULL)
+                            OR (a.is_canadian_visa = 1 AND a.canadian_biometric_date IS NOT NULL)
+                            OR a.office_appointment_date IS NOT NULL
+                        )
+                    ";
+                } else {
+                    $appointmentSql = "
+                        SELECT a.id, a.folio, a.appointment_date, a.canadian_biometric_date, NULL AS office_appointment_date,
+                               a.is_canadian_visa, a.type, a.subtype,
+                               a.appointment_confirmed_day_before,
+                               u.full_name as creator_name
+                        FROM applications a
+                        LEFT JOIN users u ON a.created_by = u.id
+                        WHERE (
+                            (COALESCE(a.is_canadian_visa, 0) = 0 AND a.appointment_date IS NOT NULL)
+                            OR (a.is_canadian_visa = 1 AND a.canadian_biometric_date IS NOT NULL)
+                        )
+                    ";
+                }
+                $appointmentParams = [];
 
                 if ($role === ROLE_ASESOR) {
                     $appointmentSql .= " AND a.created_by = ?";
                     $appointmentParams[] = $userId;
                 }
-                $appointmentSql .= " ORDER BY COALESCE(a.canadian_biometric_date, a.appointment_date) ASC";
+                if ($hasOfficeAppointmentDate) {
+                    $appointmentSql .= " ORDER BY COALESCE(a.office_appointment_date, a.canadian_biometric_date, a.appointment_date) ASC";
+                } else {
+                    $appointmentSql .= " ORDER BY COALESCE(a.canadian_biometric_date, a.appointment_date) ASC";
+                }
 
                 $stmt = $this->db->prepare($appointmentSql);
                 $stmt->execute($appointmentParams);

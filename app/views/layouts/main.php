@@ -266,6 +266,13 @@
                     <i class="fas fa-file-alt w-6"></i>
                     <span>Solicitudes</span>
                 </a>
+
+                <?php if (($_SESSION['user_role'] ?? '') === ROLE_ASESOR): ?>
+                <a href="<?= BASE_URL ?>/ingresos" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
+                    <i class="fas fa-coins w-6"></i>
+                    <span>Ingresos</span>
+                </a>
+                <?php endif; ?>
                 
                 <?php if (in_array($_SESSION['user_role'] ?? '', [ROLE_ADMIN])): ?>
                 <a href="<?= BASE_URL ?>/formularios" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
