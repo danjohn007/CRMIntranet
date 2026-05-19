@@ -355,11 +355,11 @@ class PublicFormController extends BaseController {
                             }
 
                             if ($hasPasaporte && $hasVisaAnterior) {
-                                $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $applicationId]);
+                                $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_VALIDANDO_RESPUESTAS, $applicationId]);
                                 $this->db->prepare("
                                     INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
                                     VALUES (?, ?, ?, ?, ?)
-                                ")->execute([$applicationId, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: cuestionario completado, hoja de información y documentos base registrados', $form['created_by']]);
+                                ")->execute([$applicationId, STATUS_NUEVO, STATUS_VALIDANDO_RESPUESTAS, 'Cambio automático: cuestionario completado, hoja de información y documentos base registrados', $form['created_by']]);
                             }
                         }
                     }
