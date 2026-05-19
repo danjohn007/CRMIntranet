@@ -84,8 +84,8 @@ class Router {
         $this->routes['POST']['/customer-journey/agregar/{id}'] = ['CustomerJourneyController', 'addTouchpoint'];
         
         // Public Forms (no authentication required)
-        $this->routes['GET']['/public/form/{token}'] = ['PublicFormController', 'show'];
-        $this->routes['POST']['/public/form/{token}/submit'] = ['PublicFormController', 'submit'];
+        $this->routes['GET']['/form/{token}'] = ['PublicFormController', 'show'];
+        $this->routes['POST']['/form/{token}/submit'] = ['PublicFormController', 'submit'];
 
         // Public solicitudes (for asesoras confirming appointments)
         $this->routes['GET']['/public/solicitudes'] = ['ApplicationController', 'publicSolicitudes'];

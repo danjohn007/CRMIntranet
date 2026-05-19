@@ -543,7 +543,7 @@
                 payload.append('submissionId', submissionIdInput.value);
             }
             
-            fetch('<?= BASE_URL ?>/public/form/<?= $token ?>/submit', {
+            fetch('<?= BASE_URL ?>/form/<?= $token ?>/submit', {
                 method: 'POST',
                 body: payload
             })
