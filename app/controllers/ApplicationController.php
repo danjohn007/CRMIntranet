@@ -1757,7 +1757,7 @@ class ApplicationController extends BaseController {
     }
 
     /**
-     * Confirmar respuestas del formulario y avanzar a "Listo para solicitud".
+     * Confirmar respuestas del formulario y avanzar a "Listo para comenzar" (STATUS_LISTO_SOLICITUD).
      * Accesible para Asesor y Admin/Gerente.
      */
     public function confirmFormResponses($id) {
