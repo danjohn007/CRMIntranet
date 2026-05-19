@@ -8,19 +8,6 @@ ob_start();
     <p class="text-gray-600">Complete los datos para crear un nuevo trámite</p>
 </div>
 
-<!-- Botones de selección de flujo -->
-<div class="mb-6 flex flex-wrap gap-3">
-    <button type="button" id="btn-standard"
-            onclick="setFlow('standard')"
-            class="px-6 py-3 rounded-lg border-2 font-semibold transition border-blue-600 bg-blue-600 text-white">
-        <i class="fas fa-file-alt mr-2"></i>Nuevo trámite Visa Americana
-    </button>
-    <button type="button" id="btn-canadian"
-            onclick="setFlow('canadian')"
-            class="px-6 py-3 rounded-lg border-2 font-semibold transition border-red-600 bg-white text-red-600 hover:bg-red-600 hover:text-white">
-        <i class="fas fa-flag mr-2"></i>Nuevo trámite &nbsp;<strong>VISA CANADIENSE</strong>
-    </button>
-</div>
 
 <!-- ─── FLUJO ESTÁNDAR ─────────────────────────────────────── -->
 <div id="form-standard" class="bg-white rounded-lg shadow p-6">
