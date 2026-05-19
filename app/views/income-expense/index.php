@@ -73,10 +73,18 @@ foreach ($monthlyComparison ?? [] as $row) {
     </form>
 </div>
 
-<div class="grid grid-cols-1 md:grid-cols-3 gap-4 md:gap-6 mb-4 md:mb-6">
+<div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 md:gap-6 mb-4 md:mb-6">
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
         <p class="text-gray-600 text-sm">Total Ingresos</p>
         <p class="text-2xl md:text-3xl font-bold text-green-600">$<?= number_format((float) ($summary['total_income'] ?? 0), 2) ?></p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 md:p-6">
+        <p class="text-gray-600 text-sm">Total Ingresos Extra</p>
+        <p class="text-2xl md:text-3xl font-bold text-emerald-600">$<?= number_format((float) ($summary['total_extra_income'] ?? 0), 2) ?></p>
+    </div>
+    <div class="bg-white rounded-lg shadow p-4 md:p-6">
+        <p class="text-gray-600 text-sm">Total Ingresos Solicitudes</p>
+        <p class="text-2xl md:text-3xl font-bold text-blue-600">$<?= number_format((float) ($summary['total_income_requests'] ?? 0), 2) ?></p>
     </div>
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
         <p class="text-gray-600 text-sm">Total Egresos</p>

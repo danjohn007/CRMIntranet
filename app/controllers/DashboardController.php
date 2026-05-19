@@ -139,26 +139,38 @@ class DashboardController extends BaseController {
 
             // Datos para calendario de citas (solicitudes con cita programada)
             try {
+                $officeAppointmentExistsStmt = $this->db->query("
+                    SELECT COUNT(*) AS total
+                    FROM information_schema.columns
+                    WHERE table_schema = DATABASE()
+                      AND table_name = 'applications'
+                      AND column_name = 'office_appointment_date'
+                ");
+                $hasOfficeAppointmentDate = ((int) ($officeAppointmentExistsStmt->fetch()['total'] ?? 0)) > 0;
+
+                $officeDateSelect = $hasOfficeAppointmentDate ? 'a.office_appointment_date' : 'NULL AS office_appointment_date';
+                $officeDateExpr = $hasOfficeAppointmentDate ? 'a.office_appointment_date' : 'NULL';
+                $officeDateCondition = $hasOfficeAppointmentDate ? ' OR a.office_appointment_date IS NOT NULL' : '';
                 $appointmentSql = "
-                    SELECT a.id, a.folio, a.appointment_date, a.canadian_biometric_date,
+                    SELECT a.id, a.folio, a.appointment_date, a.canadian_biometric_date, $officeDateSelect,
                            a.is_canadian_visa, a.type, a.subtype,
                            a.appointment_confirmed_day_before,
                            u.full_name as creator_name
                     FROM applications a
                     LEFT JOIN users u ON a.created_by = u.id
-                    WHERE a.status = ?
-                      AND (
-                        (COALESCE(a.is_canadian_visa, 0) = 0 AND a.appointment_date IS NOT NULL)
-                        OR (a.is_canadian_visa = 1 AND a.canadian_biometric_date IS NOT NULL)
-                      )
+                    WHERE (
+                         (COALESCE(a.is_canadian_visa, 0) = 0 AND a.appointment_date IS NOT NULL)
+                         OR (a.is_canadian_visa = 1 AND a.canadian_biometric_date IS NOT NULL)
+                         $officeDateCondition
+                       )
                 ";
-                $appointmentParams = [STATUS_CITA_PROGRAMADA];
+                $appointmentParams = [];
 
                 if ($role === ROLE_ASESOR) {
                     $appointmentSql .= " AND a.created_by = ?";
                     $appointmentParams[] = $userId;
                 }
-                $appointmentSql .= " ORDER BY COALESCE(a.canadian_biometric_date, a.appointment_date) ASC";
+                $appointmentSql .= " ORDER BY COALESCE($officeDateExpr, a.canadian_biometric_date, a.appointment_date) ASC";
 
                 $stmt = $this->db->prepare($appointmentSql);
                 $stmt->execute($appointmentParams);

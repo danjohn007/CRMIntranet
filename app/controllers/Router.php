@@ -62,6 +62,11 @@ class Router {
         // Ingresos vs Egresos
         $this->routes['GET']['/ingresos-egresos'] = ['IncomeExpenseController', 'index'];
         $this->routes['POST']['/ingresos-egresos/nuevo-egreso'] = ['IncomeExpenseController', 'storeExpense'];
+
+        // Ingresos adicionales (Asesor)
+        $this->routes['GET']['/ingresos'] = ['AdvisorIncomeController', 'index'];
+        $this->routes['POST']['/ingresos/catalogo'] = ['AdvisorIncomeController', 'storeCatalog'];
+        $this->routes['POST']['/ingresos/registrar'] = ['AdvisorIncomeController', 'storeIncome'];
         
         // Reportes
         $this->routes['GET']['/reportes'] = ['ReportController', 'index'];

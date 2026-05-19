@@ -8,20 +8,48 @@ class IncomeExpenseController extends BaseController
         $this->requireRole([ROLE_ADMIN, ROLE_GERENTE]);
 
         try {
+            $advisorIncomeEnabled = false;
+            try {
+                $tablesStmt = $this->db->query("
+                    SELECT COUNT(*) AS total
+                    FROM information_schema.tables
+                    WHERE table_schema = DATABASE()
+                      AND table_name IN ('advisor_income_catalog', 'advisor_income_records')
+                ");
+                $advisorIncomeEnabled = ((int) ($tablesStmt->fetch()['total'] ?? 0)) === 2;
+            } catch (PDOException $e) {
+                $advisorIncomeEnabled = false;
+            }
+
+            $extraIncomeQuery = $advisorIncomeEnabled
+                ? "(SELECT COALESCE(SUM(amount), 0) FROM advisor_income_records)"
+                : "0";
+
             $stmt = $this->db->query("
                 SELECT
-                    (SELECT COALESCE(SUM(amount), 0) FROM payments) AS total_income,
+                    (SELECT COALESCE(SUM(amount), 0) FROM payments) + $extraIncomeQuery AS total_income,
+                    $extraIncomeQuery AS total_extra_income,
                     (SELECT COALESCE(SUM(amount), 0) FROM financial_expenses) AS total_expenses
             ");
-            $summary = $stmt->fetch() ?: ['total_income' => 0, 'total_expenses' => 0];
+            $summary = $stmt->fetch() ?: ['total_income' => 0, 'total_extra_income' => 0, 'total_expenses' => 0];
+            $summary['total_income_requests'] = (float) ($summary['total_income'] ?? 0) - (float) ($summary['total_extra_income'] ?? 0);
             $summary['balance'] = (float) ($summary['total_income'] ?? 0) - (float) ($summary['total_expenses'] ?? 0);
 
+            $dailyExtraUnion = $advisorIncomeEnabled ? "
+                    UNION ALL
+
+                    SELECT DATE(income_datetime) AS movement_date, amount AS income_amount, 0 AS expense_amount
+                    FROM advisor_income_records
+                    WHERE income_datetime >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+            " : "";
             $stmt = $this->db->query("
                 SELECT movement_date, SUM(income_amount) AS total_income, SUM(expense_amount) AS total_expenses
                 FROM (
                     SELECT payment_date AS movement_date, amount AS income_amount, 0 AS expense_amount
                     FROM payments
                     WHERE payment_date >= DATE_SUB(CURDATE(), INTERVAL 14 DAY)
+
+                    $dailyExtraUnion
 
                     UNION ALL
 
@@ -43,12 +71,21 @@ class IncomeExpenseController extends BaseController
             ");
             $topExpenses = $stmt->fetchAll();
 
+            $monthlyExtraUnion = $advisorIncomeEnabled ? "
+                    UNION ALL
+
+                    SELECT DATE_FORMAT(income_datetime, '%Y-%m') AS movement_month, amount AS income_amount, 0 AS expense_amount
+                    FROM advisor_income_records
+                    WHERE income_datetime >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+            " : "";
             $stmt = $this->db->query("
                 SELECT movement_month, SUM(income_amount) AS total_income, SUM(expense_amount) AS total_expenses
                 FROM (
                     SELECT DATE_FORMAT(payment_date, '%Y-%m') AS movement_month, amount AS income_amount, 0 AS expense_amount
                     FROM payments
                     WHERE payment_date >= DATE_SUB(CURDATE(), INTERVAL 5 MONTH)
+
+                    $monthlyExtraUnion
 
                     UNION ALL
 
