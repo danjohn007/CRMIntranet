@@ -1290,6 +1290,62 @@ class ApplicationController extends BaseController {
                     SET total_costs = ?, total_paid = ?, balance = 0, status = ?
                     WHERE application_id = ?
                 ")->execute([$amountPaid, $amountPaid, FINANCIAL_PAGADO, $id]);
+
+                $autoPaymentReference = 'INFO-SHEET-' . $id;
+                $autoPaymentDate = $entryDate !== '' ? $entryDate : date('Y-m-d');
+
+                $stmtAutoPayment = $this->db->prepare("
+                    SELECT id
+                    FROM payments
+                    WHERE application_id = ?
+                      AND reference = ?
+                    LIMIT 1
+                ");
+                $stmtAutoPayment->execute([$id, $autoPaymentReference]);
+                $existingAutoPayment = $stmtAutoPayment->fetch();
+
+                if ($existingAutoPayment) {
+                    $this->db->prepare("
+                        UPDATE payments
+                        SET amount = ?,
+                            payment_method = ?,
+                            notes = ?,
+                            registered_by = ?,
+                            payment_date = ?
+                        WHERE id = ?
+                    ")->execute([
+                        $amountPaid,
+                        'Sistema',
+                        'Pago sincronizado desde hoja de información',
+                        $_SESSION['user_id'],
+                        $autoPaymentDate,
+                        $existingAutoPayment['id']
+                    ]);
+                } else {
+                    $stmtAnyPayment = $this->db->prepare("
+                        SELECT 1
+                        FROM payments
+                        WHERE application_id = ?
+                        LIMIT 1
+                    ");
+                    $stmtAnyPayment->execute([$id]);
+                    $hasAnyPayment = (bool) $stmtAnyPayment->fetch();
+
+                    if (!$hasAnyPayment) {
+                        $this->db->prepare("
+                            INSERT INTO payments (application_id, amount, payment_method, reference, notes, registered_by, payment_date)
+                            VALUES (?, ?, ?, ?, ?, ?, ?)
+                        ")->execute([
+                            $id,
+                            $amountPaid,
+                            'Sistema',
+                            $autoPaymentReference,
+                            'Pago sincronizado desde hoja de información',
+                            $_SESSION['user_id'],
+                            $autoPaymentDate
+                        ]);
+                    }
+                }
             }
 
             // Auto-advance to ROJO if info sheet saved and base documents are present
