@@ -271,10 +271,10 @@
             e.preventDefault();
             const missingFields = validateRequiredFields();
             if (missingFields.length > 0) {
-                let msg = 'Completa todos los campos, en caso de que no aplique para tu caso contestar con un N/A\n\nCampos faltantes:';
-                missingFields.forEach(function(f) {
-                    msg += '\n• ' + f.label + (f.pageNum ? ' (Página ' + f.pageNum + ')' : '');
+                const missingLabels = missingFields.map(function(f) {
+                    return f.label + (f.pageNum ? ' (Página ' + f.pageNum + ')' : '');
                 });
+                const msg = 'Favor de contestar todo el formulario, pregunta pendiente de respuesta: ' + missingLabels.join(', ');
                 alert(msg);
                 // Navigate to the page with the first missing field
                 if (paginationEnabled && pages.length > 0 && missingFields[0].pageId) {
