@@ -691,6 +691,7 @@ class FormBuilder {
                 if (!field.conditional) {
                     field.conditional = { enabled: true, parentFieldId: '', value: '' };
                 }
+                field.conditional.enabled = true;
                 field.conditional.parentFieldId = e.target.value.trim();
                 this.updateJSON();
             });
@@ -704,6 +705,7 @@ class FormBuilder {
                 if (!field.conditional) {
                     field.conditional = { enabled: true, parentFieldId: '', value: '' };
                 }
+                field.conditional.enabled = true;
                 field.conditional.value = e.target.value.trim();
                 this.updateJSON();
             });
@@ -845,7 +847,7 @@ class FormBuilder {
             }
 
             const parentFieldExists = this.fields.some(parent => parent.id === field.conditional.parentFieldId && parent.type === 'select');
-            if (!parentFieldExists || !field.conditional.parentFieldId) {
+            if (field.conditional.parentFieldId && !parentFieldExists) {
                 field.conditional.enabled = false;
                 field.conditional.parentFieldId = '';
                 field.conditional.value = '';
