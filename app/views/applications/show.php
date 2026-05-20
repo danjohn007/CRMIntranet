@@ -77,7 +77,15 @@ $canadianStatusLabels = [
 </div>
 
 <?php /* ── STATUS BANNERS ─────────────────────────────────────────────────── */ ?>
-<?php if ($status === STATUS_LISTO_SOLICITUD): ?>
+<?php if ($status === STATUS_VALIDANDO_RESPUESTAS): ?>
+<div class="bg-orange-50 border-l-4 border-orange-500 rounded-lg p-4 mb-6 flex items-start gap-3">
+    <i class="fas fa-edit text-orange-500 text-2xl mt-0.5"></i>
+    <div>
+        <p class="font-bold text-orange-800 text-lg">Validando respuestas del cuestionario</p>
+        <p class="text-orange-700 text-sm">Revisa y edita las respuestas del cliente antes de confirmar para continuar.</p>
+    </div>
+</div>
+<?php elseif ($status === STATUS_LISTO_SOLICITUD): ?>
 <div class="bg-red-50 border-l-4 border-red-500 rounded-lg p-4 mb-6 flex items-start gap-3">
     <i class="fas fa-exclamation-circle text-red-500 text-2xl mt-0.5"></i>
     <div>
@@ -199,6 +207,7 @@ $canadianStatusLabels = [
                     elseif ($status === STATUS_CITA_PROGRAMADA)     $sc = 'bg-blue-100 text-blue-800';
                     elseif ($status === STATUS_EN_ESPERA_PAGO)      $sc = 'bg-yellow-100 text-yellow-800';
                     elseif ($status === STATUS_LISTO_SOLICITUD)     $sc = 'bg-red-100 text-red-800';
+                    elseif ($status === STATUS_VALIDANDO_RESPUESTAS) $sc = 'bg-orange-100 text-orange-800';
                     if ($isCanadianVisa) {
                         $displayStatus = $canadianStatusLabels[$status] ?? $status;
                     } else {
@@ -256,19 +265,83 @@ $canadianStatusLabels = [
         $formFieldsJson = json_decode($application['fields_json'] ?? '{}', true);
         $fieldTypes  = [];
         $fieldLabels = [];
+        $fieldOptions = [];
         if ($formFieldsJson && isset($formFieldsJson['fields'])) {
             foreach ($formFieldsJson['fields'] as $f) {
-                $fieldTypes[$f['id']]  = $f['type']  ?? 'text';
-                $fieldLabels[$f['id']] = $f['label'] ?? $f['id'];
+                $fieldTypes[$f['id']]   = $f['type']    ?? 'text';
+                $fieldLabels[$f['id']]  = $f['label']   ?? $f['id'];
+                $fieldOptions[$f['id']] = $f['options'] ?? [];
             }
         }
         $basicKeys = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita'];
+        $isValidandoRespuestas = ($status === STATUS_VALIDANDO_RESPUESTAS);
+        $canEditResponses = $isValidandoRespuestas && ($isAdmin || $isAsesor);
         ?>
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-2">
                 <i class="fas fa-clipboard-check text-green-600 mr-2"></i>Respuestas del cuestionario del cliente
             </h3>
-            <?php if ($isAdmin): ?>
+            <?php if ($canEditResponses): ?>
+            <!-- EDITABLE: estatus Validando respuestas -->
+            <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-respuestas/<?= $application['id'] ?>">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-6">
+                    <?php foreach ($basicData as $key => $value):
+                        if (in_array($key, $basicKeys)) continue;
+                        $fType = $fieldTypes[$key] ?? 'text';
+                        if ($fType === 'file') continue;
+                        $displayLabel = $fieldLabels[$key] ?? str_replace('_', ' ', $key);
+                        $fOpts = $fieldOptions[$key] ?? [];
+                    ?>
+                    <div class="border-l-4 border-orange-400 pl-4">
+                        <label class="block text-sm text-gray-600 capitalize mb-1"><?= htmlspecialchars($displayLabel) ?></label>
+                        <?php if ($fType === 'textarea'): ?>
+                            <textarea name="answers[<?= htmlspecialchars($key) ?>]" rows="3"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400"><?= htmlspecialchars(is_array($value) ? implode(', ', $value) : $value) ?></textarea>
+                        <?php elseif ($fType === 'select' && !empty($fOpts)): ?>
+                            <select name="answers[<?= htmlspecialchars($key) ?>]"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                                <?php foreach ($fOpts as $opt): ?>
+                                <option value="<?= htmlspecialchars($opt) ?>" <?= ($value == $opt) ? 'selected' : '' ?>><?= htmlspecialchars($opt) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        <?php elseif ($fType === 'radio' && !empty($fOpts)): ?>
+                            <div class="flex flex-col gap-1 mt-1">
+                                <?php foreach ($fOpts as $opt): ?>
+                                <label class="flex items-center gap-2 text-sm">
+                                    <input type="radio" name="answers[<?= htmlspecialchars($key) ?>]" value="<?= htmlspecialchars($opt) ?>" <?= ($value == $opt) ? 'checked' : '' ?>>
+                                    <?= htmlspecialchars($opt) ?>
+                                </label>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php elseif ($fType === 'checkbox' && !empty($fOpts)): ?>
+                            <?php $checkedVals = is_array($value) ? $value : [$value]; ?>
+                            <div class="flex flex-col gap-1 mt-1">
+                                <?php foreach ($fOpts as $opt): ?>
+                                <label class="flex items-center gap-2 text-sm">
+                                    <input type="checkbox" name="answers[<?= htmlspecialchars($key) ?>][]" value="<?= htmlspecialchars($opt) ?>" <?= in_array($opt, $checkedVals) ? 'checked' : '' ?>>
+                                    <?= htmlspecialchars($opt) ?>
+                                </label>
+                                <?php endforeach; ?>
+                            </div>
+                        <?php else: ?>
+                            <input type="text" name="answers[<?= htmlspecialchars($key) ?>]"
+                                value="<?= htmlspecialchars(is_array($value) ? implode(', ', $value) : $value) ?>"
+                                class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400">
+                        <?php endif; ?>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                <div class="flex gap-3 flex-wrap">
+                    <button type="submit" class="bg-orange-500 text-white px-6 py-2 rounded-lg hover:bg-orange-600 transition text-sm font-medium">
+                        <i class="fas fa-save mr-2"></i>Guardar
+                    </button>
+                    <button type="button" onclick="document.getElementById('confirmarRespuestasModal').classList.remove('hidden')"
+                        class="bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition text-sm font-medium">
+                        <i class="fas fa-check-circle mr-2"></i>Confirmar respuestas
+                    </button>
+                </div>
+            </form>
+            <?php elseif ($isAdmin): ?>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <?php foreach ($basicData as $key => $value):
                     if (in_array($key, $basicKeys)) continue;
@@ -295,6 +368,25 @@ $canadianStatusLabels = [
             <?php endif; ?>
         </div>
         <?php endif; ?>
+
+        <!-- Modal: Confirmar respuestas -->
+        <div id="confirmarRespuestasModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+            <div class="bg-white rounded-lg shadow-xl p-6 max-w-sm w-full mx-4">
+                <h3 class="text-lg font-bold text-gray-800 mb-3"><i class="fas fa-question-circle text-green-600 mr-2"></i>Confirmar respuestas</h3>
+                <p class="text-gray-600 mb-6">¿Seguro que desea confirmar las respuestas? El estatus cambiará a <strong>Listo para comenzar</strong>.</p>
+                <div class="flex gap-3 justify-end">
+                    <button type="button" onclick="document.getElementById('confirmarRespuestasModal').classList.add('hidden')"
+                        class="bg-gray-200 text-gray-700 px-5 py-2 rounded-lg hover:bg-gray-300 transition text-sm font-medium">
+                        No
+                    </button>
+                    <form method="POST" action="<?= BASE_URL ?>/solicitudes/confirmar-respuestas/<?= $application['id'] ?>" style="display:inline;">
+                        <button type="submit" class="bg-green-600 text-white px-5 py-2 rounded-lg hover:bg-green-700 transition text-sm font-medium">
+                            Sí, confirmar
+                        </button>
+                    </form>
+                </div>
+            </div>
+        </div>
 
         <!-- Hoja de Informacion -->
         <?php if ($infoSheet): ?>
@@ -1078,6 +1170,7 @@ $canadianStatusLabels = [
                         <option value="<?= STATUS_EN_ESPERA_RESULTADO ?>" <?= $status===STATUS_EN_ESPERA_RESULTADO ? 'selected':'' ?>><?= htmlspecialchars($canadianStatusLabels[STATUS_EN_ESPERA_RESULTADO]) ?></option>
                         <option value="<?= STATUS_TRAMITE_CERRADO ?>"     <?= $status===STATUS_TRAMITE_CERRADO     ? 'selected':'' ?>><?= htmlspecialchars($canadianStatusLabels[STATUS_TRAMITE_CERRADO]) ?></option>
                         <?php else: ?>
+                        <option value="<?= STATUS_VALIDANDO_RESPUESTAS ?>" <?= $status===STATUS_VALIDANDO_RESPUESTAS ? 'selected':'' ?>>Validando respuestas</option>
                         <option value="<?= STATUS_LISTO_SOLICITUD ?>"     <?= $status===STATUS_LISTO_SOLICITUD     ? 'selected':'' ?>>Listo para comenzar</option>
                         <option value="<?= STATUS_EN_ESPERA_PAGO ?>"      <?= $status===STATUS_EN_ESPERA_PAGO      ? 'selected':'' ?>>En espera de pago consular</option>
                         <option value="<?= STATUS_CITA_PROGRAMADA ?>"     <?= $status===STATUS_CITA_PROGRAMADA     ? 'selected':'' ?>>Cita programada</option>

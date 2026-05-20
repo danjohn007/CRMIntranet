@@ -46,7 +46,8 @@ define('ROLE_GERENTE', 'Gerente');
 define('ROLE_ASESOR', 'Asesor');
 
 // Estatus de Solicitudes (sistema de colores)
-define('STATUS_NUEVO', 'Nuevo');                          // GRIS - recién creada
+define('STATUS_NUEVO', 'Nuevo');                                    // GRIS - recién creada
+define('STATUS_VALIDANDO_RESPUESTAS', 'Validando respuestas');      // NARANJA - revisión de respuestas del cuestionario
 define('STATUS_LISTO_SOLICITUD', 'Listo para solicitud'); // ROJO - info+cuestionario+docs base
 define('STATUS_EN_ESPERA_PAGO', 'En espera de pago consular'); // AMARILLO - solicitud oficial hecha
 define('STATUS_CITA_PROGRAMADA', 'Cita programada');      // AZUL - pago+citas+docs finales

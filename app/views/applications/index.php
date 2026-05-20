@@ -49,6 +49,7 @@ var isAsesor = <?= json_encode($isAsesorRole) ?>;
 var normalStatuses = [
     { value: '', label: 'Todos los estatus' },
     { value: <?= json_encode(STATUS_NUEVO) ?>, label: <?= json_encode(STATUS_NUEVO . ' (Nuevo)') ?> },
+    { value: <?= json_encode(STATUS_VALIDANDO_RESPUESTAS) ?>, label: <?= json_encode(STATUS_VALIDANDO_RESPUESTAS) ?> },
     { value: <?= json_encode(STATUS_LISTO_SOLICITUD) ?>, label: <?= json_encode(STATUS_LISTO_SOLICITUD) ?> },
     { value: <?= json_encode(STATUS_EN_ESPERA_PAGO) ?>, label: <?= json_encode(STATUS_EN_ESPERA_PAGO) ?> },
     { value: <?= json_encode(STATUS_CITA_PROGRAMADA) ?>, label: <?= json_encode(STATUS_CITA_PROGRAMADA) ?> },

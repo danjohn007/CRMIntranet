@@ -1044,11 +1044,11 @@ class ApplicationController extends BaseController {
                                 }
 
                                 if ($hasPasaporte2 && $hasVisaAnterior2) {
-                                    $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $id]);
+                                    $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_VALIDANDO_RESPUESTAS, $id]);
                                     $this->db->prepare("
                                         INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
                                         VALUES (?, ?, ?, ?, ?)
-                                    ")->execute([$id, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: documentos base, cuestionario y hoja de información completos', $_SESSION['user_id']]);
+                                    ")->execute([$id, STATUS_NUEVO, STATUS_VALIDANDO_RESPUESTAS, 'Cambio automático: documentos base, cuestionario y hoja de información completos', $_SESSION['user_id']]);
                                 }
                             }
                         }
@@ -1403,11 +1403,11 @@ class ApplicationController extends BaseController {
                     }
 
                     if ($hasPasaporte && $hasVisaAnterior) {
-                        $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_LISTO_SOLICITUD, $id]);
+                        $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_VALIDANDO_RESPUESTAS, $id]);
                         $this->db->prepare("
                             INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
                             VALUES (?, ?, ?, ?, ?)
-                        ")->execute([$id, STATUS_NUEVO, STATUS_LISTO_SOLICITUD, 'Cambio automático: hoja de información guardada y cuestionario completado', $_SESSION['user_id']]);
+                        ")->execute([$id, STATUS_NUEVO, STATUS_VALIDANDO_RESPUESTAS, 'Cambio automático: hoja de información guardada y cuestionario completado', $_SESSION['user_id']]);
                     }
                 }
             }
@@ -1686,6 +1686,129 @@ class ApplicationController extends BaseController {
         } catch (PDOException $e) {
             error_log("Error al guardar cita a oficinas: " . $e->getMessage());
             $_SESSION['error'] = 'Error al guardar cita a oficinas';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
+    /**
+     * Guardar respuestas editadas del formulario (estado Validando respuestas).
+     * Accesible para Asesor y Admin/Gerente.
+     */
+    public function saveFormResponses($id) {
+        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $role = $this->getUserRole();
+
+        try {
+            $stmt = $this->db->prepare("SELECT created_by, status, data_json FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($application['status'] !== STATUS_VALIDANDO_RESPUESTAS) {
+                $_SESSION['error'] = 'Solo se pueden editar respuestas cuando el estatus es "Validando respuestas"';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            $existingData = json_decode($application['data_json'], true) ?: [];
+            $postedAnswers = $_POST['answers'] ?? [];
+
+            // Merge posted answers into existing data (only overwrite non-file keys)
+            foreach ($postedAnswers as $key => $value) {
+                $key = strip_tags($key);
+                if (is_array($value)) {
+                    $existingData[$key] = array_map('strip_tags', $value);
+                } else {
+                    $existingData[$key] = strip_tags($value);
+                }
+            }
+
+            $newJson = json_encode($existingData, JSON_UNESCAPED_UNICODE);
+            $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
+                ->execute([$newJson, $id]);
+
+            logAudit(
+                'update',
+                'solicitudes',
+                'Respuestas del cuestionario editadas (estatus Validando respuestas) para solicitud #' . $id
+            );
+
+            $_SESSION['success'] = 'Respuestas guardadas correctamente';
+            $this->redirect('/solicitudes/ver/' . $id);
+
+        } catch (PDOException $e) {
+            error_log("Error al guardar respuestas: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al guardar respuestas';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
+    /**
+     * Confirmar respuestas del formulario y avanzar a "Listo para comenzar" (STATUS_LISTO_SOLICITUD).
+     * Accesible para Asesor y Admin/Gerente.
+     */
+    public function confirmFormResponses($id) {
+        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $role = $this->getUserRole();
+
+        try {
+            $stmt = $this->db->prepare("SELECT created_by, status FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($application['status'] !== STATUS_VALIDANDO_RESPUESTAS) {
+                $_SESSION['error'] = 'La solicitud no está en estado "Validando respuestas"';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")
+                ->execute([STATUS_LISTO_SOLICITUD, $id]);
+
+            $this->db->prepare("
+                INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by)
+                VALUES (?, ?, ?, ?, ?)
+            ")->execute([$id, STATUS_VALIDANDO_RESPUESTAS, STATUS_LISTO_SOLICITUD, 'Respuestas confirmadas', $_SESSION['user_id']]);
+
+            logAudit(
+                'status_change',
+                'solicitudes',
+                'Respuestas confirmadas: ' . STATUS_VALIDANDO_RESPUESTAS . ' → ' . STATUS_LISTO_SOLICITUD . ' para solicitud #' . $id
+            );
+
+            $_SESSION['success'] = 'Respuestas confirmadas. Estatus actualizado a "Listo para comenzar"';
+            $this->redirect('/solicitudes/ver/' . $id);
+
+        } catch (PDOException $e) {
+            error_log("Error al confirmar respuestas: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al confirmar respuestas';
             $this->redirect('/solicitudes/ver/' . $id);
         }
     }
