@@ -250,6 +250,8 @@
         
         let currentPage = 1;
         let autosaveTimeout;
+
+        initializeConditionalRequiredTracking();
         
         // Load draft from localStorage on page load
         loadDraftFromLocalStorage();
@@ -361,6 +363,12 @@
             } catch (error) {
                 console.error('Error loading draft from localStorage:', error);
             }
+        }
+
+        function initializeConditionalRequiredTracking() {
+            document.querySelectorAll('.form-field input[required], .form-field select[required], .form-field textarea[required]').forEach(function(control) {
+                control.dataset.originalRequired = '1';
+            });
         }
         
         function saveDraftToLocalStorage() {
@@ -720,7 +728,7 @@
                 }
 
                 const parentFieldId = fieldDiv.getAttribute('data-conditional-parent');
-                const expectedValue = (fieldDiv.getAttribute('data-conditional-value') || '').trim().toLowerCase();
+                const expectedValue = (fieldDiv.getAttribute('data-conditional-value') || '').trim();
 
                 if (!parentFieldId || !expectedValue) {
                     return;
@@ -731,7 +739,7 @@
                     return;
                 }
 
-                const parentValue = String(parentField.value || '').trim().toLowerCase();
+                const parentValue = String(parentField.value || '').trim();
                 const shouldShow = parentValue === expectedValue;
                 const controls = fieldDiv.querySelectorAll('input, select, textarea');
 
@@ -745,13 +753,10 @@
                         }
                     } else {
                         if (isRequired) {
-                            control.dataset.originalRequired = '1';
+                            if (typeof control.dataset.originalRequired === 'undefined') {
+                                control.dataset.originalRequired = '1';
+                            }
                             control.removeAttribute('required');
-                        }
-                        if (control.type === 'checkbox' || control.type === 'radio') {
-                            control.checked = false;
-                        } else if (control.type !== 'file') {
-                            control.value = '';
                         }
                     }
                 });

@@ -1,6 +1,6 @@
 -- Normaliza formularios legacy para que fields_json siempre tenga formato:
 -- {"fields":[...]}
--- Compatible con MySQL 5.7+
+-- Compatible con MySQL 5.7.8+
 
 START TRANSACTION;
 

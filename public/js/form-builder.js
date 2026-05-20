@@ -278,7 +278,8 @@ class FormBuilder {
     }
 
     getAvailableParentSelectFields(index) {
-        return this.fields.filter((field, i) => field.type === 'select' && i !== index);
+        const currentField = this.fields[index];
+        return this.fields.filter((field) => field.type === 'select' && (!currentField || field.id !== currentField.id));
     }
     
     addPage() {
@@ -404,9 +405,14 @@ class FormBuilder {
     addField(type, insertIndex = null) {
         const fieldType = this.fieldTypes.find(ft => ft.id === type);
         if (!fieldType) return;
+
+        let nextFieldId = `campo_${this.nextId++}`;
+        while (this.fields.some(field => field.id === nextFieldId)) {
+            nextFieldId = `campo_${this.nextId++}`;
+        }
         
         const newField = {
-            id: `campo_${this.nextId++}`,
+            id: nextFieldId,
             type: type,
             label: type === 'label' ? 'Nueva Sección' : fieldType.label,
             required: false,
@@ -685,7 +691,7 @@ class FormBuilder {
                 if (!field.conditional) {
                     field.conditional = { enabled: true, parentFieldId: '', value: '' };
                 }
-                field.conditional.parentFieldId = e.target.value;
+                field.conditional.parentFieldId = e.target.value.trim();
                 this.updateJSON();
             });
         });

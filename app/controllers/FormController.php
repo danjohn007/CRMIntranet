@@ -295,9 +295,13 @@ class FormController extends BaseController {
                     $this->redirect('/formularios/editar/' . $id);
                 }
                 
+                $originalFieldIds = $page['fieldIds'];
                 $page['fieldIds'] = array_values(array_filter($page['fieldIds'], function($fieldId) use ($validFieldIds) {
                     return in_array((string)$fieldId, $validFieldIds, true);
                 }));
+                if (count($originalFieldIds) !== count($page['fieldIds'])) {
+                    error_log("Formulario $id: se removieron fieldIds inválidos de la página {$page['id']}");
+                }
             }
             unset($page);
             
