@@ -1961,14 +1961,15 @@ class ApplicationController extends BaseController {
     }
 
     /**
-     * Descargar un documento por su ID (Admin y Gerente).
+     * Visualizar un documento por su ID.
      */
     public function viewDocument($docId) {
-        $this->requireRole([ROLE_ADMIN, ROLE_GERENTE]);
+        $this->requireLogin();
+        $role = $this->getUserRole();
 
         try {
             $stmt = $this->db->prepare("
-                SELECT d.*, a.id as app_id
+                SELECT d.*, a.id as app_id, a.created_by as app_created_by, a.status
                 FROM documents d
                 LEFT JOIN applications a ON d.application_id = a.id
                 WHERE d.id = ?
@@ -1978,6 +1979,23 @@ class ApplicationController extends BaseController {
 
             if (!$doc) {
                 $_SESSION['error'] = 'Documento no encontrado';
+                $this->redirect('/solicitudes');
+            }
+
+            $docStatus = $doc['status'] ?? '';
+            $docCreatorId = intval($doc['app_created_by'] ?? 0);
+
+            if ($role === ROLE_ASESOR) {
+                if ($docStatus === STATUS_TRAMITE_CERRADO || $docStatus === STATUS_FINALIZADO) {
+                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                    $this->redirect('/solicitudes');
+                }
+                if ($docCreatorId !== intval($_SESSION['user_id'])) {
+                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                    $this->redirect('/solicitudes');
+                }
+            } elseif (!in_array($role, [ROLE_ADMIN, ROLE_GERENTE])) {
+                $_SESSION['error'] = 'No tiene permisos para visualizar documentos';
                 $this->redirect('/solicitudes');
             }
 
