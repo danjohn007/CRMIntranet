@@ -362,9 +362,52 @@ $canadianStatusLabels = [
                 <?php endforeach; ?>
             </div>
             <?php elseif ($isAsesor): ?>
+            <?php
+            $responseFileItems = [];
+            foreach ($basicData as $key => $value) {
+                if (in_array($key, $basicKeys) || ($fieldTypes[$key] ?? '') !== 'file' || empty($value)) continue;
+                $displayLabel = $fieldLabels[$key] ?? str_replace('_', ' ', $key);
+                $valueText = is_array($value) ? implode(', ', $value) : (string)$value;
+                $matchedDocument = null;
+                foreach ($documents as $docCandidate) {
+                    $docName = $docCandidate['name'] ?? '';
+                    $docPath = $docCandidate['file_path'] ?? '';
+                    if (($valueText !== '' && stripos($docName, $valueText) !== false) || ($valueText !== '' && stripos($docPath, $valueText) !== false)) {
+                        $matchedDocument = $docCandidate;
+                        break;
+                    }
+                }
+                $responseFileItems[] = ['label' => $displayLabel, 'value' => $valueText, 'doc' => $matchedDocument];
+            }
+            ?>
+            <?php if (!empty($responseFileItems)): ?>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <?php foreach ($responseFileItems as $fileItem): ?>
+                <?php
+                $responseDoc = $fileItem['doc'];
+                $responseExt = strtolower($responseDoc['file_type'] ?? pathinfo($fileItem['value'], PATHINFO_EXTENSION));
+                $isResponseImage = in_array($responseExt, ['jpg','jpeg','png','gif','webp']);
+                ?>
+                <div class="border-l-4 border-green-500 pl-4">
+                    <p class="text-sm text-gray-600 capitalize"><?= htmlspecialchars($fileItem['label']) ?></p>
+                    <p class="text-sm text-gray-700"><i class="fas fa-file mr-1"></i><?= htmlspecialchars($fileItem['value']) ?></p>
+                    <?php if (!empty($responseDoc['id']) && $isResponseImage): ?>
+                    <div class="mt-2">
+                        <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $responseDoc['id'] ?>" alt="<?= htmlspecialchars($fileItem['value']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
+                    </div>
+                    <?php elseif (!empty($responseDoc['id']) && $responseExt === 'pdf'): ?>
+                    <div class="mt-2">
+                        <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $responseDoc['id'] ?>" type="application/pdf" class="w-full rounded border border-gray-200" style="height:260px;">
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php else: ?>
             <p class="text-gray-500 text-sm italic">
                 <i class="fas fa-eye mr-1"></i>El cliente ha completado el cuestionario. Solo visible para Gerente/Admin.
             </p>
+            <?php endif; ?>
             <?php endif; ?>
         </div>
         <?php endif; ?>
@@ -973,7 +1016,19 @@ $canadianStatusLabels = [
                             <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $pasaporteDoc['id'] ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
                             <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $pasaporteDoc['id'] ?>" class="text-primary text-sm"><i class="fas fa-download mr-1"></i>Descargar</a>
                         </div>
-                        <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($pasaporteDoc['name']) ?></p><?php endif; ?>
+                        <?php else: ?>
+                        <p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($pasaporteDoc['name']) ?></p>
+                        <?php $isBaseDocImage = in_array(strtolower($pasaporteDoc['file_type'] ?? ''), ['jpg','jpeg','png','gif','webp']); ?>
+                        <?php if ($isBaseDocImage): ?>
+                        <div class="mt-2">
+                            <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $pasaporteDoc['id'] ?>" alt="<?= htmlspecialchars($pasaporteDoc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
+                        </div>
+                        <?php elseif (($pasaporteDoc['file_type'] ?? '') === 'pdf'): ?>
+                        <div class="mt-2">
+                            <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $pasaporteDoc['id'] ?>" type="application/pdf" class="w-full rounded border border-gray-200" style="height:260px;">
+                        </div>
+                        <?php endif; ?>
+                        <?php endif; ?>
                     <?php else: ?>
                         <?php if (($isAsesor || $isAdmin) && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('pasaporte_vigente')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
@@ -992,7 +1047,19 @@ $canadianStatusLabels = [
                             <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaCanadiensPrevDoc['id'] ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
                             <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $visaCanadiensPrevDoc['id'] ?>" class="text-primary text-sm"><i class="fas fa-download mr-1"></i>Descargar</a>
                         </div>
-                        <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($visaCanadiensPrevDoc['name']) ?></p><?php endif; ?>
+                        <?php else: ?>
+                        <p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($visaCanadiensPrevDoc['name']) ?></p>
+                        <?php $isBaseDocImage = in_array(strtolower($visaCanadiensPrevDoc['file_type'] ?? ''), ['jpg','jpeg','png','gif','webp']); ?>
+                        <?php if ($isBaseDocImage): ?>
+                        <div class="mt-2">
+                            <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaCanadiensPrevDoc['id'] ?>" alt="<?= htmlspecialchars($visaCanadiensPrevDoc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
+                        </div>
+                        <?php elseif (($visaCanadiensPrevDoc['file_type'] ?? '') === 'pdf'): ?>
+                        <div class="mt-2">
+                            <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaCanadiensPrevDoc['id'] ?>" type="application/pdf" class="w-full rounded border border-gray-200" style="height:260px;">
+                        </div>
+                        <?php endif; ?>
+                        <?php endif; ?>
                     <?php else: ?>
                         <?php if (($isAsesor || $isAdmin) && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('visa_canadiense_anterior')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
@@ -1011,7 +1078,19 @@ $canadianStatusLabels = [
                             <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $etaAnteriorDoc['id'] ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
                             <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $etaAnteriorDoc['id'] ?>" class="text-primary text-sm"><i class="fas fa-download mr-1"></i>Descargar</a>
                         </div>
-                        <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($etaAnteriorDoc['name']) ?></p><?php endif; ?>
+                        <?php else: ?>
+                        <p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($etaAnteriorDoc['name']) ?></p>
+                        <?php $isBaseDocImage = in_array(strtolower($etaAnteriorDoc['file_type'] ?? ''), ['jpg','jpeg','png','gif','webp']); ?>
+                        <?php if ($isBaseDocImage): ?>
+                        <div class="mt-2">
+                            <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $etaAnteriorDoc['id'] ?>" alt="<?= htmlspecialchars($etaAnteriorDoc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
+                        </div>
+                        <?php elseif (($etaAnteriorDoc['file_type'] ?? '') === 'pdf'): ?>
+                        <div class="mt-2">
+                            <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $etaAnteriorDoc['id'] ?>" type="application/pdf" class="w-full rounded border border-gray-200" style="height:260px;">
+                        </div>
+                        <?php endif; ?>
+                        <?php endif; ?>
                     <?php else: ?>
                         <?php if (($isAsesor || $isAdmin) && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('eta_anterior')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
@@ -1031,7 +1110,19 @@ $canadianStatusLabels = [
                             <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaAnteriorDoc['id'] ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
                             <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $visaAnteriorDoc['id'] ?>" class="text-primary text-sm"><i class="fas fa-download mr-1"></i>Descargar</a>
                         </div>
-                        <?php else: ?><p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($visaAnteriorDoc['name']) ?></p><?php endif; ?>
+                        <?php else: ?>
+                        <p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($visaAnteriorDoc['name']) ?></p>
+                        <?php $isBaseDocImage = in_array(strtolower($visaAnteriorDoc['file_type'] ?? ''), ['jpg','jpeg','png','gif','webp']); ?>
+                        <?php if ($isBaseDocImage): ?>
+                        <div class="mt-2">
+                            <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaAnteriorDoc['id'] ?>" alt="<?= htmlspecialchars($visaAnteriorDoc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
+                        </div>
+                        <?php elseif (($visaAnteriorDoc['file_type'] ?? '') === 'pdf'): ?>
+                        <div class="mt-2">
+                            <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaAnteriorDoc['id'] ?>" type="application/pdf" class="w-full rounded border border-gray-200" style="height:260px;">
+                        </div>
+                        <?php endif; ?>
+                        <?php endif; ?>
                     <?php else: ?>
                         <?php if (($isAsesor || $isAdmin) && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('visa_anterior')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
