@@ -847,7 +847,7 @@ class FormBuilder {
             }
 
             const parentFieldExists = this.fields.some(parent => parent.id === field.conditional.parentFieldId && parent.type === 'select');
-            if (field.conditional.parentFieldId && !parentFieldExists) {
+            if (!parentFieldExists || !field.conditional.parentFieldId) {
                 field.conditional.enabled = false;
                 field.conditional.parentFieldId = '';
                 field.conditional.value = '';
