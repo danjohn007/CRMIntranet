@@ -2,6 +2,17 @@
 require_once ROOT_PATH . '/app/controllers/BaseController.php';
 
 class FormController extends BaseController {
+    private function normalizeFieldsPayload($decodedFields) {
+        if (isset($decodedFields['fields']) && is_array($decodedFields['fields'])) {
+            return ['fields' => $decodedFields['fields']];
+        }
+        
+        if (is_array($decodedFields)) {
+            return ['fields' => $decodedFields];
+        }
+        
+        return ['fields' => []];
+    }
     
     public function index() {
         $this->requireRole([ROLE_ADMIN]);
@@ -76,6 +87,9 @@ class FormController extends BaseController {
             $this->redirect('/formularios/crear');
         }
         
+        $fields = $this->normalizeFieldsPayload($fields);
+        $fieldsJson = json_encode($fields, JSON_UNESCAPED_UNICODE);
+        
         // Validar pages JSON si está habilitada la paginación
         if ($paginationEnabled && !empty($pagesJson)) {
             $pages = json_decode($pagesJson, true);
@@ -91,7 +105,7 @@ class FormController extends BaseController {
             }
             
             // Get valid field IDs from fields_json
-            $validFieldIds = array_column($fields['fields'], 'id');
+            $validFieldIds = array_map('strval', array_column($fields['fields'], 'id'));
             
             foreach ($pages as $page) {
                 if (!isset($page['id']) || !isset($page['name']) || !isset($page['fieldIds'])) {
@@ -119,7 +133,7 @@ class FormController extends BaseController {
                 
                 // Validate that all fieldIds exist in fields_json
                 foreach ($page['fieldIds'] as $fieldId) {
-                    if (!in_array($fieldId, $validFieldIds)) {
+                    if (!in_array((string)$fieldId, $validFieldIds, true)) {
                         $_SESSION['error'] = "Campo inválido '$fieldId' encontrado en páginas";
                         $this->redirect('/formularios/crear');
                     }
@@ -242,6 +256,9 @@ class FormController extends BaseController {
             $this->redirect('/formularios/editar/' . $id);
         }
         
+        $fields = $this->normalizeFieldsPayload($fields);
+        $fieldsJson = json_encode($fields, JSON_UNESCAPED_UNICODE);
+        
         // Validar pages JSON si está habilitada la paginación
         if ($paginationEnabled && !empty($pagesJson)) {
             $pages = json_decode($pagesJson, true);
@@ -255,7 +272,7 @@ class FormController extends BaseController {
                 $this->redirect('/formularios/editar/' . $id);
             }
             
-            $validFieldIds = array_column($fields['fields'], 'id');
+            $validFieldIds = array_map('strval', array_column($fields['fields'], 'id'));
             
             foreach ($pages as $page) {
                 if (!isset($page['id']) || !isset($page['name']) || !isset($page['fieldIds'])) {
@@ -278,13 +295,17 @@ class FormController extends BaseController {
                     $this->redirect('/formularios/editar/' . $id);
                 }
                 
-                foreach ($page['fieldIds'] as $fieldId) {
-                    if (!in_array($fieldId, $validFieldIds)) {
-                        $_SESSION['error'] = "Campo inválido '$fieldId' encontrado en páginas";
-                        $this->redirect('/formularios/editar/' . $id);
-                    }
+                $originalFieldIds = $page['fieldIds'];
+                $page['fieldIds'] = array_values(array_filter($page['fieldIds'], function($fieldId) use ($validFieldIds) {
+                    return in_array((string)$fieldId, $validFieldIds, true);
+                }));
+                if (count($originalFieldIds) !== count($page['fieldIds'])) {
+                    error_log("Formulario $id: se removieron fieldIds inválidos de la página {$page['id']}");
                 }
             }
+            unset($page);
+            
+            $pagesJson = json_encode($pages, JSON_UNESCAPED_UNICODE);
         }
         
         try {

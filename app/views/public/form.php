@@ -82,7 +82,12 @@
                 <input type="hidden" id="current-page" name="currentPage" value="1">
                 
                 <?php foreach ($fields['fields'] as $field): ?>
-                <div class="form-field" data-field-id="<?= htmlspecialchars($field['id']) ?>" data-page="<?php
+                <div class="form-field"
+                     data-field-id="<?= htmlspecialchars($field['id']) ?>"
+                     data-conditional-enabled="<?= !empty($field['conditional']['enabled']) ? '1' : '0' ?>"
+                     data-conditional-parent="<?= htmlspecialchars($field['conditional']['parentFieldId'] ?? '') ?>"
+                     data-conditional-value="<?= htmlspecialchars($field['conditional']['value'] ?? '') ?>"
+                     data-page="<?php
                     // Find which page this field belongs to
                     $pageAssigned = false;
                     if (!empty($form['pagination_enabled']) && !empty($pages)) {
@@ -245,6 +250,8 @@
         
         let currentPage = 1;
         let autosaveTimeout;
+
+        initializeConditionalRequiredTracking();
         
         // Load draft from localStorage on page load
         loadDraftFromLocalStorage();
@@ -253,12 +260,22 @@
         if (paginationEnabled && pages.length > 0) {
             initializePagination();
             showPage(1);
+        } else {
+            applyConditionalVisibility();
         }
         
         // Auto-save on input change
         form.addEventListener('input', function() {
+            applyConditionalVisibility();
             clearTimeout(autosaveTimeout);
             autosaveTimeout = setTimeout(autoSave, AUTOSAVE_DELAY_MS);
+        });
+
+        form.querySelectorAll('select').forEach(function(selectEl) {
+            selectEl.addEventListener('change', function() {
+                applyConditionalVisibility();
+                calculateProgress();
+            });
         });
         
         // Save draft manually
@@ -347,6 +364,12 @@
                 console.error('Error loading draft from localStorage:', error);
             }
         }
+
+        function initializeConditionalRequiredTracking() {
+            document.querySelectorAll('.form-field input[required], .form-field select[required], .form-field textarea[required]').forEach(function(control) {
+                control.dataset.originalRequired = '1';
+            });
+        }
         
         function saveDraftToLocalStorage() {
             try {
@@ -408,6 +431,8 @@
                 });
             }
             
+            applyConditionalVisibility();
+            
             // Update page indicator
             const pageIndicator = document.getElementById('page-indicator');
             if (pageIndicator) {
@@ -461,6 +486,11 @@
             uniqueFieldIds.forEach(fieldId => {
                 const field = document.getElementById(`field_${fieldId}`);
                 if (field) {
+                    const fieldContainer = field.closest('.form-field');
+                    if (fieldContainer && fieldContainer.style.display === 'none') {
+                        return;
+                    }
+
                     let isFilled = false;
                     let shouldCount = true;
                     
@@ -642,6 +672,10 @@
             const processedRadioNames = new Set();
 
             document.querySelectorAll('.form-field').forEach(function(fieldDiv) {
+                if (fieldDiv.style.display === 'none') {
+                    return;
+                }
+
                 const fieldId = fieldDiv.getAttribute('data-field-id');
                 const pageIdAttr = fieldDiv.getAttribute('data-page');
                 const pageInfo = paginationEnabled && pageIdAttr ? pageMap[String(pageIdAttr)] : null;
@@ -682,6 +716,51 @@
             });
 
             return missingFields;
+        }
+
+        function applyConditionalVisibility() {
+            const conditionalFields = document.querySelectorAll('.form-field[data-conditional-enabled="1"]');
+            conditionalFields.forEach(function(fieldDiv) {
+                const fieldPage = parseInt(fieldDiv.getAttribute('data-page') || '1', 10);
+                if (paginationEnabled && pages.length > 0 && fieldPage !== currentPage) {
+                    fieldDiv.style.display = 'none';
+                    return;
+                }
+
+                const parentFieldId = fieldDiv.getAttribute('data-conditional-parent');
+                const expectedValue = (fieldDiv.getAttribute('data-conditional-value') || '').trim();
+
+                if (!parentFieldId || !expectedValue) {
+                    return;
+                }
+
+                const parentField = document.getElementById(`field_${parentFieldId}`);
+                if (!parentField) {
+                    return;
+                }
+
+                const parentValue = String(parentField.value || '').trim();
+                const shouldShow = parentValue === expectedValue;
+                const controls = fieldDiv.querySelectorAll('input, select, textarea');
+
+                fieldDiv.style.display = shouldShow ? 'block' : 'none';
+
+                controls.forEach(function(control) {
+                    const isRequired = control.hasAttribute('required');
+                    if (shouldShow) {
+                        if (control.dataset.originalRequired === '1') {
+                            control.setAttribute('required', 'required');
+                        }
+                    } else {
+                        if (isRequired) {
+                            if (typeof control.dataset.originalRequired === 'undefined') {
+                                control.dataset.originalRequired = '1';
+                            }
+                            control.removeAttribute('required');
+                        }
+                    }
+                });
+            });
         }
     </script>
 </body>

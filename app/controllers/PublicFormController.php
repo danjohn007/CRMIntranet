@@ -2,6 +2,17 @@
 require_once ROOT_PATH . '/app/controllers/BaseController.php';
 
 class PublicFormController extends BaseController {
+    private function normalizeFieldsPayload($decodedFields) {
+        if (isset($decodedFields['fields']) && is_array($decodedFields['fields'])) {
+            return ['fields' => $decodedFields['fields']];
+        }
+        
+        if (is_array($decodedFields)) {
+            return ['fields' => $decodedFields];
+        }
+        
+        return ['fields' => []];
+    }
     
     /**
      * Show public form by token (no authentication required)
@@ -64,7 +75,7 @@ class PublicFormController extends BaseController {
             }
 
             // Parse fields JSON
-            $fields = json_decode($form['fields_json'], true);
+            $fields = $this->normalizeFieldsPayload(json_decode($form['fields_json'], true));
 
             // Parse pages if pagination enabled
             $pages = null;
@@ -149,7 +160,7 @@ class PublicFormController extends BaseController {
             }
             
             // Calculate progress
-            $fields = json_decode($form['fields_json'], true);
+            $fields = $this->normalizeFieldsPayload(json_decode($form['fields_json'], true));
             $totalFields = count($fields['fields'] ?? []);
             $filledFields = 0;
             
@@ -211,7 +222,7 @@ class PublicFormController extends BaseController {
                 // Process file uploads
                 $uploadedFiles = [];
                 if (!empty($_FILES)) {
-                    $fields = json_decode($form['fields_json'], true);
+                    $fields = $this->normalizeFieldsPayload(json_decode($form['fields_json'], true));
                     $fileFields = array_filter($fields['fields'] ?? [], function($field) {
                         return $field['type'] === 'file';
                     });
