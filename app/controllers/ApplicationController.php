@@ -1969,7 +1969,7 @@ class ApplicationController extends BaseController {
 
         try {
             $stmt = $this->db->prepare("
-                SELECT d.*, a.id as app_id, a.created_by, a.status
+                SELECT d.*, a.id as app_id, a.created_by as app_created_by, a.status
                 FROM documents d
                 LEFT JOIN applications a ON d.application_id = a.id
                 WHERE d.id = ?
@@ -1982,12 +1982,15 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
 
+            $docStatus = $doc['status'] ?? '';
+            $docCreatorId = intval($doc['app_created_by'] ?? 0);
+
             if ($role === ROLE_ASESOR) {
-                if (($doc['status'] ?? '') === STATUS_TRAMITE_CERRADO || ($doc['status'] ?? '') === STATUS_FINALIZADO) {
+                if ($docStatus === STATUS_TRAMITE_CERRADO || $docStatus === STATUS_FINALIZADO) {
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
                 }
-                if (intval($doc['created_by'] ?? 0) !== intval($_SESSION['user_id'])) {
+                if ($docCreatorId !== intval($_SESSION['user_id'])) {
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
                 }
