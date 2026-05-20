@@ -33,9 +33,12 @@ class FormBuilder {
         if (initialData) {
             try {
                 const parsed = typeof initialData === 'string' ? JSON.parse(initialData) : initialData;
-                if (parsed && parsed.fields && Array.isArray(parsed.fields)) {
-                    this.fields = parsed.fields;
-                    this.nextId = this.fields.length + 1;
+                const parsedFields = (parsed && Array.isArray(parsed.fields))
+                    ? parsed.fields
+                    : (Array.isArray(parsed) ? parsed : []);
+                if (parsedFields.length > 0) {
+                    this.fields = parsedFields.map((field, index) => this.normalizeField(field, index));
+                    this.nextId = this.getNextIdFromFields();
                 }
             } catch (e) {
                 console.error('Error parsing initial data:', e);
@@ -72,6 +75,39 @@ class FormBuilder {
             .replace(/>/g, '&gt;')
             .replace(/"/g, '&quot;')
             .replace(/'/g, '&#39;');
+    }
+
+    normalizeField(field, index) {
+        const normalized = {
+            id: (field && field.id) ? String(field.id) : `campo_${index + 1}`,
+            type: (field && field.type) ? field.type : 'text',
+            label: (field && field.label) ? field.label : 'Campo',
+            required: Boolean(field && field.required)
+        };
+
+        if (normalized.type === 'select') {
+            normalized.options = Array.isArray(field && field.options) ? field.options : ['Opción 1', 'Opción 2'];
+        }
+
+        const conditional = field && field.conditional ? field.conditional : null;
+        normalized.conditional = {
+            enabled: Boolean(conditional && conditional.enabled),
+            parentFieldId: conditional && conditional.parentFieldId ? String(conditional.parentFieldId) : '',
+            value: conditional && typeof conditional.value !== 'undefined' ? String(conditional.value) : ''
+        };
+
+        return normalized;
+    }
+
+    getNextIdFromFields() {
+        let maxId = 0;
+        this.fields.forEach(field => {
+            const match = String(field.id || '').match(/^campo_(\d+)$/);
+            if (match) {
+                maxId = Math.max(maxId, parseInt(match[1], 10));
+            }
+        });
+        return maxId + 1;
     }
 
     injectStyles() {
@@ -240,6 +276,10 @@ class FormBuilder {
                                 Volver a página actual
                             </button>`;
     }
+
+    getAvailableParentSelectFields(index) {
+        return this.fields.filter((field, i) => field.type === 'select' && i !== index);
+    }
     
     addPage() {
         const newPage = {
@@ -369,7 +409,12 @@ class FormBuilder {
             id: `campo_${this.nextId++}`,
             type: type,
             label: type === 'label' ? 'Nueva Sección' : fieldType.label,
-            required: false
+            required: false,
+            conditional: {
+                enabled: false,
+                parentFieldId: '',
+                value: ''
+            }
         };
         
         // Add options for select fields
@@ -490,13 +535,44 @@ class FormBuilder {
                         </div>
                     ` : ''}
                     ${!isLabel ? `
-                    <div class="col-span-2">
+                    <div class="col-span-2 flex flex-wrap items-center gap-4">
                         <label class="flex items-center">
                             <input type="checkbox" ${field.required ? 'checked' : ''} 
                                    class="field-required-input mr-2"
                                    data-index="${index}">
                             <span class="text-xs text-gray-700">Campo obligatorio</span>
                         </label>
+                        <label class="flex items-center">
+                            <input type="checkbox" ${field.conditional && field.conditional.enabled ? 'checked' : ''} 
+                                   class="field-conditional-enabled-input mr-2"
+                                   data-index="${index}">
+                            <span class="text-xs text-gray-700">Pregunta condicional</span>
+                        </label>
+                    </div>
+                    <div class="col-span-2 ${field.conditional && field.conditional.enabled ? '' : 'hidden'}" id="conditional-config-${index}">
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-2">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Mostrar cuando</label>
+                                <select class="field-conditional-parent-input w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                        data-index="${index}">
+                                    <option value="">Seleccione campo select...</option>
+                                    ${this.getAvailableParentSelectFields(index).map(parent => `
+                                        <option value="${this.escapeHtml(parent.id)}" ${field.conditional && field.conditional.parentFieldId === parent.id ? 'selected' : ''}>
+                                            ${this.escapeHtml(parent.label)}
+                                        </option>
+                                    `).join('')}
+                                </select>
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">Si responde</label>
+                                <input type="text"
+                                       value="${this.escapeHtml(field.conditional ? (field.conditional.value || '') : '')}"
+                                       class="field-conditional-value-input w-full border border-gray-300 rounded px-2 py-1 text-sm"
+                                       data-index="${index}"
+                                       placeholder="Ej: Sí">
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-1">La pregunta se mostrará solo cuando el campo select elegido tenga ese valor.</p>
                     </div>
                     ` : `
                     <div class="col-span-2">
@@ -578,6 +654,52 @@ class FormBuilder {
             input.addEventListener('change', (e) => {
                 const index = parseInt(e.target.dataset.index);
                 this.updateFieldProperty(index, 'required', e.target.checked);
+            });
+        });
+
+        document.querySelectorAll('.field-conditional-enabled-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                const field = this.fields[index];
+                if (!field) return;
+
+                if (!field.conditional) {
+                    field.conditional = { enabled: false, parentFieldId: '', value: '' };
+                }
+                field.conditional.enabled = e.target.checked;
+                if (!field.conditional.enabled) {
+                    field.conditional.parentFieldId = '';
+                    field.conditional.value = '';
+                }
+
+                this.renderFields();
+                this.updateJSON();
+            });
+        });
+
+        document.querySelectorAll('.field-conditional-parent-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                const field = this.fields[index];
+                if (!field) return;
+                if (!field.conditional) {
+                    field.conditional = { enabled: true, parentFieldId: '', value: '' };
+                }
+                field.conditional.parentFieldId = e.target.value;
+                this.updateJSON();
+            });
+        });
+
+        document.querySelectorAll('.field-conditional-value-input').forEach(input => {
+            input.addEventListener('change', (e) => {
+                const index = parseInt(e.target.dataset.index);
+                const field = this.fields[index];
+                if (!field) return;
+                if (!field.conditional) {
+                    field.conditional = { enabled: true, parentFieldId: '', value: '' };
+                }
+                field.conditional.value = e.target.value.trim();
+                this.updateJSON();
             });
         });
         
@@ -706,6 +828,27 @@ class FormBuilder {
     }
     
     updateJSON() {
+        this.fields.forEach(field => {
+            if (!field.conditional) {
+                return;
+            }
+            if (!field.conditional.enabled) {
+                field.conditional.parentFieldId = '';
+                field.conditional.value = '';
+                return;
+            }
+
+            const parentFieldExists = this.fields.some(parent => parent.id === field.conditional.parentFieldId && parent.type === 'select');
+            if (!parentFieldExists || !field.conditional.parentFieldId) {
+                field.conditional.enabled = false;
+                field.conditional.parentFieldId = '';
+                field.conditional.value = '';
+                return;
+            }
+
+            field.conditional.value = String(field.conditional.value || '').trim();
+        });
+
         const jsonOutput = {
             fields: this.fields
         };
