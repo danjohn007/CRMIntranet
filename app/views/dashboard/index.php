@@ -7,6 +7,7 @@ ob_start();
     <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Dashboard</h2>
     <p class="text-sm md:text-base text-gray-600">Bienvenido, <?= $_SESSION['user_name'] ?></p>
 </div>
+<?php $isAsesor = (($_SESSION['user_role'] ?? '') === ROLE_ASESOR); ?>
 
 <!-- Estadísticas Generales -->
 <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 mb-4 md:mb-6">
@@ -109,6 +110,7 @@ ob_start();
     <?php endif; ?>
 </div>
 
+<?php if (!$isAsesor): ?>
 <!-- Calendario de Citas -->
 <div class="bg-white rounded-lg shadow p-4 md:p-6 mb-4 md:mb-6">
     <div class="flex justify-between items-center mb-4">
@@ -201,6 +203,7 @@ ob_start();
         </table>
     </div>
 </div>
+<?php endif; ?>
 
 <script>
 document.addEventListener('DOMContentLoaded', function() {
@@ -332,6 +335,7 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     <?php endif; ?>
     
+    <?php if (!$isAsesor): ?>
     // Calendar for appointments
     const appointments = <?= json_encode(array_map(function($a) {
         $date = !empty($a['office_appointment_date'])
@@ -469,6 +473,7 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     renderCalendar(calYear, calMonth);
+    <?php endif; ?>
     <?php if (!empty($stats['payments_by_method'])): ?>
     const paymentCtx = document.getElementById('paymentMethodChart');
     if (paymentCtx) {

@@ -691,6 +691,7 @@ class FormBuilder {
                 if (!field.conditional) {
                     field.conditional = { enabled: true, parentFieldId: '', value: '' };
                 }
+                field.conditional.enabled = true;
                 field.conditional.parentFieldId = e.target.value.trim();
                 this.updateJSON();
             });
@@ -704,6 +705,7 @@ class FormBuilder {
                 if (!field.conditional) {
                     field.conditional = { enabled: true, parentFieldId: '', value: '' };
                 }
+                field.conditional.enabled = true;
                 field.conditional.value = e.target.value.trim();
                 this.updateJSON();
             });
