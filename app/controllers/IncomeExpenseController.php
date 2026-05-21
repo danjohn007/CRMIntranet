@@ -20,13 +20,25 @@ class IncomeExpenseController extends BaseController
 
             try {
                 $usersStmt = $this->db->query("
-                    SELECT id, full_name FROM users WHERE active = 1 ORDER BY full_name ASC
+                    SELECT
+                        id,
+                        COALESCE(NULLIF(full_name, ''), username) AS full_name
+                    FROM users
+                    WHERE is_active = 1
+                      AND LOWER(TRIM(role)) = 'asesor'
+                    ORDER BY COALESCE(NULLIF(full_name, ''), username) ASC
                 ");
                 $userList = $usersStmt->fetchAll();
 
                 if ($requestedUser > 0) {
                     $userCheckStmt = $this->db->prepare("
-                        SELECT id, full_name FROM users WHERE id = ? AND active = 1
+                        SELECT
+                            id,
+                            COALESCE(NULLIF(full_name, ''), username) AS full_name
+                        FROM users
+                        WHERE id = ?
+                          AND is_active = 1
+                          AND LOWER(TRIM(role)) = 'asesor'
                     ");
                     $userCheckStmt->execute([$requestedUser]);
                     $selectedUser = $userCheckStmt->fetch() ?: null;
