@@ -50,7 +50,7 @@ class IncomeExpenseController extends BaseController
 
             $periodFilter = $this->buildPeriodFilter($activePeriod);
             $userFilters = [
-                'payments' => $selectedUser ? "AND registered_by = {$requestedUser}" : "",
+                'payments' => $selectedUser ? "AND application_id IN (SELECT id FROM applications WHERE created_by = {$requestedUser})" : "",
                 'advisor_incomes' => $selectedUser ? "AND created_by = {$requestedUser}" : "",
                 'expenses' => $selectedUser ? "AND created_by = {$requestedUser}" : ""
             ];

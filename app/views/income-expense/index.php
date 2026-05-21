@@ -56,6 +56,11 @@ $sourceTotals = [
                 </option>
                 <?php endforeach; ?>
             </select>
+            <?php if (!empty($selectedUser['full_name'])): ?>
+            <p class="mt-2 text-xs text-green-700 font-medium">
+                Mostrando datos de: <?= htmlspecialchars($selectedUser['full_name']) ?>
+            </p>
+            <?php endif; ?>
         </div>
     </div>
 </div>
@@ -265,7 +270,7 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    function updateUserFilter() {
+    window.updateUserFilter = function() {
         const userFilter = document.getElementById('userFilter');
         const selectedUserId = userFilter.value;
         const currentPeriod = '<?= htmlspecialchars($activePeriod ?? 'diario') ?>';
@@ -275,7 +280,7 @@ document.addEventListener('DOMContentLoaded', function () {
         } else {
             window.location.href = '<?= BASE_URL ?>/ingresos-egresos?period=' + currentPeriod;
         }
-    }
+    };
 });
 </script>
 
