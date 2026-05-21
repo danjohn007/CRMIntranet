@@ -2,15 +2,17 @@
 $title = 'Ingresos vs Egresos';
 ob_start();
 
-$dailyLabels = [];
-$dailyIncome = [];
-$dailyExpenses = [];
-foreach ($dailyEvolution ?? [] as $row) {
+$evolutionLabels = [];
+$requestIncomeSeries = [];
+$extraIncomeSeries = [];
+$expenseSeries = [];
+foreach ($periodEvolution ?? [] as $row) {
     $movementDate = $row['movement_date'] ?? '';
     $dateObject = $movementDate !== '' ? DateTime::createFromFormat('Y-m-d', $movementDate) : false;
-    $dailyLabels[] = $dateObject !== false ? $dateObject->format('d/m') : $movementDate;
-    $dailyIncome[] = (float) ($row['total_income'] ?? 0);
-    $dailyExpenses[] = (float) ($row['total_expenses'] ?? 0);
+    $evolutionLabels[] = $dateObject !== false ? $dateObject->format('d/m') : $movementDate;
+    $requestIncomeSeries[] = (float) ($row['total_income_requests'] ?? 0);
+    $extraIncomeSeries[] = (float) ($row['total_extra_income'] ?? 0);
+    $expenseSeries[] = (float) ($row['total_expenses'] ?? 0);
 }
 
 $topExpenseLabels = [];
@@ -20,16 +22,21 @@ foreach ($topExpenses ?? [] as $row) {
     $topExpenseTotals[] = (float) ($row['total'] ?? 0);
 }
 
-$monthlyLabels = [];
-$monthlyIncome = [];
-$monthlyExpenses = [];
-foreach ($monthlyComparison ?? [] as $row) {
-    $movementMonth = $row['movement_month'] ?? '';
-    $monthDate = $movementMonth !== '' ? DateTime::createFromFormat('Y-m', $movementMonth) : false;
-    $monthlyLabels[] = $monthDate !== false ? $monthDate->format('M Y') : $movementMonth;
-    $monthlyIncome[] = (float) ($row['total_income'] ?? 0);
-    $monthlyExpenses[] = (float) ($row['total_expenses'] ?? 0);
-}
+$selectedPeriod = $selectedPeriod ?? 'daily';
+$periodRange = $periodRange ?? [];
+$periodTabs = [
+    'daily' => 'Diario',
+    'weekly' => 'Semanal',
+    'monthly' => 'Por mes'
+];
+$periodSuffix = $periodRange['summary_suffix'] ?? 'del periodo';
+$periodChartSuffix = $periodRange['chart_suffix'] ?? 'del periodo';
+$summaryBreakdownLabels = ['Ingresos solicitudes', 'Ingresos extra', 'Egresos'];
+$summaryBreakdownValues = [
+    (float) ($summary['total_income_requests'] ?? 0),
+    (float) ($summary['total_extra_income'] ?? 0),
+    (float) ($summary['total_expenses'] ?? 0)
+];
 ?>
 
 <div class="mb-4 md:mb-6">
@@ -73,25 +80,38 @@ foreach ($monthlyComparison ?? [] as $row) {
     </form>
 </div>
 
+<div class="bg-white rounded-lg shadow p-3 md:p-4 mb-4 md:mb-6">
+    <div class="flex flex-wrap gap-2">
+        <?php foreach ($periodTabs as $periodKey => $periodLabel): ?>
+        <a
+            href="<?= BASE_URL ?>/ingresos-egresos?period=<?= urlencode($periodKey) ?>"
+            class="inline-flex items-center justify-center px-4 py-2 rounded-lg border transition <?= $selectedPeriod === $periodKey ? 'bg-primary text-white border-primary' : 'bg-white text-gray-700 border-gray-300 hover:border-primary hover:text-primary' ?>"
+        >
+            <?= htmlspecialchars($periodLabel) ?>
+        </a>
+        <?php endforeach; ?>
+    </div>
+</div>
+
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 md:gap-6 mb-4 md:mb-6">
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <p class="text-gray-600 text-sm">Total Ingresos</p>
+        <p class="text-gray-600 text-sm">Total ingresos <?= htmlspecialchars($periodSuffix) ?></p>
         <p class="text-2xl md:text-3xl font-bold text-green-600">$<?= number_format((float) ($summary['total_income'] ?? 0), 2) ?></p>
     </div>
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <p class="text-gray-600 text-sm">Total Ingresos Extra</p>
+        <p class="text-gray-600 text-sm">Total ingresos extra <?= htmlspecialchars($periodSuffix) ?></p>
         <p class="text-2xl md:text-3xl font-bold text-emerald-600">$<?= number_format((float) ($summary['total_extra_income'] ?? 0), 2) ?></p>
     </div>
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <p class="text-gray-600 text-sm">Total Ingresos Solicitudes</p>
+        <p class="text-gray-600 text-sm">Total ingresos solicitudes <?= htmlspecialchars($periodSuffix) ?></p>
         <p class="text-2xl md:text-3xl font-bold text-blue-600">$<?= number_format((float) ($summary['total_income_requests'] ?? 0), 2) ?></p>
     </div>
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <p class="text-gray-600 text-sm">Total Egresos</p>
+        <p class="text-gray-600 text-sm">Total egresos <?= htmlspecialchars($periodSuffix) ?></p>
         <p class="text-2xl md:text-3xl font-bold text-red-600">$<?= number_format((float) ($summary['total_expenses'] ?? 0), 2) ?></p>
     </div>
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <p class="text-gray-600 text-sm">Balance</p>
+        <p class="text-gray-600 text-sm">Balance <?= htmlspecialchars($periodSuffix) ?></p>
         <p class="text-2xl md:text-3xl font-bold <?= ((float) ($summary['balance'] ?? 0)) >= 0 ? 'text-primary' : 'text-red-600' ?>">
             $<?= number_format((float) ($summary['balance'] ?? 0), 2) ?>
         </p>
@@ -100,13 +120,13 @@ foreach ($monthlyComparison ?? [] as $row) {
 
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">Evolución diaria (Ingresos vs Egresos)</h3>
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Movimientos <?= htmlspecialchars($periodChartSuffix) ?></h3>
         <div class="h-72">
-            <canvas id="dailyEvolutionChart"></canvas>
+            <canvas id="periodEvolutionChart"></canvas>
         </div>
     </div>
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">Top 5 Egresos por Concepto</h3>
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Top 5 egresos <?= htmlspecialchars($periodChartSuffix) ?></h3>
         <div class="h-72">
             <canvas id="topExpensesChart"></canvas>
         </div>
@@ -115,9 +135,9 @@ foreach ($monthlyComparison ?? [] as $row) {
 
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">Comparación mensual</h3>
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Distribución <?= htmlspecialchars($periodChartSuffix) ?></h3>
         <div class="h-72">
-            <canvas id="monthlyComparisonChart"></canvas>
+            <canvas id="summaryBreakdownChart"></canvas>
         </div>
     </div>
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
@@ -164,25 +184,33 @@ document.addEventListener('DOMContentLoaded', function () {
 
     const primaryColor = getComputedStyle(document.documentElement).getPropertyValue('--primary-color').trim() || '#3b82f6';
     const incomeColor = '#10b981';
+    const requestIncomeColor = '#2563eb';
     const expenseColor = '#ef4444';
 
-    const dailyCtx = document.getElementById('dailyEvolutionChart');
-    if (dailyCtx) {
-        new Chart(dailyCtx, {
+    const evolutionCtx = document.getElementById('periodEvolutionChart');
+    if (evolutionCtx) {
+        new Chart(evolutionCtx, {
             type: 'line',
             data: {
-                labels: <?= json_encode($dailyLabels, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+                labels: <?= json_encode($evolutionLabels, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
                 datasets: [
                     {
-                        label: 'Ingresos',
-                        data: <?= json_encode($dailyIncome, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+                        label: 'Ingresos solicitudes',
+                        data: <?= json_encode($requestIncomeSeries, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+                        borderColor: requestIncomeColor,
+                        backgroundColor: 'rgba(37, 99, 235, 0.12)',
+                        tension: 0.3
+                    },
+                    {
+                        label: 'Ingresos extra',
+                        data: <?= json_encode($extraIncomeSeries, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
                         borderColor: incomeColor,
                         backgroundColor: 'rgba(16, 185, 129, 0.12)',
                         tension: 0.3
                     },
                     {
                         label: 'Egresos',
-                        data: <?= json_encode($dailyExpenses, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+                        data: <?= json_encode($expenseSeries, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
                         borderColor: expenseColor,
                         backgroundColor: 'rgba(239, 68, 68, 0.12)',
                         tension: 0.3
@@ -219,24 +247,16 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    const monthlyCtx = document.getElementById('monthlyComparisonChart');
-    if (monthlyCtx) {
-        new Chart(monthlyCtx, {
-            type: 'bar',
+    const summaryCtx = document.getElementById('summaryBreakdownChart');
+    if (summaryCtx) {
+        new Chart(summaryCtx, {
+            type: 'doughnut',
             data: {
-                labels: <?= json_encode($monthlyLabels, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
-                datasets: [
-                    {
-                        label: 'Ingresos',
-                        data: <?= json_encode($monthlyIncome, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
-                        backgroundColor: incomeColor
-                    },
-                    {
-                        label: 'Egresos',
-                        data: <?= json_encode($monthlyExpenses, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
-                        backgroundColor: expenseColor
-                    }
-                ]
+                labels: <?= json_encode($summaryBreakdownLabels, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+                datasets: [{
+                    data: <?= json_encode($summaryBreakdownValues, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+                    backgroundColor: [requestIncomeColor, incomeColor, expenseColor]
+                }]
             },
             options: {
                 responsive: true,

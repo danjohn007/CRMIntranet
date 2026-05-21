@@ -21,6 +21,7 @@ CREATE TABLE IF NOT EXISTS `advisor_income_catalog` (
 
 CREATE TABLE IF NOT EXISTS `advisor_income_records` (
   `id` int(11) NOT NULL AUTO_INCREMENT,
+  `folio` varchar(50) DEFAULT NULL,
   `income_type_id` int(11) NOT NULL,
   `amount` decimal(10,2) NOT NULL,
   `income_datetime` datetime NOT NULL,
@@ -28,6 +29,7 @@ CREATE TABLE IF NOT EXISTS `advisor_income_records` (
   `created_by` int(11) NOT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
+  UNIQUE KEY `uniq_advisor_income_records_folio` (`folio`),
   KEY `idx_advisor_income_records_type` (`income_type_id`),
   KEY `idx_advisor_income_records_date` (`income_datetime`),
   KEY `idx_advisor_income_records_created_by` (`created_by`),

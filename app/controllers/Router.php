@@ -69,6 +69,7 @@ class Router {
         $this->routes['GET']['/ingresos'] = ['AdvisorIncomeController', 'index'];
         $this->routes['POST']['/ingresos/catalogo'] = ['AdvisorIncomeController', 'storeCatalog'];
         $this->routes['POST']['/ingresos/registrar'] = ['AdvisorIncomeController', 'storeIncome'];
+        $this->routes['POST']['/ingresos/ticket/{id}'] = ['AdvisorIncomeController', 'generateTicket'];
         
         // Reportes
         $this->routes['GET']['/reportes'] = ['ReportController', 'index'];
