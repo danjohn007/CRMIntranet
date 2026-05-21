@@ -96,28 +96,99 @@ ob_start();
             <table class="w-full">
                 <thead class="bg-gray-50">
                     <tr>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Folio</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Monto</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Nota</th>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Ticket</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
                     <?php foreach ($recentIncomes ?? [] as $income): ?>
                     <tr>
+                        <td class="px-3 py-2 text-xs md:text-sm font-semibold text-primary"><?= htmlspecialchars($income['generated_folio'] ?? '') ?></td>
                         <td class="px-3 py-2 text-sm text-gray-600"><?= date('d/m/Y H:i', strtotime($income['income_datetime'])) ?></td>
                         <td class="px-3 py-2 text-sm text-gray-700"><?= htmlspecialchars($income['income_type']) ?></td>
                         <td class="px-3 py-2 text-sm font-semibold text-green-600">$<?= number_format((float) $income['amount'], 2) ?></td>
                         <td class="px-3 py-2 text-sm text-gray-600"><?= htmlspecialchars($income['note'] ?? '') ?></td>
+                        <td class="px-3 py-2 text-sm text-gray-600">
+                            <button
+                                type="button"
+                                class="generateTicketBtn inline-flex items-center px-3 py-1.5 text-xs font-semibold bg-primary text-white rounded-lg hover:opacity-90"
+                                data-folio="<?= htmlspecialchars($income['generated_folio'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                data-fecha="<?= htmlspecialchars(date('d/m/Y H:i', strtotime($income['income_datetime'])), ENT_QUOTES, 'UTF-8') ?>"
+                                data-tipo="<?= htmlspecialchars($income['income_type'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                data-precio="<?= number_format((float) $income['amount'], 2, '.', '') ?>"
+                                data-nota="<?= htmlspecialchars($income['note'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                            >
+                                <i class="fas fa-receipt mr-1"></i>Generar ticket
+                            </button>
+                        </td>
                     </tr>
                     <?php endforeach; ?>
                     <?php if (empty($recentIncomes)): ?>
                     <tr>
-                        <td colspan="4" class="px-3 py-6 text-center text-gray-500">Sin ingresos registrados.</td>
+                        <td colspan="6" class="px-3 py-6 text-center text-gray-500">Sin ingresos registrados.</td>
                     </tr>
                     <?php endif; ?>
                 </tbody>
             </table>
+        </div>
+    </div>
+</div>
+
+<div id="ticketModal" class="fixed inset-0 z-50 hidden">
+    <div id="ticketModalBackdrop" class="absolute inset-0 bg-black bg-opacity-40"></div>
+    <div class="relative min-h-screen flex items-center justify-center p-4">
+        <div class="bg-white rounded-xl shadow-xl w-full max-w-2xl p-5 md:p-6">
+            <div class="flex items-start justify-between gap-3 mb-4">
+                <div>
+                    <h3 class="text-lg md:text-xl font-bold text-gray-800">Generar ticket</h3>
+                    <p class="text-xs md:text-sm text-gray-500">Completa los campos para imprimir o guardar el ticket en PDF.</p>
+                </div>
+                <button type="button" id="closeTicketModalBtn" class="text-gray-500 hover:text-gray-700">
+                    <i class="fas fa-times text-lg"></i>
+                </button>
+            </div>
+
+            <form id="ticketForm" class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <input type="hidden" id="ticketFolio">
+                <input type="hidden" id="ticketFecha">
+                <input type="hidden" id="ticketTipo">
+                <input type="hidden" id="ticketPrecioServicio">
+                <input type="hidden" id="ticketNota">
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del cliente</label>
+                    <input type="text" id="ticketCliente" maxlength="200" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Opcional">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Teléfono</label>
+                    <input type="text" id="ticketTelefono" maxlength="50" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Opcional">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Correo</label>
+                    <input type="email" id="ticketCorreo" maxlength="200" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="Opcional">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Servicio contratado</label>
+                    <input type="text" id="ticketServicio" readonly class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-gray-700">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Precio del servicio</label>
+                    <input type="text" id="ticketPrecio" readonly class="w-full px-3 py-2 border border-gray-200 bg-gray-50 rounded-lg text-gray-700">
+                </div>
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Monto pagado *</label>
+                    <input type="number" id="ticketMontoPagado" required min="0.01" step="0.01" class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent" placeholder="0.00">
+                </div>
+
+                <div class="md:col-span-2 flex flex-wrap justify-end gap-2 pt-2">
+                    <button type="button" id="cancelTicketBtn" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancelar</button>
+                    <button type="submit" class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700">Generar ticket</button>
+                </div>
+            </form>
         </div>
     </div>
 </div>
@@ -150,6 +221,161 @@ document.addEventListener('DOMContentLoaded', function () {
             incomeDatetimeField.value = localDatetime;
         }
         incomeDatetimeField.max = localDatetime;
+    }
+
+    const ticketModal = document.getElementById('ticketModal');
+    const ticketModalBackdrop = document.getElementById('ticketModalBackdrop');
+    const closeTicketModalBtn = document.getElementById('closeTicketModalBtn');
+    const cancelTicketBtn = document.getElementById('cancelTicketBtn');
+    const ticketForm = document.getElementById('ticketForm');
+    const generateTicketButtons = document.querySelectorAll('.generateTicketBtn');
+
+    function openTicketModal(data) {
+        if (!ticketModal) {
+            return;
+        }
+
+        document.getElementById('ticketFolio').value = data.folio || '';
+        document.getElementById('ticketFecha').value = data.fecha || '';
+        document.getElementById('ticketTipo').value = data.tipo || '';
+        document.getElementById('ticketPrecioServicio').value = data.precio || '0.00';
+        document.getElementById('ticketNota').value = data.nota || '';
+
+        document.getElementById('ticketServicio').value = data.tipo || '';
+        document.getElementById('ticketPrecio').value = '$' + (data.precio || '0.00');
+        document.getElementById('ticketCliente').value = '';
+        document.getElementById('ticketTelefono').value = '';
+        document.getElementById('ticketCorreo').value = '';
+        document.getElementById('ticketMontoPagado').value = data.precio || '';
+
+        ticketModal.classList.remove('hidden');
+    }
+
+    function closeTicketModal() {
+        if (!ticketModal) {
+            return;
+        }
+        ticketModal.classList.add('hidden');
+    }
+
+    generateTicketButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            openTicketModal({
+                folio: button.getAttribute('data-folio'),
+                fecha: button.getAttribute('data-fecha'),
+                tipo: button.getAttribute('data-tipo'),
+                precio: button.getAttribute('data-precio'),
+                nota: button.getAttribute('data-nota')
+            });
+        });
+    });
+
+    if (ticketModalBackdrop) {
+        ticketModalBackdrop.addEventListener('click', closeTicketModal);
+    }
+    if (closeTicketModalBtn) {
+        closeTicketModalBtn.addEventListener('click', closeTicketModal);
+    }
+    if (cancelTicketBtn) {
+        cancelTicketBtn.addEventListener('click', closeTicketModal);
+    }
+
+    function safeText(value) {
+        return String(value || '')
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    if (ticketForm) {
+        ticketForm.addEventListener('submit', function (event) {
+            event.preventDefault();
+
+            const montoPagado = parseFloat(document.getElementById('ticketMontoPagado').value || '0');
+            if (!Number.isFinite(montoPagado) || montoPagado <= 0) {
+                alert('El monto pagado es obligatorio y debe ser mayor a cero.');
+                return;
+            }
+
+            const folio = document.getElementById('ticketFolio').value;
+            const fecha = document.getElementById('ticketFecha').value;
+            const servicio = document.getElementById('ticketTipo').value;
+            const precioServicio = document.getElementById('ticketPrecioServicio').value;
+            const nota = document.getElementById('ticketNota').value;
+            const cliente = document.getElementById('ticketCliente').value;
+            const telefono = document.getElementById('ticketTelefono').value;
+            const correo = document.getElementById('ticketCorreo').value;
+
+            const ticketWindow = window.open('', '_blank', 'width=900,height=800');
+            if (!ticketWindow) {
+                alert('No se pudo abrir la ventana de ticket. Verifica el bloqueador de ventanas emergentes.');
+                return;
+            }
+
+            const html = `<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ticket ${safeText(folio)}</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 0; padding: 24px; color: #1f2937; }
+        .ticket { max-width: 760px; margin: 0 auto; border: 1px solid #d1d5db; border-radius: 10px; overflow: hidden; }
+        .header { background: #0f172a; color: #fff; padding: 16px 20px; }
+        .header h1 { margin: 0; font-size: 20px; }
+        .header p { margin: 4px 0 0; font-size: 13px; opacity: 0.9; }
+        .body { padding: 20px; }
+        .grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+        .item { border: 1px solid #e5e7eb; border-radius: 8px; padding: 10px; }
+        .item .label { font-size: 12px; color: #6b7280; text-transform: uppercase; margin-bottom: 4px; }
+        .item .value { font-size: 15px; font-weight: 600; color: #111827; word-break: break-word; }
+        .totals { margin-top: 14px; border-top: 1px dashed #d1d5db; padding-top: 14px; }
+        .total-line { display: flex; justify-content: space-between; margin: 5px 0; font-size: 15px; }
+        .total-line strong { font-size: 17px; }
+        .footer { padding: 14px 20px; background: #f9fafb; border-top: 1px solid #e5e7eb; font-size: 12px; color: #6b7280; }
+        @media print {
+            body { padding: 0; }
+            .ticket { border: none; }
+        }
+    </style>
+</head>
+<body>
+    <div class="ticket">
+        <div class="header">
+            <h1>Ticket de ingreso</h1>
+            <p>Folio: ${safeText(folio)} | Fecha: ${safeText(fecha)}</p>
+        </div>
+        <div class="body">
+            <div class="grid">
+                <div class="item"><div class="label">Cliente</div><div class="value">${safeText(cliente) || 'N/D'}</div></div>
+                <div class="item"><div class="label">Telefono</div><div class="value">${safeText(telefono) || 'N/D'}</div></div>
+                <div class="item"><div class="label">Correo</div><div class="value">${safeText(correo) || 'N/D'}</div></div>
+                <div class="item"><div class="label">Servicio contratado</div><div class="value">${safeText(servicio)}</div></div>
+            </div>
+            <div class="totals">
+                <div class="total-line"><span>Precio del servicio</span><span>$${safeText(Number(precioServicio).toFixed(2))}</span></div>
+                <div class="total-line"><strong>Monto pagado</strong><strong>$${safeText(montoPagado.toFixed(2))}</strong></div>
+            </div>
+            ${safeText(nota) ? `<div style="margin-top:12px;"><span style="font-size:12px;color:#6b7280;">Nota:</span><div style="font-size:14px;">${safeText(nota)}</div></div>` : ''}
+        </div>
+        <div class="footer">Generado desde el módulo de Ingresos. Usa Imprimir para guardar en PDF.</div>
+    </div>
+    <script>
+        window.onload = function () {
+            window.print();
+        };
+    <\/script>
+</body>
+</html>`;
+
+            ticketWindow.document.open();
+            ticketWindow.document.write(html);
+            ticketWindow.document.close();
+
+            closeTicketModal();
+        });
     }
 });
 </script>

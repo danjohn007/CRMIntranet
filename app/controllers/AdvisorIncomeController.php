@@ -17,14 +17,33 @@ class AdvisorIncomeController extends BaseController
             ");
             $incomeCatalog = $catalogStmt->fetchAll();
 
-            $recordsStmt = $this->db->prepare("
-                SELECT ir.*, ic.income_type
-                FROM advisor_income_records ir
-                INNER JOIN advisor_income_catalog ic ON ic.id = ir.income_type_id
-                WHERE ir.created_by = ?
-                ORDER BY ir.income_datetime DESC, ir.created_at DESC
-                LIMIT 20
-            ");
+                $folioColumnExists = false;
+                try {
+                    $folioColumnStmt = $this->db->query("
+                        SELECT COUNT(*) AS total
+                        FROM information_schema.columns
+                        WHERE table_schema = DATABASE()
+                          AND table_name = 'advisor_income_records'
+                          AND column_name = 'folio'
+                    ");
+                    $folioColumnExists = ((int) ($folioColumnStmt->fetch()['total'] ?? 0)) > 0;
+                } catch (PDOException $e) {
+                    $folioColumnExists = false;
+                }
+
+                $folioSelect = $folioColumnExists
+                    ? "COALESCE(ir.folio, CONCAT('ING-', DATE_FORMAT(ir.created_at, '%Y%m%d'), '-', LPAD(ir.id, 6, '0')))"
+                    : "CONCAT('ING-', DATE_FORMAT(ir.created_at, '%Y%m%d'), '-', LPAD(ir.id, 6, '0'))";
+
+                $recordsStmt = $this->db->prepare("
+                    SELECT ir.*, ic.income_type,
+                           {$folioSelect} AS generated_folio
+                    FROM advisor_income_records ir
+                    INNER JOIN advisor_income_catalog ic ON ic.id = ir.income_type_id
+                    WHERE ir.created_by = ?
+                    ORDER BY ir.income_datetime DESC, ir.created_at DESC
+                    LIMIT 20
+                ");
             $recordsStmt->execute([$_SESSION['user_id']]);
             $recentIncomes = $recordsStmt->fetchAll();
 
@@ -130,6 +149,19 @@ class AdvisorIncomeController extends BaseController
                 $note !== '' ? $note : null,
                 $_SESSION['user_id']
             ]);
+
+            $recordId = (int) $this->db->lastInsertId();
+            $folio = 'ING-' . date('Ymd') . '-' . str_pad((string) $recordId, 6, '0', STR_PAD_LEFT);
+
+            try {
+                $folioStmt = $this->db->prepare("UPDATE advisor_income_records SET folio = ? WHERE id = ?");
+                $folioStmt->execute([$folio, $recordId]);
+            } catch (PDOException $folioException) {
+                // Backward compatibility for databases not yet migrated with folio column.
+                if (stripos($folioException->getMessage(), 'folio') === false) {
+                    throw $folioException;
+                }
+            }
 
             $_SESSION['success'] = 'Ingreso registrado correctamente';
             $this->redirect('/ingresos');

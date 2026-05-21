@@ -6,9 +6,14 @@ $dailyLabels = [];
 $dailyIncome = [];
 $dailyExpenses = [];
 foreach ($dailyEvolution ?? [] as $row) {
-    $movementDate = $row['movement_date'] ?? '';
-    $dateObject = $movementDate !== '' ? DateTime::createFromFormat('Y-m-d', $movementDate) : false;
-    $dailyLabels[] = $dateObject !== false ? $dateObject->format('d/m') : $movementDate;
+    $movementLabel = $row['movement_label'] ?? '';
+    if ($movementLabel !== '') {
+        $dailyLabels[] = $movementLabel;
+    } else {
+        $movementDate = $row['movement_date'] ?? '';
+        $dateObject = $movementDate !== '' ? DateTime::createFromFormat('Y-m-d', $movementDate) : false;
+        $dailyLabels[] = $dateObject !== false ? $dateObject->format('d/m') : $movementDate;
+    }
     $dailyIncome[] = (float) ($row['total_income'] ?? 0);
     $dailyExpenses[] = (float) ($row['total_expenses'] ?? 0);
 }
@@ -20,21 +25,25 @@ foreach ($topExpenses ?? [] as $row) {
     $topExpenseTotals[] = (float) ($row['total'] ?? 0);
 }
 
-$monthlyLabels = [];
-$monthlyIncome = [];
-$monthlyExpenses = [];
-foreach ($monthlyComparison ?? [] as $row) {
-    $movementMonth = $row['movement_month'] ?? '';
-    $monthDate = $movementMonth !== '' ? DateTime::createFromFormat('Y-m', $movementMonth) : false;
-    $monthlyLabels[] = $monthDate !== false ? $monthDate->format('M Y') : $movementMonth;
-    $monthlyIncome[] = (float) ($row['total_income'] ?? 0);
-    $monthlyExpenses[] = (float) ($row['total_expenses'] ?? 0);
-}
+$sourceLabels = ['Ingresos extra', 'Ingresos solicitudes', 'Egresos'];
+$sourceTotals = [
+    (float) ($sourceBreakdown['extra_income'] ?? 0),
+    (float) ($sourceBreakdown['requests_income'] ?? 0),
+    (float) ($sourceBreakdown['expenses'] ?? 0)
+];
 ?>
 
 <div class="mb-4 md:mb-6">
     <h2 class="text-2xl md:text-3xl font-bold text-gray-800">Ingresos vs Egresos</h2>
     <p class="text-sm md:text-base text-gray-600">Control de ingresos, registro de egresos y comparación financiera</p>
+</div>
+
+<div class="bg-white rounded-lg shadow p-2 mb-4 md:mb-6">
+    <div class="flex flex-wrap gap-2">
+        <a href="<?= BASE_URL ?>/ingresos-egresos?period=diario" class="px-4 py-2 rounded-lg text-sm font-semibold <?= ($activePeriod ?? 'diario') === 'diario' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' ?>">Diario</a>
+        <a href="<?= BASE_URL ?>/ingresos-egresos?period=semanal" class="px-4 py-2 rounded-lg text-sm font-semibold <?= ($activePeriod ?? 'diario') === 'semanal' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' ?>">Semanal</a>
+        <a href="<?= BASE_URL ?>/ingresos-egresos?period=mensual" class="px-4 py-2 rounded-lg text-sm font-semibold <?= ($activePeriod ?? 'diario') === 'mensual' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' ?>">Por mes</a>
+    </div>
 </div>
 
 <div class="bg-white rounded-lg shadow p-4 md:p-6 mb-4 md:mb-6">
@@ -75,23 +84,23 @@ foreach ($monthlyComparison ?? [] as $row) {
 
 <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-5 gap-4 md:gap-6 mb-4 md:mb-6">
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <p class="text-gray-600 text-sm">Total Ingresos</p>
+        <p class="text-gray-600 text-sm">Total Ingresos <?= htmlspecialchars($periodLabel ?? '') ?></p>
         <p class="text-2xl md:text-3xl font-bold text-green-600">$<?= number_format((float) ($summary['total_income'] ?? 0), 2) ?></p>
     </div>
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <p class="text-gray-600 text-sm">Total Ingresos Extra</p>
+        <p class="text-gray-600 text-sm">Total Ingresos Extra <?= htmlspecialchars($periodLabel ?? '') ?></p>
         <p class="text-2xl md:text-3xl font-bold text-emerald-600">$<?= number_format((float) ($summary['total_extra_income'] ?? 0), 2) ?></p>
     </div>
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <p class="text-gray-600 text-sm">Total Ingresos Solicitudes</p>
+        <p class="text-gray-600 text-sm">Total Ingresos Solicitudes <?= htmlspecialchars($periodLabel ?? '') ?></p>
         <p class="text-2xl md:text-3xl font-bold text-blue-600">$<?= number_format((float) ($summary['total_income_requests'] ?? 0), 2) ?></p>
     </div>
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <p class="text-gray-600 text-sm">Total Egresos</p>
+        <p class="text-gray-600 text-sm">Total Egresos <?= htmlspecialchars($periodLabel ?? '') ?></p>
         <p class="text-2xl md:text-3xl font-bold text-red-600">$<?= number_format((float) ($summary['total_expenses'] ?? 0), 2) ?></p>
     </div>
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <p class="text-gray-600 text-sm">Balance</p>
+        <p class="text-gray-600 text-sm">Balance <?= htmlspecialchars($periodLabel ?? '') ?></p>
         <p class="text-2xl md:text-3xl font-bold <?= ((float) ($summary['balance'] ?? 0)) >= 0 ? 'text-primary' : 'text-red-600' ?>">
             $<?= number_format((float) ($summary['balance'] ?? 0), 2) ?>
         </p>
@@ -100,7 +109,7 @@ foreach ($monthlyComparison ?? [] as $row) {
 
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6 mb-4 md:mb-6">
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">Evolución diaria (Ingresos vs Egresos)</h3>
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Evolución <?= htmlspecialchars($periodLabel ?? '') ?> (Ingresos vs Egresos)</h3>
         <div class="h-72">
             <canvas id="dailyEvolutionChart"></canvas>
         </div>
@@ -115,9 +124,9 @@ foreach ($monthlyComparison ?? [] as $row) {
 
 <div class="grid grid-cols-1 xl:grid-cols-2 gap-4 md:gap-6">
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
-        <h3 class="text-xl font-bold text-gray-800 mb-4">Comparación mensual</h3>
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Composición financiera <?= htmlspecialchars($periodLabel ?? '') ?></h3>
         <div class="h-72">
-            <canvas id="monthlyComparisonChart"></canvas>
+            <canvas id="sourceBreakdownChart"></canvas>
         </div>
     </div>
     <div class="bg-white rounded-lg shadow p-4 md:p-6">
@@ -219,28 +228,25 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    const monthlyCtx = document.getElementById('monthlyComparisonChart');
-    if (monthlyCtx) {
-        new Chart(monthlyCtx, {
-            type: 'bar',
+    const sourceCtx = document.getElementById('sourceBreakdownChart');
+    if (sourceCtx) {
+        new Chart(sourceCtx, {
+            type: 'doughnut',
             data: {
-                labels: <?= json_encode($monthlyLabels, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
-                datasets: [
-                    {
-                        label: 'Ingresos',
-                        data: <?= json_encode($monthlyIncome, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
-                        backgroundColor: incomeColor
-                    },
-                    {
-                        label: 'Egresos',
-                        data: <?= json_encode($monthlyExpenses, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
-                        backgroundColor: expenseColor
-                    }
-                ]
+                labels: <?= json_encode($sourceLabels, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+                datasets: [{
+                    data: <?= json_encode($sourceTotals, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>,
+                    backgroundColor: [incomeColor, '#2563eb', expenseColor]
+                }]
             },
             options: {
                 responsive: true,
-                maintainAspectRatio: false
+                maintainAspectRatio: false,
+                plugins: {
+                    legend: {
+                        position: 'bottom'
+                    }
+                }
             }
         });
     }
