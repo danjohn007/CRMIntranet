@@ -37,9 +37,11 @@ class AdvisorIncomeController extends BaseController
 
                 $recordsStmt = $this->db->prepare("
                     SELECT ir.*, ic.income_type,
+                           u.full_name AS attended_by_name,
                            {$folioSelect} AS generated_folio
                     FROM advisor_income_records ir
                     INNER JOIN advisor_income_catalog ic ON ic.id = ir.income_type_id
+                    LEFT JOIN users u ON u.id = ir.created_by
                     WHERE ir.created_by = ?
                     ORDER BY ir.income_datetime DESC, ir.created_at DESC
                     LIMIT 20

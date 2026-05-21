@@ -96,6 +96,7 @@ ob_start();
             <table class="w-full">
                 <thead class="bg-gray-50">
                     <tr>
+                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Atendido por</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Folio</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Fecha</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
@@ -107,6 +108,7 @@ ob_start();
                 <tbody class="divide-y divide-gray-200">
                     <?php foreach ($recentIncomes ?? [] as $income): ?>
                     <tr>
+                        <td class="px-3 py-2 text-sm text-gray-700"><?= htmlspecialchars($income['attended_by_name'] ?? '') ?></td>
                         <td class="px-3 py-2 text-xs md:text-sm font-semibold text-primary"><?= htmlspecialchars($income['generated_folio'] ?? '') ?></td>
                         <td class="px-3 py-2 text-sm text-gray-600"><?= date('d/m/Y H:i', strtotime($income['income_datetime'])) ?></td>
                         <td class="px-3 py-2 text-sm text-gray-700"><?= htmlspecialchars($income['income_type']) ?></td>
@@ -121,6 +123,7 @@ ob_start();
                                 data-tipo="<?= htmlspecialchars($income['income_type'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
                                 data-precio="<?= number_format((float) $income['amount'], 2, '.', '') ?>"
                                 data-nota="<?= htmlspecialchars($income['note'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
+                                data-attended_by="<?= htmlspecialchars($income['attended_by_name'] ?? '', ENT_QUOTES, 'UTF-8') ?>"
                             >
                                 <i class="fas fa-receipt mr-1"></i>Generar ticket
                             </button>
@@ -129,7 +132,7 @@ ob_start();
                     <?php endforeach; ?>
                     <?php if (empty($recentIncomes)): ?>
                     <tr>
-                        <td colspan="6" class="px-3 py-6 text-center text-gray-500">Sin ingresos registrados.</td>
+                        <td colspan="7" class="px-3 py-6 text-center text-gray-500">Sin ingresos registrados.</td>
                     </tr>
                     <?php endif; ?>
                 </tbody>
@@ -158,6 +161,7 @@ ob_start();
                 <input type="hidden" id="ticketTipo">
                 <input type="hidden" id="ticketPrecioServicio">
                 <input type="hidden" id="ticketNota">
+                <input type="hidden" id="ticketAtendidoPor">
 
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-1">Nombre del cliente</label>
@@ -240,6 +244,7 @@ document.addEventListener('DOMContentLoaded', function () {
         document.getElementById('ticketTipo').value = data.tipo || '';
         document.getElementById('ticketPrecioServicio').value = data.precio || '0.00';
         document.getElementById('ticketNota').value = data.nota || '';
+        document.getElementById('ticketAtendidoPor').value = data.attended_by || '';
 
         document.getElementById('ticketServicio').value = data.tipo || '';
         document.getElementById('ticketPrecio').value = '$' + (data.precio || '0.00');
@@ -265,7 +270,8 @@ document.addEventListener('DOMContentLoaded', function () {
                 fecha: button.getAttribute('data-fecha'),
                 tipo: button.getAttribute('data-tipo'),
                 precio: button.getAttribute('data-precio'),
-                nota: button.getAttribute('data-nota')
+                nota: button.getAttribute('data-nota'),
+                attended_by: button.getAttribute('data-attended_by')
             });
         });
     });
@@ -307,6 +313,7 @@ document.addEventListener('DOMContentLoaded', function () {
             const cliente = document.getElementById('ticketCliente').value;
             const telefono = document.getElementById('ticketTelefono').value;
             const correo = document.getElementById('ticketCorreo').value;
+            const atendidoPor = document.getElementById('ticketAtendidoPor').value;
 
             const ticketWindow = window.open('', '_blank', 'width=900,height=800');
             if (!ticketWindow) {
@@ -353,6 +360,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 <div class="item"><div class="label">Telefono</div><div class="value">${safeText(telefono) || 'N/D'}</div></div>
                 <div class="item"><div class="label">Correo</div><div class="value">${safeText(correo) || 'N/D'}</div></div>
                 <div class="item"><div class="label">Servicio contratado</div><div class="value">${safeText(servicio)}</div></div>
+                <div class="item"><div class="label">Atendido por</div><div class="value">${safeText(atendidoPor) || 'N/D'}</div></div>
             </div>
             <div class="totals">
                 <div class="total-line"><span>Precio del servicio</span><span>$${safeText(Number(precioServicio).toFixed(2))}</span></div>

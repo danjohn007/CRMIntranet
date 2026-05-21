@@ -38,11 +38,25 @@ $sourceTotals = [
     <p class="text-sm md:text-base text-gray-600">Control de ingresos, registro de egresos y comparación financiera</p>
 </div>
 
-<div class="bg-white rounded-lg shadow p-2 mb-4 md:mb-6">
-    <div class="flex flex-wrap gap-2">
-        <a href="<?= BASE_URL ?>/ingresos-egresos?period=diario" class="px-4 py-2 rounded-lg text-sm font-semibold <?= ($activePeriod ?? 'diario') === 'diario' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' ?>">Diario</a>
-        <a href="<?= BASE_URL ?>/ingresos-egresos?period=semanal" class="px-4 py-2 rounded-lg text-sm font-semibold <?= ($activePeriod ?? 'diario') === 'semanal' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' ?>">Semanal</a>
-        <a href="<?= BASE_URL ?>/ingresos-egresos?period=mensual" class="px-4 py-2 rounded-lg text-sm font-semibold <?= ($activePeriod ?? 'diario') === 'mensual' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' ?>">Por mes</a>
+<div class="bg-white rounded-lg shadow p-3 mb-4 md:mb-6">
+    <div class="flex flex-col md:flex-row md:items-center gap-3 md:gap-6">
+        <div class="flex flex-wrap gap-2">
+            <a href="<?= BASE_URL ?>/ingresos-egresos?period=diario<?= isset($selectedUserId) && $selectedUserId > 0 ? '&user_id=' . $selectedUserId : '' ?>" class="px-4 py-2 rounded-lg text-sm font-semibold <?= ($activePeriod ?? 'diario') === 'diario' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' ?>">Diario</a>
+            <a href="<?= BASE_URL ?>/ingresos-egresos?period=semanal<?= isset($selectedUserId) && $selectedUserId > 0 ? '&user_id=' . $selectedUserId : '' ?>" class="px-4 py-2 rounded-lg text-sm font-semibold <?= ($activePeriod ?? 'diario') === 'semanal' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' ?>">Semanal</a>
+            <a href="<?= BASE_URL ?>/ingresos-egresos?period=mensual<?= isset($selectedUserId) && $selectedUserId > 0 ? '&user_id=' . $selectedUserId : '' ?>" class="px-4 py-2 rounded-lg text-sm font-semibold <?= ($activePeriod ?? 'diario') === 'mensual' ? 'bg-primary text-white' : 'bg-gray-100 text-gray-700 hover:bg-gray-200' ?>">Por mes</a>
+        </div>
+        
+        <div class="md:ml-auto">
+            <label class="block text-xs md:text-sm font-medium text-gray-700 mb-1">Filtrar por usuario:</label>
+            <select id="userFilter" class="px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-primary focus:border-transparent" onchange="updateUserFilter()">
+                <option value="">-- Todos los usuarios --</option>
+                <?php foreach ($userList ?? [] as $user): ?>
+                <option value="<?= (int) $user['id'] ?>" <?= (isset($selectedUserId) && $selectedUserId == $user['id']) ? 'selected' : '' ?>>
+                    <?= htmlspecialchars($user['full_name'] ?? '') ?>
+                </option>
+                <?php endforeach; ?>
+            </select>
+        </div>
     </div>
 </div>
 
@@ -249,6 +263,18 @@ document.addEventListener('DOMContentLoaded', function () {
                 }
             }
         });
+    }
+
+    function updateUserFilter() {
+        const userFilter = document.getElementById('userFilter');
+        const selectedUserId = userFilter.value;
+        const currentPeriod = '<?= htmlspecialchars($activePeriod ?? 'diario') ?>';
+        
+        if (selectedUserId) {
+            window.location.href = '<?= BASE_URL ?>/ingresos-egresos?period=' + currentPeriod + '&user_id=' + selectedUserId;
+        } else {
+            window.location.href = '<?= BASE_URL ?>/ingresos-egresos?period=' + currentPeriod;
+        }
     }
 });
 </script>

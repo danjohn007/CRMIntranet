@@ -14,20 +14,43 @@ class IncomeExpenseController extends BaseController
             $allowedPeriods = ['diario', 'semanal', 'mensual'];
             $activePeriod = in_array($requestedPeriod, $allowedPeriods, true) ? $requestedPeriod : 'diario';
 
+            $requestedUser = (int) ($_GET['user_id'] ?? 0);
+            $userList = [];
+            $selectedUser = null;
+
+            try {
+                $usersStmt = $this->db->query("
+                    SELECT id, full_name FROM users WHERE active = 1 ORDER BY full_name ASC
+                ");
+                $userList = $usersStmt->fetchAll();
+
+                if ($requestedUser > 0) {
+                    $userCheckStmt = $this->db->prepare("
+                        SELECT id, full_name FROM users WHERE id = ? AND active = 1
+                    ");
+                    $userCheckStmt->execute([$requestedUser]);
+                    $selectedUser = $userCheckStmt->fetch() ?: null;
+                }
+            } catch (PDOException $e) {
+                $userList = [];
+                $selectedUser = null;
+            }
+
             $periodFilter = $this->buildPeriodFilter($activePeriod);
+            $userFilter = $selectedUser ? "AND created_by = {$requestedUser}" : "";
 
             if ($advisorIncomeEnabled) {
                 $stmt = $this->db->query("\n                    SELECT
-                        (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE {$periodFilter['payments']}) +
-                        (SELECT COALESCE(SUM(amount), 0) FROM advisor_income_records WHERE {$periodFilter['advisor_incomes']}) AS total_income,
-                        (SELECT COALESCE(SUM(amount), 0) FROM advisor_income_records WHERE {$periodFilter['advisor_incomes']}) AS total_extra_income,
-                        (SELECT COALESCE(SUM(amount), 0) FROM financial_expenses WHERE {$periodFilter['expenses']}) AS total_expenses
+                        (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE {$periodFilter['payments']} {$userFilter}) +
+                        (SELECT COALESCE(SUM(amount), 0) FROM advisor_income_records WHERE {$periodFilter['advisor_incomes']} {$userFilter}) AS total_income,
+                        (SELECT COALESCE(SUM(amount), 0) FROM advisor_income_records WHERE {$periodFilter['advisor_incomes']} {$userFilter}) AS total_extra_income,
+                        (SELECT COALESCE(SUM(amount), 0) FROM financial_expenses WHERE {$periodFilter['expenses']} {$userFilter}) AS total_expenses
                 ");
             } else {
                 $stmt = $this->db->query("\n                    SELECT
-                        (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE {$periodFilter['payments']}) AS total_income,
+                        (SELECT COALESCE(SUM(amount), 0) FROM payments WHERE {$periodFilter['payments']} {$userFilter}) AS total_income,
                         0 AS total_extra_income,
-                        (SELECT COALESCE(SUM(amount), 0) FROM financial_expenses WHERE {$periodFilter['expenses']}) AS total_expenses
+                        (SELECT COALESCE(SUM(amount), 0) FROM financial_expenses WHERE {$periodFilter['expenses']} {$userFilter}) AS total_expenses
                 ");
             }
 
@@ -35,13 +58,13 @@ class IncomeExpenseController extends BaseController
             $summary['total_income_requests'] = (float) ($summary['total_income'] ?? 0) - (float) ($summary['total_extra_income'] ?? 0);
             $summary['balance'] = (float) ($summary['total_income'] ?? 0) - (float) ($summary['total_expenses'] ?? 0);
 
-            $evolutionSql = $this->buildEvolutionQuery($activePeriod, $advisorIncomeEnabled, $periodFilter);
+            $evolutionSql = $this->buildEvolutionQuery($activePeriod, $advisorIncomeEnabled, $periodFilter, $userFilter);
             $stmt = $this->db->query($evolutionSql);
             $dailyEvolution = $stmt->fetchAll();
 
             $stmt = $this->db->query("\n                SELECT concept, SUM(amount) AS total
                 FROM financial_expenses
-                WHERE {$periodFilter['expenses']}
+                WHERE {$periodFilter['expenses']} {$userFilter}
                 GROUP BY concept
                 ORDER BY total DESC, concept ASC
                 LIMIT 5
@@ -69,7 +92,10 @@ class IncomeExpenseController extends BaseController
                 'dailyEvolution' => $dailyEvolution,
                 'topExpenses' => $topExpenses,
                 'sourceBreakdown' => $sourceBreakdown,
-                'recentExpenses' => $recentExpenses
+                'recentExpenses' => $recentExpenses,
+                'userList' => $userList,
+                'selectedUser' => $selectedUser,
+                'selectedUserId' => $requestedUser
             ]);
         } catch (PDOException $e) {
             error_log('Error en ingresos vs egresos: ' . $e->getMessage());
@@ -117,7 +143,7 @@ class IncomeExpenseController extends BaseController
         ];
     }
 
-    private function buildEvolutionQuery(string $period, bool $advisorIncomeEnabled, array $periodFilter): string
+    private function buildEvolutionQuery(string $period, bool $advisorIncomeEnabled, array $periodFilter, string $userFilter = ""): string
     {
         if ($period === 'diario') {
             if ($advisorIncomeEnabled) {
@@ -126,19 +152,19 @@ class IncomeExpenseController extends BaseController
                     FROM (
                         SELECT 'Hoy' AS movement_label, amount AS income_amount, 0 AS expense_amount
                         FROM payments
-                        WHERE {$periodFilter['payments']}
+                        WHERE {$periodFilter['payments']} {$userFilter}
 
                         UNION ALL
 
                         SELECT 'Hoy' AS movement_label, amount AS income_amount, 0 AS expense_amount
                         FROM advisor_income_records
-                        WHERE {$periodFilter['advisor_incomes']}
+                        WHERE {$periodFilter['advisor_incomes']} {$userFilter}
 
                         UNION ALL
 
                         SELECT 'Hoy' AS movement_label, 0 AS income_amount, amount AS expense_amount
                         FROM financial_expenses
-                        WHERE {$periodFilter['expenses']}
+                        WHERE {$periodFilter['expenses']} {$userFilter}
                     ) AS movement_data
                     GROUP BY movement_label
                     ORDER BY movement_label ASC
@@ -150,13 +176,13 @@ class IncomeExpenseController extends BaseController
                 FROM (
                     SELECT 'Hoy' AS movement_label, amount AS income_amount, 0 AS expense_amount
                     FROM payments
-                    WHERE {$periodFilter['payments']}
+                    WHERE {$periodFilter['payments']} {$userFilter}
 
                     UNION ALL
 
                     SELECT 'Hoy' AS movement_label, 0 AS income_amount, amount AS expense_amount
                     FROM financial_expenses
-                    WHERE {$periodFilter['expenses']}
+                    WHERE {$periodFilter['expenses']} {$userFilter}
                 ) AS movement_data
                 GROUP BY movement_label
                 ORDER BY movement_label ASC
@@ -169,19 +195,19 @@ class IncomeExpenseController extends BaseController
                 FROM (
                     SELECT payment_date AS movement_date, amount AS income_amount, 0 AS expense_amount
                     FROM payments
-                    WHERE {$periodFilter['payments']}
+                    WHERE {$periodFilter['payments']} {$userFilter}
 
                     UNION ALL
 
                     SELECT DATE(income_datetime) AS movement_date, amount AS income_amount, 0 AS expense_amount
                     FROM advisor_income_records
-                    WHERE {$periodFilter['advisor_incomes']}
+                    WHERE {$periodFilter['advisor_incomes']} {$userFilter}
 
                     UNION ALL
 
                     SELECT expense_date AS movement_date, 0 AS income_amount, amount AS expense_amount
                     FROM financial_expenses
-                    WHERE {$periodFilter['expenses']}
+                    WHERE {$periodFilter['expenses']} {$userFilter}
                 ) AS movement_data
                 GROUP BY movement_date
                 ORDER BY movement_date ASC
@@ -193,13 +219,13 @@ class IncomeExpenseController extends BaseController
             FROM (
                 SELECT payment_date AS movement_date, amount AS income_amount, 0 AS expense_amount
                 FROM payments
-                WHERE {$periodFilter['payments']}
+                WHERE {$periodFilter['payments']} {$userFilter}
 
                 UNION ALL
 
                 SELECT expense_date AS movement_date, 0 AS income_amount, amount AS expense_amount
                 FROM financial_expenses
-                WHERE {$periodFilter['expenses']}
+                WHERE {$periodFilter['expenses']} {$userFilter}
             ) AS movement_data
             GROUP BY movement_date
             ORDER BY movement_date ASC
