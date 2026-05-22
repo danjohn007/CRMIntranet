@@ -1841,19 +1841,36 @@ class ApplicationController extends BaseController {
             $isAmericanPassport =
                 $typeNormalized === 'pasaporte' &&
                 (strpos($subtypeNormalized, 'americano') !== false || strpos($formNameNormalized, 'pasaporte americano') !== false);
+            $isMexicanPassport =
+                $typeNormalized === 'pasaporte' &&
+                (strpos($subtypeNormalized, 'mexicano') !== false || strpos($formNameNormalized, 'pasaporte mexicano') !== false);
 
-            if (!$isAmericanPassport) {
-                $_SESSION['error'] = 'Este checklist aplica solo para solicitudes de Pasaporte Americano';
+            if (!$isAmericanPassport && !$isMexicanPassport) {
+                $_SESSION['error'] = 'Este checklist aplica solo para solicitudes de Pasaporte Americano o Mexicano';
                 $this->redirect('/solicitudes/ver/' . $id);
             }
 
-            $allowedDocKeys = [
-                'acta_nacimiento_americana',
-                'pasaporte_anterior',
-                'identificacion_oficial',
-                'social_security_number',
-                'reporte_policial',
-            ];
+            if ($isMexicanPassport) {
+                $dataKey = 'documentos_recibidos_pasaporte_mexicano';
+                $allowedDocKeys = [
+                    'acta_nacimiento',
+                    'curp_certificada',
+                    'ine',
+                    'pasaporte_anterior',
+                    'pago_sre',
+                    'carta_consentimiento_menores',
+                    'identificacion_padres',
+                ];
+            } else {
+                $dataKey = 'documentos_recibidos_pasaporte_americano';
+                $allowedDocKeys = [
+                    'acta_nacimiento_americana',
+                    'pasaporte_anterior',
+                    'identificacion_oficial',
+                    'social_security_number',
+                    'reporte_policial',
+                ];
+            }
 
             $selected = $_POST['received_documents'] ?? [];
             if (!is_array($selected)) {
@@ -1869,7 +1886,7 @@ class ApplicationController extends BaseController {
             }
 
             $existingData = json_decode($application['data_json'], true) ?: [];
-            $existingData['documentos_recibidos_pasaporte_americano'] = $selectedNormalized;
+            $existingData[$dataKey] = $selectedNormalized;
 
             $newJson = json_encode($existingData, JSON_UNESCAPED_UNICODE);
             $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")

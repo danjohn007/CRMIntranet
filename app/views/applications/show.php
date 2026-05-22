@@ -23,6 +23,10 @@ $isAmericanPassportRequest = $isPassportService && (
     strpos($applicationSubtypeNormalized, 'americano') !== false ||
     strpos($applicationFormNameNormalized, 'pasaporte americano') !== false
 );
+$isMexicanPassportRequest = $isPassportService && (
+    strpos($applicationSubtypeNormalized, 'mexicano') !== false ||
+    strpos($applicationFormNameNormalized, 'pasaporte mexicano') !== false
+);
 
 // Classify documents by type for quick access
 $pasaporteDoc          = null;
@@ -300,7 +304,7 @@ $canadianStatusLabels = [
 
         <!-- Respuestas del cuestionario del cliente -->
         <?php
-        $basicKeysForResponsesVisibility = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita', 'documentos_recibidos_pasaporte_americano'];
+        $basicKeysForResponsesVisibility = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita', 'documentos_recibidos_pasaporte_americano', 'documentos_recibidos_pasaporte_mexicano'];
         $hasQuestionnaireResponseData = false;
         foreach ($basicData as $responseKey => $responseValue) {
             if (in_array($responseKey, $basicKeysForResponsesVisibility, true)) {
@@ -340,7 +344,7 @@ $canadianStatusLabels = [
                 $fieldOptions[$f['id']] = $f['options'] ?? [];
             }
         }
-        $basicKeys = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita', 'documentos_recibidos_pasaporte_americano'];
+        $basicKeys = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita', 'documentos_recibidos_pasaporte_americano', 'documentos_recibidos_pasaporte_mexicano'];
         $isValidandoRespuestas = ($status === STATUS_VALIDANDO_RESPUESTAS);
         $canEditResponses = $isValidandoRespuestas && ($isAdmin || $isAsesor);
         ?>
@@ -1253,23 +1257,38 @@ $canadianStatusLabels = [
             </div>
             <?php else: ?><p class="text-gray-500 text-center py-6">No hay documentos</p><?php endif; ?>
 
-            <?php if ($isAmericanPassportRequest): ?>
+            <?php if ($isAmericanPassportRequest || $isMexicanPassportRequest): ?>
             <?php
                 $basicDataForChecklist = json_decode($application['data_json'], true) ?: [];
-                $receivedDocsSelected = $basicDataForChecklist['documentos_recibidos_pasaporte_americano'] ?? [];
+                $checklistDataKey = $isMexicanPassportRequest ? 'documentos_recibidos_pasaporte_mexicano' : 'documentos_recibidos_pasaporte_americano';
+                $receivedDocsSelected = $basicDataForChecklist[$checklistDataKey] ?? [];
                 if (!is_array($receivedDocsSelected)) {
                     $receivedDocsSelected = [];
                 }
-                $receivedDocsOptions = [
-                    'acta_nacimiento_americana' => 'Acta de nacimiento americana',
-                    'pasaporte_anterior' => 'Pasaporte anterior',
-                    'identificacion_oficial' => 'Identificación oficial',
-                    'social_security_number' => 'Social Security Number',
-                    'reporte_policial' => 'Reporte policial',
-                ];
+                if ($isMexicanPassportRequest) {
+                    $checklistTitle = 'Documentos recibidos (Pasaporte Mexicano)';
+                    $receivedDocsOptions = [
+                        'acta_nacimiento' => 'Acta de nacimiento',
+                        'curp_certificada' => 'CURP certificada',
+                        'ine' => 'INE',
+                        'pasaporte_anterior' => 'Pasaporte anterior',
+                        'pago_sre' => 'Pago SRE',
+                        'carta_consentimiento_menores' => 'Carta consentimiento (menores)',
+                        'identificacion_padres' => 'Identificación de los padres',
+                    ];
+                } else {
+                    $checklistTitle = 'Documentos recibidos (Pasaporte Americano)';
+                    $receivedDocsOptions = [
+                        'acta_nacimiento_americana' => 'Acta de nacimiento americana',
+                        'pasaporte_anterior' => 'Pasaporte anterior',
+                        'identificacion_oficial' => 'Identificación oficial',
+                        'social_security_number' => 'Social Security Number',
+                        'reporte_policial' => 'Reporte policial',
+                    ];
+                }
             ?>
             <div class="mt-6 border-t border-gray-200 pt-5">
-                <h4 class="text-lg font-bold text-gray-800 mb-3">Documentos recibidos</h4>
+                <h4 class="text-lg font-bold text-gray-800 mb-3"><?= htmlspecialchars($checklistTitle) ?></h4>
                 <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-documentos-recibidos/<?= $application['id'] ?>" class="space-y-3">
                     <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                         <?php foreach ($receivedDocsOptions as $docKey => $docLabel): ?>
