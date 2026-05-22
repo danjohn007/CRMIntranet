@@ -265,7 +265,35 @@ $canadianStatusLabels = [
         </div>
 
         <!-- Respuestas del cuestionario del cliente -->
-        <?php if ($application['form_link_status'] === 'completado'): ?>
+        <?php
+        $basicKeysForResponsesVisibility = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita'];
+        $hasQuestionnaireResponseData = false;
+        foreach ($basicData as $responseKey => $responseValue) {
+            if (in_array($responseKey, $basicKeysForResponsesVisibility, true)) {
+                continue;
+            }
+
+            if (is_array($responseValue)) {
+                foreach ($responseValue as $itemValue) {
+                    if (trim((string) $itemValue) !== '') {
+                        $hasQuestionnaireResponseData = true;
+                        break 2;
+                    }
+                }
+                continue;
+            }
+
+            if (trim((string) $responseValue) !== '') {
+                $hasQuestionnaireResponseData = true;
+                break;
+            }
+        }
+
+        $showResponsesSection =
+            ($isAsesor && $application['form_link_status'] === 'completado') ||
+            ($isAdmin && ($application['form_link_status'] === 'completado' || $hasQuestionnaireResponseData));
+        ?>
+        <?php if ($showResponsesSection): ?>
         <?php
         $formFieldsJson = json_decode($application['fields_json'] ?? '{}', true);
         $fieldTypes  = [];
