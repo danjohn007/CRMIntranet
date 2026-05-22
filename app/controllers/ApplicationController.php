@@ -523,13 +523,7 @@ class ApplicationController extends BaseController {
         $role      = $this->getUserRole();
         $newStatus = $_POST['status'] ?? '';
 
-        // Asesor may only close a trámite (from morado) or confirm biometrics attendance (Canadian: azul → morado)
-        if ($role === ROLE_ASESOR) {
-            if ($newStatus !== STATUS_TRAMITE_CERRADO && $newStatus !== STATUS_EN_ESPERA_RESULTADO) {
-                http_response_code(403);
-                die("Acceso denegado. No tiene permisos para esta acción.");
-            }
-        } elseif (!in_array($role, [ROLE_ADMIN, ROLE_GERENTE])) {
+        if (!in_array($role, [ROLE_ADMIN, ROLE_GERENTE, ROLE_ASESOR])) {
             http_response_code(403);
             die("Acceso denegado. No tiene permisos para acceder a esta sección.");
         }
@@ -567,23 +561,11 @@ class ApplicationController extends BaseController {
 
             $previousStatus = $application['status'];
 
-            // Asesor: validate specific allowed transitions
+            // Asesor: can only modify their own requests
             if ($role === ROLE_ASESOR) {
                 if (intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
-                }
-                if ($newStatus === STATUS_TRAMITE_CERRADO) {
-                    if ($previousStatus !== STATUS_EN_ESPERA_RESULTADO) {
-                        $_SESSION['error'] = 'No puede cerrar un trámite que no está en estado En espera de resultado';
-                        $this->redirect('/solicitudes/ver/' . $id);
-                    }
-                } elseif ($newStatus === STATUS_EN_ESPERA_RESULTADO) {
-                    // Only allowed for Canadian flow: asesor confirms biometrics attendance (AZUL → MORADO)
-                    if (empty($application['is_canadian_visa']) || $previousStatus !== STATUS_CITA_PROGRAMADA) {
-                        $_SESSION['error'] = 'No tiene permisos para esta acción';
-                        $this->redirect('/solicitudes/ver/' . $id);
-                    }
                 }
             }
 

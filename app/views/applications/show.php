@@ -1329,8 +1329,8 @@ $canadianStatusLabels = [
     <!-- COLUMNA LATERAL -->
     <div class="space-y-6">
 
-        <!-- Cambiar Estatus manual (Admin/Gerente) -->
-        <?php if ($isAdmin && !$isClosedStatus): ?>
+        <!-- Cambiar Estatus manual (Admin/Gerente/Asesor) -->
+        <?php if (($isAdmin || $isAsesor) && !$isClosedStatus): ?>
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-bold text-gray-800 mb-4">Cambiar Estatus</h3>
             <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>" enctype="multipart/form-data">
