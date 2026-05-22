@@ -21,8 +21,12 @@ $visaCanadiensPrevDoc  = null;
 $etaAnteriorDoc        = null;
 $canadianVacConfirmDoc = null;
 $canadianPortalCapDoc  = null;
+$paymentDocuments      = [];
 foreach ($documents as $doc) {
     $dt = $doc['doc_type'] ?? 'adicional';
+    if (in_array($dt, ['comprobante_pago', 'consular_payment_evidence'], true)) {
+        $paymentDocuments[] = $doc;
+    }
     if ($dt === 'pasaporte_vigente'          && !$pasaporteDoc)          $pasaporteDoc          = $doc;
     if ($dt === 'visa_anterior'              && !$visaAnteriorDoc)       $visaAnteriorDoc       = $doc;
     if ($dt === 'ficha_pago_consular'        && !$fichaPagoDoc)          $fichaPagoDoc          = $doc;
@@ -1154,6 +1158,7 @@ $canadianStatusLabels = [
             <?php if (!empty($documents)): ?>
             <div class="space-y-3">
                 <?php foreach ($documents as $doc): ?>
+                <?php if (in_array(($doc['doc_type'] ?? 'adicional'), ['comprobante_pago', 'consular_payment_evidence'], true)) { continue; } ?>
                 <?php $isImage = in_array(strtolower($doc['file_type']), $inlinePreviewImageTypes); ?>
                 <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
                     <div class="flex items-center justify-between">
@@ -1186,6 +1191,54 @@ $canadianStatusLabels = [
             <?php else: ?><p class="text-gray-500 text-center py-6">No hay documentos</p><?php endif; ?>
         </div>
         <?php endif; /* end isAdmin || !closed */ ?>
+
+        <!-- Pago (always visible to Admin/Gerente) -->
+        <?php if ($isAdmin || !$isClosedStatus): ?>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">Pago</h3>
+                <?php if (!$isClosedStatus): ?>
+                <button onclick="openDocUpload('comprobante_pago')"
+                        class="btn-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition">
+                    <i class="fas fa-upload mr-2"></i>Subir
+                </button>
+                <?php endif; ?>
+            </div>
+            <?php if (!empty($paymentDocuments)): ?>
+            <div class="space-y-3">
+                <?php foreach ($paymentDocuments as $doc): ?>
+                <?php $isImage = in_array(strtolower($doc['file_type']), $inlinePreviewImageTypes); ?>
+                <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
+                    <div class="flex items-center justify-between">
+                        <div class="flex items-center space-x-3">
+                            <i class="fas fa-file-<?= $doc['file_type'] === 'pdf' ? 'pdf text-red-500' : 'image text-blue-500' ?> text-2xl"></i>
+                            <div>
+                                <p class="font-medium text-gray-800"><?= htmlspecialchars($doc['name']) ?></p>
+                                <p class="text-sm text-gray-500"><?= htmlspecialchars($doc['uploaded_by_name']) ?> · <?= date('d/m/Y H:i', strtotime($doc['created_at'])) ?> · <?= number_format($doc['file_size']/1024, 0) ?> KB</p>
+                            </div>
+                        </div>
+                        <?php if ($isAdmin): ?>
+                        <div class="flex items-center space-x-3">
+                            <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" target="_blank" class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></a>
+                            <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $doc['id'] ?>" class="text-primary hover:underline"><i class="fas fa-download"></i></a>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                    <?php if ($isAdmin && $isImage): ?>
+                    <div class="mt-2">
+                        <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" alt="<?= htmlspecialchars($doc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:400px;">
+                    </div>
+                    <?php elseif ($isAdmin && $doc['file_type'] === 'pdf'): ?>
+                    <div class="mt-2">
+                        <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" type="application/pdf" title="<?= htmlspecialchars($doc['name']) ?>" class="w-full rounded border border-gray-200" style="height:400px;">
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <?php else: ?><p class="text-gray-500 text-center py-6">No hay comprobantes de pago</p><?php endif; ?>
+        </div>
+        <?php endif; /* end Pago */ ?>
 
         <!-- Indicaciones (always visible to Admin/Gerente) -->
         <?php if ($isAdmin || !$isClosedStatus): ?>
@@ -1320,8 +1373,8 @@ $canadianStatusLabels = [
             <input type="hidden" id="docTypeHidden" name="doc_type" value="adicional">
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Archivo</label>
-                <input type="file" name="document" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
-                <p class="text-xs text-gray-500 mt-1">PDF, JPG, PNG, DOC, DOCX (Max. 2MB)</p>
+                <input type="file" id="uploadDocumentInput" name="document" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                <p id="uploadAllowedTypesText" class="text-xs text-gray-500 mt-1">PDF, JPG, PNG, DOC, DOCX (Max. 2MB)</p>
             </div>
             <div class="flex gap-3">
                 <button type="submit" class="flex-1 btn-primary text-white py-2 rounded-lg hover:opacity-90"><i class="fas fa-upload mr-2"></i>Subir</button>
@@ -1546,6 +1599,17 @@ if (window.location.hash === '#familiar-tab') {
 function openDocUpload(docType) {
     var hidden = document.getElementById('docTypeHidden');
     if (hidden) { hidden.value = docType || 'adicional'; }
+    var fileInput = document.getElementById('uploadDocumentInput');
+    var allowedTypesText = document.getElementById('uploadAllowedTypesText');
+    if (fileInput && allowedTypesText) {
+        if (docType === 'comprobante_pago' || docType === 'consular_payment_evidence') {
+            fileInput.setAttribute('accept', '.pdf,.jpg,.jpeg,.png');
+            allowedTypesText.textContent = 'PDF, JPG, PNG (Max. 2MB)';
+        } else {
+            fileInput.setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx');
+            allowedTypesText.textContent = 'PDF, JPG, PNG, DOC, DOCX (Max. 2MB)';
+        }
+    }
     document.getElementById('uploadModal').classList.remove('hidden');
 }
 function showCopySuccess() {

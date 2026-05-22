@@ -901,6 +901,8 @@ class ApplicationController extends BaseController {
                 // Canadian visa doc types
                 'visa_canadiense_anterior', 'eta_anterior',
                 'canadian_vac_confirmation', 'canadian_portal_capture',
+                // Payment receipts
+                'comprobante_pago',
             ];
             if (!in_array($docType, $allowedDocTypes)) {
                 $docType = 'adicional';
@@ -915,6 +917,14 @@ class ApplicationController extends BaseController {
             if (!in_array($fileType, ALLOWED_EXTENSIONS)) {
                 $_SESSION['error'] = 'Tipo de archivo no permitido';
                 $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            if (in_array($docType, ['comprobante_pago', 'consular_payment_evidence'], true)) {
+                $paymentAllowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
+                if (!in_array($fileType, $paymentAllowedExtensions, true)) {
+                    $_SESSION['error'] = 'Para comprobantes de pago solo se permiten archivos PDF, JPG o PNG';
+                    $this->redirect('/solicitudes/ver/' . $id);
+                }
             }
             
             // Solo puede haber una ficha de pago consular
