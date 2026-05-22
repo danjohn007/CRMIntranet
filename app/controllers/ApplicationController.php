@@ -164,11 +164,18 @@ class ApplicationController extends BaseController {
                 $formTypeNormalized = $normalizeText($selectedForm['type'] ?? '');
                 $formSubtypeNormalized = $normalizeText($selectedForm['subtype'] ?? '');
 
+                $isAmericanPassportForm =
+                    strpos($formNameNormalized, 'pasaporte americano') !== false ||
+                    strpos($formSubtypeNormalized, 'americano') !== false;
+
+                $isFirstTimePassportSubtype =
+                    (strpos($formSubtypeNormalized, 'unica') !== false && strpos($formSubtypeNormalized, 'vez') !== false) ||
+                    (strpos($formSubtypeNormalized, 'primera') !== false && strpos($formSubtypeNormalized, 'vez') !== false);
+
                 $isUniqueUsPassportForm =
-                    strpos($formNameNormalized, 'pasaporte americano') !== false &&
                     $formTypeNormalized === 'pasaporte' &&
-                    strpos($formSubtypeNormalized, 'unica') !== false &&
-                    strpos($formSubtypeNormalized, 'vez') !== false;
+                    $isAmericanPassportForm &&
+                    $isFirstTimePassportSubtype;
             }
         }
 

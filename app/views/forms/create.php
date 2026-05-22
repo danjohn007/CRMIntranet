@@ -42,24 +42,27 @@ ob_start();
                 </select>
             </div>
             
+            <div id="passportCategoryWrapper" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Subtipo de pasaporte</label>
+                <select id="passportCategorySelect" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
+                    <option value="Americano">Americano</option>
+                    <option value="Mexicano">Mexicano</option>
+                </select>
+            </div>
+
             <div id="passportSubtypeSelectWrapper" class="hidden">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Subtipo</label>
-                <select name="subtype" id="passportSubtypeSelect" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
-                    <option value="">Seleccione...</option>
-                    <option value="Primera vez">Primera vez</option>
-                    <option value="Renovación">Renovación</option>
-                    <option value="Menor de edad">Menor de edad</option>
-                    <option value="Reposición por robo">Reposición por robo</option>
-                    <option value="Pasaporte dañado">Pasaporte dañado</option>
-                </select>
+                <select id="passportSubtypeSelect" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"></select>
             </div>
 
             <div id="genericSubtypeInputWrapper">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Subtipo</label>
-                <input type="text" name="subtype" id="genericSubtypeInput"
+                <input type="text" id="genericSubtypeInput"
                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
                        placeholder="Ej: Primera vez, Renovación, etc.">
             </div>
+
+            <input type="hidden" name="subtype" id="subtypeValue" value="">
             
             <!-- Cost Section -->
             <div class="md:col-span-2">
@@ -144,13 +147,64 @@ document.getElementById('pagination_enabled').addEventListener('change', functio
 
 (function() {
     const typeSelect = document.getElementById('formTypeSelect');
+    const passportCategoryWrapper = document.getElementById('passportCategoryWrapper');
+    const passportCategorySelect = document.getElementById('passportCategorySelect');
     const passportSubtypeSelectWrapper = document.getElementById('passportSubtypeSelectWrapper');
     const passportSubtypeSelect = document.getElementById('passportSubtypeSelect');
     const genericSubtypeInputWrapper = document.getElementById('genericSubtypeInputWrapper');
     const genericSubtypeInput = document.getElementById('genericSubtypeInput');
+    const subtypeValue = document.getElementById('subtypeValue');
+    const formEl = typeSelect ? typeSelect.closest('form') : null;
+
+    const passportSubtypeOptions = {
+        Americano: ['Primera vez', 'Renovación', 'Menor de edad', 'Reposición por robo', 'Pasaporte dañado'],
+        Mexicano: ['Primera vez', 'Renovación', 'Menor de edad', 'Reposición por robo', 'Pasaporte dañado']
+    };
+
+    function renderPassportSubtypeOptions() {
+        if (!passportSubtypeSelect || !passportCategorySelect) {
+            return;
+        }
+
+        const category = passportCategorySelect.value || 'Americano';
+        const options = passportSubtypeOptions[category] || [];
+        const previousValue = passportSubtypeSelect.value;
+
+        passportSubtypeSelect.innerHTML = '<option value="">Seleccione...</option>';
+        options.forEach(function(option) {
+            const optionEl = document.createElement('option');
+            optionEl.value = option;
+            optionEl.textContent = option;
+            passportSubtypeSelect.appendChild(optionEl);
+        });
+
+        if (options.indexOf(previousValue) !== -1) {
+            passportSubtypeSelect.value = previousValue;
+        }
+    }
+
+    function syncSubtypeValue() {
+        if (!subtypeValue) {
+            return;
+        }
+
+        const isPassport = typeSelect && typeSelect.value === 'Pasaporte';
+        if (isPassport) {
+            const category = passportCategorySelect ? passportCategorySelect.value : '';
+            const subtype = passportSubtypeSelect ? passportSubtypeSelect.value : '';
+            subtypeValue.value = subtype ? (category + ' - ' + subtype) : '';
+            return;
+        }
+
+        subtypeValue.value = genericSubtypeInput ? genericSubtypeInput.value.trim() : '';
+    }
 
     function syncSubtypeField() {
         const isPassport = typeSelect && typeSelect.value === 'Pasaporte';
+
+        if (passportCategoryWrapper) {
+            passportCategoryWrapper.classList.toggle('hidden', !isPassport);
+        }
 
         if (passportSubtypeSelectWrapper) {
             passportSubtypeSelectWrapper.classList.toggle('hidden', !isPassport);
@@ -161,19 +215,41 @@ document.getElementById('pagination_enabled').addEventListener('change', functio
 
         if (passportSubtypeSelect) {
             passportSubtypeSelect.required = isPassport;
+            if (isPassport) {
+                renderPassportSubtypeOptions();
+            }
         }
         if (genericSubtypeInput) {
             genericSubtypeInput.required = !isPassport;
             if (isPassport) {
                 genericSubtypeInput.value = '';
             } else {
-                passportSubtypeSelect.value = '';
+                if (passportSubtypeSelect) {
+                    passportSubtypeSelect.value = '';
+                }
             }
         }
+
+        syncSubtypeValue();
     }
 
     if (typeSelect) {
         typeSelect.addEventListener('change', syncSubtypeField);
+        if (passportCategorySelect) {
+            passportCategorySelect.addEventListener('change', function() {
+                renderPassportSubtypeOptions();
+                syncSubtypeValue();
+            });
+        }
+        if (passportSubtypeSelect) {
+            passportSubtypeSelect.addEventListener('change', syncSubtypeValue);
+        }
+        if (genericSubtypeInput) {
+            genericSubtypeInput.addEventListener('input', syncSubtypeValue);
+        }
+        if (formEl) {
+            formEl.addEventListener('submit', syncSubtypeValue);
+        }
         syncSubtypeField();
     }
 })();

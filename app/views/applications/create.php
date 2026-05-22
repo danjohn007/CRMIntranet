@@ -235,10 +235,12 @@ function isUniqueUsPassportForm(selectEl) {
     var formType = normalizeText(selected.dataset.formType || '');
     var formSubtype = normalizeText(selected.dataset.formSubtype || '');
 
-    return formName.indexOf('pasaporte americano') !== -1
-        && formType === 'pasaporte'
-        && formSubtype.indexOf('unica') !== -1
-        && formSubtype.indexOf('vez') !== -1;
+    var isAmericanPassport = formName.indexOf('pasaporte americano') !== -1 || formSubtype.indexOf('americano') !== -1;
+    var isFirstTimeSubtype =
+        (formSubtype.indexOf('unica') !== -1 && formSubtype.indexOf('vez') !== -1)
+        || (formSubtype.indexOf('primera') !== -1 && formSubtype.indexOf('vez') !== -1);
+
+    return formType === 'pasaporte' && isAmericanPassport && isFirstTimeSubtype;
 }
 
 function setInputsEnabled(container, enabled) {

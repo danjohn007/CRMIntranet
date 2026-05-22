@@ -242,11 +242,18 @@ $canadianStatusLabels = [
         $formNameNormalized = $normalizeText($application['form_name'] ?? '');
         $formTypeNormalized = $normalizeText($application['type'] ?? '');
         $formSubtypeNormalized = $normalizeText($application['subtype'] ?? '');
+        $isAmericanPassportForm =
+            strpos($formNameNormalized, 'pasaporte americano') !== false ||
+            strpos($formSubtypeNormalized, 'americano') !== false;
+
+        $isFirstTimePassportSubtype =
+            (strpos($formSubtypeNormalized, 'unica') !== false && strpos($formSubtypeNormalized, 'vez') !== false) ||
+            (strpos($formSubtypeNormalized, 'primera') !== false && strpos($formSubtypeNormalized, 'vez') !== false);
+
         $isUniqueUsPassportForm =
-            strpos($formNameNormalized, 'pasaporte americano') !== false &&
             $formTypeNormalized === 'pasaporte' &&
-            strpos($formSubtypeNormalized, 'unica') !== false &&
-            strpos($formSubtypeNormalized, 'vez') !== false;
+            $isAmericanPassportForm &&
+            $isFirstTimePassportSubtype;
         if ($isUniqueUsPassportForm) {
             $basicFields = ['nombre_cliente' => 'Nombre del cliente', 'pago' => 'El pago', 'fecha_cita' => 'Fecha de la cita'];
             if (empty($basicData['nombre_cliente']) && !empty($application['client_name'])) {
