@@ -35,16 +35,28 @@ ob_start();
                 <label class="block text-sm font-medium text-gray-700 mb-2">
                     Tipo <span class="text-red-500">*</span>
                 </label>
-                <select name="type" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                <select name="type" id="formTypeSelect" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
                     <option value="">Seleccione...</option>
                     <option value="Visa">Visa</option>
                     <option value="Pasaporte">Pasaporte</option>
                 </select>
             </div>
             
-            <div>
+            <div id="passportSubtypeSelectWrapper" class="hidden">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Subtipo</label>
-                <input type="text" name="subtype"
+                <select name="subtype" id="passportSubtypeSelect" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
+                    <option value="">Seleccione...</option>
+                    <option value="Primera vez">Primera vez</option>
+                    <option value="Renovación">Renovación</option>
+                    <option value="Menor de edad">Menor de edad</option>
+                    <option value="Reposición por robo">Reposición por robo</option>
+                    <option value="Pasaporte dañado">Pasaporte dañado</option>
+                </select>
+            </div>
+
+            <div id="genericSubtypeInputWrapper">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Subtipo</label>
+                <input type="text" name="subtype" id="genericSubtypeInput"
                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
                        placeholder="Ej: Primera vez, Renovación, etc.">
             </div>
@@ -129,6 +141,42 @@ document.getElementById('pagination_enabled').addEventListener('change', functio
     const paginationConfig = document.getElementById('pagination-config');
     paginationConfig.style.display = this.checked ? 'block' : 'none';
 });
+
+(function() {
+    const typeSelect = document.getElementById('formTypeSelect');
+    const passportSubtypeSelectWrapper = document.getElementById('passportSubtypeSelectWrapper');
+    const passportSubtypeSelect = document.getElementById('passportSubtypeSelect');
+    const genericSubtypeInputWrapper = document.getElementById('genericSubtypeInputWrapper');
+    const genericSubtypeInput = document.getElementById('genericSubtypeInput');
+
+    function syncSubtypeField() {
+        const isPassport = typeSelect && typeSelect.value === 'Pasaporte';
+
+        if (passportSubtypeSelectWrapper) {
+            passportSubtypeSelectWrapper.classList.toggle('hidden', !isPassport);
+        }
+        if (genericSubtypeInputWrapper) {
+            genericSubtypeInputWrapper.classList.toggle('hidden', isPassport);
+        }
+
+        if (passportSubtypeSelect) {
+            passportSubtypeSelect.required = isPassport;
+        }
+        if (genericSubtypeInput) {
+            genericSubtypeInput.required = !isPassport;
+            if (isPassport) {
+                genericSubtypeInput.value = '';
+            } else {
+                passportSubtypeSelect.value = '';
+            }
+        }
+    }
+
+    if (typeSelect) {
+        typeSelect.addEventListener('change', syncSubtypeField);
+        syncSubtypeField();
+    }
+})();
 </script>
 
 <?php 
