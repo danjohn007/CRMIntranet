@@ -40,6 +40,7 @@ class Router {
         $this->routes['POST']['/solicitudes/vincular-formulario/{id}'] = ['ApplicationController', 'linkForm'];
         $this->routes['POST']['/solicitudes/guardar-cita-oficina/{id}'] = ['ApplicationController', 'saveOfficeAppointment'];
         $this->routes['POST']['/solicitudes/guardar-respuestas/{id}'] = ['ApplicationController', 'saveFormResponses'];
+        $this->routes['POST']['/solicitudes/guardar-documentos-recibidos/{id}'] = ['ApplicationController', 'saveReceivedDocumentsChecklist'];
         $this->routes['POST']['/solicitudes/confirmar-respuestas/{id}'] = ['ApplicationController', 'confirmFormResponses'];
         
         // Solicitudes

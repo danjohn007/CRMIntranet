@@ -1801,6 +1801,91 @@ class ApplicationController extends BaseController {
         }
     }
 
+    public function saveReceivedDocumentsChecklist($id) {
+        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $role = $this->getUserRole();
+
+        try {
+            $stmt = $this->db->prepare("SELECT created_by, type, subtype, form_name, data_json FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                $this->redirect('/solicitudes');
+            }
+
+            $normalizeText = function ($value) {
+                $value = (string) $value;
+                $value = strtr($value, [
+                    'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+                    'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+                ]);
+                return strtolower(trim($value));
+            };
+
+            $typeNormalized = $normalizeText($application['type'] ?? '');
+            $subtypeNormalized = $normalizeText($application['subtype'] ?? '');
+            $formNameNormalized = $normalizeText($application['form_name'] ?? '');
+
+            $isAmericanPassport =
+                $typeNormalized === 'pasaporte' &&
+                (strpos($subtypeNormalized, 'americano') !== false || strpos($formNameNormalized, 'pasaporte americano') !== false);
+
+            if (!$isAmericanPassport) {
+                $_SESSION['error'] = 'Este checklist aplica solo para solicitudes de Pasaporte Americano';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            $allowedDocKeys = [
+                'acta_nacimiento_americana',
+                'pasaporte_anterior',
+                'identificacion_oficial',
+                'social_security_number',
+                'reporte_policial',
+            ];
+
+            $selected = $_POST['received_documents'] ?? [];
+            if (!is_array($selected)) {
+                $selected = [];
+            }
+
+            $selectedNormalized = [];
+            foreach ($selected as $docKey) {
+                $docKey = trim((string) $docKey);
+                if (in_array($docKey, $allowedDocKeys, true) && !in_array($docKey, $selectedNormalized, true)) {
+                    $selectedNormalized[] = $docKey;
+                }
+            }
+
+            $existingData = json_decode($application['data_json'], true) ?: [];
+            $existingData['documentos_recibidos_pasaporte_americano'] = $selectedNormalized;
+
+            $newJson = json_encode($existingData, JSON_UNESCAPED_UNICODE);
+            $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
+                ->execute([$newJson, $id]);
+
+            logAudit('update', 'solicitudes', 'Checklist de documentos recibidos actualizado para solicitud #' . $id);
+
+            $_SESSION['success'] = 'Checklist de documentos recibidos guardado correctamente';
+            $this->redirect('/solicitudes/ver/' . $id);
+        } catch (PDOException $e) {
+            error_log('Error al guardar checklist de documentos recibidos: ' . $e->getMessage());
+            $_SESSION['error'] = 'Error al guardar checklist de documentos recibidos';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
     /**
      * Confirmar respuestas del formulario y avanzar a "Listo para comenzar" (STATUS_LISTO_SOLICITUD).
      * Accesible para Asesor y Admin/Gerente.
