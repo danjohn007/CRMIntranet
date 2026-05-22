@@ -459,7 +459,17 @@
             });
 
             normalizedPages[0].fieldIds = Array.from(new Set(normalizedPages[0].fieldIds));
-            return normalizedPages;
+
+            // Public forms should not expose empty pages produced by stale pages_json.
+            const nonEmptyPages = normalizedPages.filter(function(page) {
+                return Array.isArray(page.fieldIds) && page.fieldIds.length > 0;
+            });
+
+            if (nonEmptyPages.length === 0) {
+                return [{ id: 1, name: 'Página 1', fieldIds: allFieldIds }];
+            }
+
+            return nonEmptyPages;
         }
         
         function showPage(pageNum) {
