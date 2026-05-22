@@ -1736,6 +1736,93 @@ class ApplicationController extends BaseController {
     }
 
     /**
+     * Guardar cita de la SRE (fecha y hora) para pasaporte americano/mexicano en estado AZUL.
+     */
+    public function saveSreAppointment($id) {
+        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $role = $this->getUserRole();
+
+        try {
+            $stmt = $this->db->prepare("SELECT created_by, status, type, subtype, form_name, data_json FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($application['status'] !== STATUS_CITA_PROGRAMADA) {
+                $_SESSION['error'] = 'La cita de la SRE solo se puede configurar en estatus Cita programada';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            $normalizeText = function ($value) {
+                $value = (string) $value;
+                $value = strtr($value, [
+                    'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+                    'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+                ]);
+                return strtolower(trim($value));
+            };
+
+            $typeNormalized = $normalizeText($application['type'] ?? '');
+            $subtypeNormalized = $normalizeText($application['subtype'] ?? '');
+            $formNameNormalized = $normalizeText($application['form_name'] ?? '');
+
+            $isAmericanPassport =
+                $typeNormalized === 'pasaporte' &&
+                (strpos($subtypeNormalized, 'americano') !== false || strpos($formNameNormalized, 'pasaporte americano') !== false);
+            $isMexicanPassport =
+                $typeNormalized === 'pasaporte' &&
+                (strpos($subtypeNormalized, 'mexicano') !== false || strpos($formNameNormalized, 'pasaporte mexicano') !== false);
+
+            if (!$isAmericanPassport && !$isMexicanPassport) {
+                $_SESSION['error'] = 'La cita de la SRE aplica solo para solicitudes de Pasaporte Americano o Mexicano';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            $sreAppointmentRaw = trim($_POST['sre_appointment_datetime'] ?? '');
+            if ($sreAppointmentRaw === '') {
+                $_SESSION['error'] = 'Debe capturar la fecha y hora de la cita de la SRE';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            $parsedSreDatetime = DateTime::createFromFormat('Y-m-d\TH:i', $sreAppointmentRaw);
+            if (!$parsedSreDatetime || $parsedSreDatetime->format('Y-m-d\TH:i') !== $sreAppointmentRaw) {
+                $_SESSION['error'] = 'La fecha y hora de la cita de la SRE no es válida';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            $existingData = json_decode($application['data_json'], true) ?: [];
+            $existingData['cita_sre_fecha_hora'] = $parsedSreDatetime->format('Y-m-d H:i:s');
+
+            $newJson = json_encode($existingData, JSON_UNESCAPED_UNICODE);
+            $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
+                ->execute([$newJson, $id]);
+
+            logAudit('update', 'solicitudes', 'Cita SRE configurada para solicitud #' . $id);
+
+            $_SESSION['success'] = 'Cita de la SRE guardada correctamente';
+            $this->redirect('/solicitudes/ver/' . $id);
+        } catch (PDOException $e) {
+            error_log('Error al guardar cita SRE: ' . $e->getMessage());
+            $_SESSION['error'] = 'Error al guardar cita de la SRE';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
+    /**
      * Guardar respuestas editadas del formulario (estado Validando respuestas).
      * Accesible para Asesor y Admin/Gerente.
      */
@@ -1899,6 +1986,94 @@ class ApplicationController extends BaseController {
         } catch (PDOException $e) {
             error_log('Error al guardar checklist de documentos recibidos: ' . $e->getMessage());
             $_SESSION['error'] = 'Error al guardar checklist de documentos recibidos';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
+    public function saveObservationsIncidencesChecklist($id) {
+        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $role = $this->getUserRole();
+
+        try {
+            $stmt = $this->db->prepare("SELECT created_by, type, subtype, form_name, data_json FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                $this->redirect('/solicitudes');
+            }
+
+            $normalizeText = function ($value) {
+                $value = (string) $value;
+                $value = strtr($value, [
+                    'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+                    'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+                ]);
+                return strtolower(trim($value));
+            };
+
+            $typeNormalized = $normalizeText($application['type'] ?? '');
+            $subtypeNormalized = $normalizeText($application['subtype'] ?? '');
+            $formNameNormalized = $normalizeText($application['form_name'] ?? '');
+
+            $isAmericanPassport =
+                $typeNormalized === 'pasaporte' &&
+                (strpos($subtypeNormalized, 'americano') !== false || strpos($formNameNormalized, 'pasaporte americano') !== false);
+            $isMexicanPassport =
+                $typeNormalized === 'pasaporte' &&
+                (strpos($subtypeNormalized, 'mexicano') !== false || strpos($formNameNormalized, 'pasaporte mexicano') !== false);
+
+            if (!$isAmericanPassport && !$isMexicanPassport) {
+                $_SESSION['error'] = 'Este checklist aplica solo para solicitudes de Pasaporte Americano o Mexicano';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            $allowedKeys = [
+                'cliente_no_respondio',
+                'documentacion_incompleta',
+                'error_curp',
+                'pago_pendiente',
+                'cita_cancelada',
+            ];
+
+            $selected = $_POST['observaciones_incidencias'] ?? [];
+            if (!is_array($selected)) {
+                $selected = [];
+            }
+
+            $selectedNormalized = [];
+            foreach ($selected as $itemKey) {
+                $itemKey = trim((string) $itemKey);
+                if (in_array($itemKey, $allowedKeys, true) && !in_array($itemKey, $selectedNormalized, true)) {
+                    $selectedNormalized[] = $itemKey;
+                }
+            }
+
+            $existingData = json_decode($application['data_json'], true) ?: [];
+            $existingData['observaciones_incidencias_pasaporte'] = $selectedNormalized;
+
+            $newJson = json_encode($existingData, JSON_UNESCAPED_UNICODE);
+            $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
+                ->execute([$newJson, $id]);
+
+            logAudit('update', 'solicitudes', 'Checklist de observaciones e incidencias actualizado para solicitud #' . $id);
+
+            $_SESSION['success'] = 'Observaciones e incidencias guardadas correctamente';
+            $this->redirect('/solicitudes/ver/' . $id);
+        } catch (PDOException $e) {
+            error_log('Error al guardar observaciones e incidencias: ' . $e->getMessage());
+            $_SESSION['error'] = 'Error al guardar observaciones e incidencias';
             $this->redirect('/solicitudes/ver/' . $id);
         }
     }

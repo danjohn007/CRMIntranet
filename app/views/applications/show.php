@@ -187,6 +187,40 @@ $canadianStatusLabels = [
     <?php endif; ?>
 </div>
 <?php endif; ?>
+
+<?php if (($isAmericanPassportRequest || $isMexicanPassportRequest) && ($isAsesor || $isAdmin)): ?>
+<?php
+    $basicDataForSre = json_decode($application['data_json'], true) ?: [];
+    $sreAppointmentDateValue = $basicDataForSre['cita_sre_fecha_hora'] ?? '';
+    $sreAppointmentDateInputValue = '';
+    if (!empty($sreAppointmentDateValue)) {
+        $sreAppointmentDateInputValue = date('Y-m-d\TH:i', strtotime($sreAppointmentDateValue));
+    }
+?>
+<div class="bg-white border border-blue-200 rounded-lg p-5 mb-6 shadow-sm">
+    <h4 class="text-base font-bold text-blue-800 mb-3"><i class="fas fa-landmark text-blue-500 mr-2"></i>Cita de la SRE</h4>
+    <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-cita-sre/<?= $application['id'] ?>" class="flex flex-wrap gap-4 items-end">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Día y hora</label>
+            <input type="datetime-local" name="sre_appointment_datetime" required
+                   value="<?= htmlspecialchars($sreAppointmentDateInputValue) ?>"
+                   class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+        <div>
+            <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 transition">
+                <i class="fas fa-save mr-1"></i>Guardar cita SRE
+            </button>
+        </div>
+    </form>
+    <?php if (!empty($sreAppointmentDateValue)): ?>
+    <div class="mt-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
+        <i class="fas fa-calendar-check mr-1"></i>
+        <strong>Cita SRE agendada:</strong>
+        <?= date('d/m/Y H:i', strtotime($sreAppointmentDateValue)) ?>
+    </div>
+    <?php endif; ?>
+</div>
+<?php endif; ?>
 <?php elseif ($status === STATUS_EN_ESPERA_RESULTADO): ?>
 <div class="bg-purple-50 border-l-4 border-purple-500 rounded-lg p-4 mb-6 flex items-start gap-3">
     <i class="fas fa-clock text-purple-500 text-2xl mt-0.5"></i>
@@ -304,7 +338,7 @@ $canadianStatusLabels = [
 
         <!-- Respuestas del cuestionario del cliente -->
         <?php
-        $basicKeysForResponsesVisibility = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita', 'documentos_recibidos_pasaporte_americano', 'documentos_recibidos_pasaporte_mexicano'];
+        $basicKeysForResponsesVisibility = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita', 'documentos_recibidos_pasaporte_americano', 'documentos_recibidos_pasaporte_mexicano', 'observaciones_incidencias_pasaporte', 'cita_sre_fecha_hora'];
         $hasQuestionnaireResponseData = false;
         foreach ($basicData as $responseKey => $responseValue) {
             if (in_array($responseKey, $basicKeysForResponsesVisibility, true)) {
@@ -344,7 +378,7 @@ $canadianStatusLabels = [
                 $fieldOptions[$f['id']] = $f['options'] ?? [];
             }
         }
-        $basicKeys = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita', 'documentos_recibidos_pasaporte_americano', 'documentos_recibidos_pasaporte_mexicano'];
+        $basicKeys = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita', 'documentos_recibidos_pasaporte_americano', 'documentos_recibidos_pasaporte_mexicano', 'observaciones_incidencias_pasaporte', 'cita_sre_fecha_hora'];
         $isValidandoRespuestas = ($status === STATUS_VALIDANDO_RESPUESTAS);
         $canEditResponses = $isValidandoRespuestas && ($isAdmin || $isAsesor);
         ?>
@@ -1389,6 +1423,48 @@ $canadianStatusLabels = [
             <?php else: ?><p class="text-gray-500 text-center py-6">No hay indicaciones</p><?php endif; ?>
         </div>
         <?php endif; /* end Indicaciones */ ?>
+
+        <!-- Observaciones e incidencias (Pasaporte Americano/Mexicano) -->
+        <?php if (($isAdmin || !$isClosedStatus) && ($isAmericanPassportRequest || $isMexicanPassportRequest)): ?>
+        <?php
+            $basicDataForIncidences = json_decode($application['data_json'], true) ?: [];
+            $selectedIncidences = $basicDataForIncidences['observaciones_incidencias_pasaporte'] ?? [];
+            if (!is_array($selectedIncidences)) {
+                $selectedIncidences = [];
+            }
+            $incidenceOptions = [
+                'cliente_no_respondio' => 'Cliente no respondió',
+                'documentacion_incompleta' => 'Documentación incompleta',
+                'error_curp' => 'Error de CURP',
+                'pago_pendiente' => 'Pago pendiente',
+                'cita_cancelada' => 'Cita cancelada',
+            ];
+        ?>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-xl font-bold text-gray-800">OBSERVACIONES E INCIDENCIAS</h3>
+            </div>
+            <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-observaciones-incidencias/<?= $application['id'] ?>" class="space-y-3">
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                    <?php foreach ($incidenceOptions as $incidenceKey => $incidenceLabel): ?>
+                    <label class="flex items-center gap-2 text-sm text-gray-700">
+                        <input type="checkbox" name="observaciones_incidencias[]" value="<?= htmlspecialchars($incidenceKey) ?>" class="w-4 h-4"
+                               <?= in_array($incidenceKey, $selectedIncidences, true) ? 'checked' : '' ?>
+                               <?= $isClosedStatus ? 'disabled' : '' ?>>
+                        <span><?= htmlspecialchars($incidenceLabel) ?></span>
+                    </label>
+                    <?php endforeach; ?>
+                </div>
+                <?php if (!$isClosedStatus): ?>
+                <div>
+                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
+                        <i class="fas fa-save mr-1"></i>Guardar observaciones
+                    </button>
+                </div>
+                <?php endif; ?>
+            </form>
+        </div>
+        <?php endif; ?>
 
         <!-- Historial de Estatus -->
         <div class="bg-white rounded-lg shadow p-6">
