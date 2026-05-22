@@ -190,12 +190,12 @@ class ApplicationController extends BaseController {
                 $year = date('Y');
                 $stmt = $this->db->prepare("
                     SELECT MAX(CAST(SUBSTRING(folio, -6) AS UNSIGNED)) as last_number
-                    FROM applications WHERE folio LIKE ?
+                    FROM applications WHERE folio LIKE ? OR folio LIKE ?
                 ");
-                $stmt->execute(["VISA-$year-%"]);
+                $stmt->execute(["FOLIO-$year-%", "VISA-$year-%"]);
                 $result     = $stmt->fetch();
                 $nextNumber = ($result['last_number'] ?? 0) + 1;
-                $folio      = sprintf("VISA-%s-%06d", $year, $nextNumber);
+                $folio      = sprintf("FOLIO-%s-%06d", $year, $nextNumber);
 
                 try {
                     $stmt = $this->db->prepare("
@@ -279,12 +279,12 @@ class ApplicationController extends BaseController {
             $stmt = $this->db->prepare("
                 SELECT MAX(CAST(SUBSTRING(folio, -6) AS UNSIGNED)) as last_number
                 FROM applications
-                WHERE folio LIKE ?
+                WHERE folio LIKE ? OR folio LIKE ?
             ");
-            $stmt->execute(["VISA-$year-%"]);
+            $stmt->execute(["FOLIO-$year-%", "VISA-$year-%"]);
             $result     = $stmt->fetch();
             $nextNumber = ($result['last_number'] ?? 0) + 1;
-            $folio      = sprintf("VISA-%s-%06d", $year, $nextNumber);
+            $folio      = sprintf("FOLIO-%s-%06d", $year, $nextNumber);
 
             // Crear solicitud con datos básicos
             try {

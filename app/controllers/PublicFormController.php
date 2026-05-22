@@ -389,12 +389,12 @@ class PublicFormController extends BaseController {
                 $year = date('Y');
                 $stmt = $this->db->prepare("
                     SELECT MAX(CAST(SUBSTRING(folio, -6) AS UNSIGNED)) as max_num 
-                    FROM applications WHERE folio LIKE ?
+                    FROM applications WHERE folio LIKE ? OR folio LIKE ?
                 ");
-                $stmt->execute(["VISA-$year-%"]);
+                $stmt->execute(["FOLIO-$year-%", "VISA-$year-%"]);
                 $result = $stmt->fetch();
                 $nextNum = ($result['max_num'] ?? 0) + 1;
-                $folio = sprintf('VISA-%s-%06d', $year, $nextNum);
+                $folio = sprintf('FOLIO-%s-%06d', $year, $nextNum);
                 
                 // Create application
                 $stmt = $this->db->prepare("
