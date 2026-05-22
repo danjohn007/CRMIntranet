@@ -3,6 +3,17 @@ require_once ROOT_PATH . '/app/controllers/BaseController.php';
 
 class PublicFormController extends BaseController {
     private function normalizeFieldsPayload($decodedFields) {
+        // Legacy compatibility: some records store JSON payload as a JSON string.
+        $safety = 0;
+        while (is_string($decodedFields) && $safety < 3) {
+            $decoded = json_decode($decodedFields, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                break;
+            }
+            $decodedFields = $decoded;
+            $safety++;
+        }
+
         if (isset($decodedFields['fields']) && is_array($decodedFields['fields'])) {
             return ['fields' => $decodedFields['fields']];
         }
@@ -81,6 +92,18 @@ class PublicFormController extends BaseController {
             $pages = null;
             if ($form['pagination_enabled'] && !empty($form['pages_json'])) {
                 $pages = json_decode($form['pages_json'], true);
+                $safety = 0;
+                while (is_string($pages) && $safety < 3) {
+                    $decodedPages = json_decode($pages, true);
+                    if (json_last_error() !== JSON_ERROR_NONE) {
+                        break;
+                    }
+                    $pages = $decodedPages;
+                    $safety++;
+                }
+                if (!is_array($pages)) {
+                    $pages = null;
+                }
             }
 
             $this->viewPublic('public/form', [

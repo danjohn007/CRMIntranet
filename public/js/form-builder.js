@@ -32,7 +32,7 @@ class FormBuilder {
         // Parse initial data if provided
         if (initialData) {
             try {
-                const parsed = typeof initialData === 'string' ? JSON.parse(initialData) : initialData;
+                const parsed = this.parsePossiblyDoubleEncodedJson(initialData);
                 const parsedFields = (parsed && Array.isArray(parsed.fields))
                     ? parsed.fields
                     : (Array.isArray(parsed) ? parsed : []);
@@ -49,7 +49,7 @@ class FormBuilder {
         const initialPagesData = this.container ? this.container.dataset.initialPages : null;
         if (initialPagesData) {
             try {
-                const parsedPages = JSON.parse(initialPagesData);
+                const parsedPages = this.parsePossiblyDoubleEncodedJson(initialPagesData);
                 if (parsedPages && Array.isArray(parsedPages) && parsedPages.length > 0) {
                     this.pages = parsedPages;
                     this.currentPage = parsedPages[0].id;
@@ -59,6 +59,8 @@ class FormBuilder {
                 console.error('Error parsing initial pages:', e);
             }
         }
+
+        this.repairLegacyPageAssignments();
         
         // Check if pagination is enabled
         this.checkPaginationEnabled();
@@ -66,6 +68,59 @@ class FormBuilder {
         this.render();
         // Serialize initial state so hidden inputs are always populated on page load
         this.updateJSON();
+    }
+
+    parsePossiblyDoubleEncodedJson(value) {
+        let current = value;
+        let safety = 0;
+
+        while (typeof current === 'string' && safety < 3) {
+            current = JSON.parse(current);
+            safety += 1;
+        }
+
+        return current;
+    }
+
+    repairLegacyPageAssignments() {
+        if (!Array.isArray(this.pages) || this.pages.length === 0) {
+            this.pages = [{ id: 1, name: 'Página 1', fieldIds: [] }];
+        }
+
+        // Ensure ids are strings to avoid strict-compare mismatches.
+        this.pages.forEach((page) => {
+            if (!Array.isArray(page.fieldIds)) {
+                page.fieldIds = [];
+            }
+            page.fieldIds = page.fieldIds.map((id) => String(id));
+        });
+
+        const existingIds = new Set(this.fields.map((f) => String(f.id)));
+        if (existingIds.size === 0) {
+            return;
+        }
+
+        // Remove ids that do not exist in current fields.
+        this.pages.forEach((page) => {
+            page.fieldIds = page.fieldIds.filter((id) => existingIds.has(String(id)));
+        });
+
+        // If no field remains assigned (common in legacy payload mismatch), assign all to first page.
+        const assigned = new Set();
+        this.pages.forEach((page) => page.fieldIds.forEach((id) => assigned.add(String(id))));
+        if (assigned.size === 0) {
+            this.pages[0].fieldIds = this.fields.map((f) => String(f.id));
+            return;
+        }
+
+        // Add unassigned fields to page 1 to keep them visible/editable.
+        this.fields.forEach((field) => {
+            const id = String(field.id);
+            if (!assigned.has(id)) {
+                this.pages[0].fieldIds.push(id);
+                assigned.add(id);
+            }
+        });
     }
     
     escapeHtml(str) {

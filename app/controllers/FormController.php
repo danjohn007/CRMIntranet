@@ -3,6 +3,17 @@ require_once ROOT_PATH . '/app/controllers/BaseController.php';
 
 class FormController extends BaseController {
     private function normalizeFieldsPayload($decodedFields) {
+        // Legacy compatibility: some records store JSON payload as a JSON string.
+        $safety = 0;
+        while (is_string($decodedFields) && $safety < 3) {
+            $decoded = json_decode($decodedFields, true);
+            if (json_last_error() !== JSON_ERROR_NONE) {
+                break;
+            }
+            $decodedFields = $decoded;
+            $safety++;
+        }
+
         if (isset($decodedFields['fields']) && is_array($decodedFields['fields'])) {
             return ['fields' => $decodedFields['fields']];
         }
