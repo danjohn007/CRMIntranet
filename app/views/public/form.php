@@ -271,6 +271,9 @@
         // Auto-save on input change
         form.addEventListener('input', function() {
             applyConditionalVisibility();
+            if (paginationEnabled && pages.length > 0) {
+                calculateProgress();
+            }
             clearTimeout(autosaveTimeout);
             autosaveTimeout = setTimeout(autoSave, AUTOSAVE_DELAY_MS);
         });
@@ -492,6 +495,8 @@
                     }
                 });
             }
+
+            syncRequiredAttributesByVisibility();
             
             applyConditionalVisibility();
             
@@ -509,6 +514,28 @@
             
             // Scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
+        }
+
+        function syncRequiredAttributesByVisibility() {
+            document.querySelectorAll('.form-field').forEach(function(fieldDiv) {
+                const isVisible = fieldDiv.style.display !== 'none';
+                const controls = fieldDiv.querySelectorAll('input, select, textarea');
+
+                controls.forEach(function(control) {
+                    const originallyRequired = control.dataset.originalRequired === '1';
+
+                    if (!isVisible) {
+                        if (control.hasAttribute('required')) {
+                            control.removeAttribute('required');
+                        }
+                        return;
+                    }
+
+                    if (originallyRequired) {
+                        control.setAttribute('required', 'required');
+                    }
+                });
+            });
         }
         
         function updateNavigationButtons() {
