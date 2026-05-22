@@ -223,12 +223,22 @@ function isUniqueUsPassportForm(selectEl) {
         return false;
     }
     var selected = selectEl.selectedOptions[0];
-    var formName = (selected.dataset.formName || '').trim();
-    var formType = (selected.dataset.formType || '').trim();
-    var formSubtype = (selected.dataset.formSubtype || '').trim();
-    return formName === 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO'
-        && formType === 'Pasaporte'
-        && formSubtype === 'Única Vez';
+    var normalizeText = function(value) {
+        return String(value || '')
+            .normalize('NFD')
+            .replace(/[\u0300-\u036f]/g, '')
+            .trim()
+            .toLowerCase();
+    };
+
+    var formName = normalizeText(selected.dataset.formName || '');
+    var formType = normalizeText(selected.dataset.formType || '');
+    var formSubtype = normalizeText(selected.dataset.formSubtype || '');
+
+    return formName.indexOf('pasaporte americano') !== -1
+        && formType === 'pasaporte'
+        && formSubtype.indexOf('unica') !== -1
+        && formSubtype.indexOf('vez') !== -1;
 }
 
 function setInputsEnabled(container, enabled) {

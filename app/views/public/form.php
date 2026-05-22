@@ -243,7 +243,11 @@
         // Configuration
         const AUTOSAVE_DELAY_MS = 3000; // Auto-save after 3 seconds of no input
         const paginationEnabled = <?= json_encode($form['pagination_enabled'] ?? false, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-        const pages = <?= json_encode($pages ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        let pages = <?= json_encode($pages ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        const availableFieldIds = Array.from(document.querySelectorAll('.form-field[data-field-id]'))
+            .map(function(el) { return String(el.getAttribute('data-field-id') || ''); })
+            .filter(function(id) { return id !== ''; });
+        pages = normalizePaginationPages(pages, availableFieldIds);
         const totalPages = pages.length || 1;
         const FORM_TOKEN = '<?= $token ?>';
         const LOCALSTORAGE_KEY = `form_draft_${FORM_TOKEN}`;
@@ -408,6 +412,54 @@
         
         function initializePagination() {
             // No additional initialization needed for now
+        }
+
+        function normalizePaginationPages(rawPages, fieldIds) {
+            const allFieldIds = Array.isArray(fieldIds) ? fieldIds.map(function(id) { return String(id); }) : [];
+
+            if (!Array.isArray(rawPages) || rawPages.length === 0) {
+                return [{ id: 1, name: 'Página 1', fieldIds: allFieldIds }];
+            }
+
+            const validFieldSet = new Set(allFieldIds);
+            const normalizedPages = rawPages.map(function(page, index) {
+                const pageId = Number(page && page.id) || (index + 1);
+                const pageName = String((page && page.name) || ('Página ' + (index + 1)));
+                const sourceFieldIds = Array.isArray(page && page.fieldIds) ? page.fieldIds : [];
+                const cleanedFieldIds = Array.from(new Set(sourceFieldIds.map(function(id) { return String(id); })))
+                    .filter(function(id) { return validFieldSet.has(id); });
+
+                return {
+                    id: pageId,
+                    name: pageName,
+                    fieldIds: cleanedFieldIds
+                };
+            });
+
+            const assigned = new Set();
+            normalizedPages.forEach(function(page) {
+                page.fieldIds.forEach(function(id) {
+                    assigned.add(id);
+                });
+            });
+
+            if (normalizedPages.length === 0) {
+                return [{ id: 1, name: 'Página 1', fieldIds: allFieldIds }];
+            }
+
+            if (assigned.size === 0) {
+                normalizedPages[0].fieldIds = allFieldIds.slice();
+                return normalizedPages;
+            }
+
+            allFieldIds.forEach(function(id) {
+                if (!assigned.has(id)) {
+                    normalizedPages[0].fieldIds.push(id);
+                }
+            });
+
+            normalizedPages[0].fieldIds = Array.from(new Set(normalizedPages[0].fieldIds));
+            return normalizedPages;
         }
         
         function showPage(pageNum) {

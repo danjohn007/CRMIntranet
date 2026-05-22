@@ -231,10 +231,22 @@ $canadianStatusLabels = [
         <!-- Datos basicos del solicitante -->
         <?php
         $basicData = json_decode($application['data_json'], true) ?: [];
+        $normalizeText = function ($value) {
+            $value = (string) $value;
+            $value = strtr($value, [
+                'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+                'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+            ]);
+            return strtolower(trim($value));
+        };
+        $formNameNormalized = $normalizeText($application['form_name'] ?? '');
+        $formTypeNormalized = $normalizeText($application['type'] ?? '');
+        $formSubtypeNormalized = $normalizeText($application['subtype'] ?? '');
         $isUniqueUsPassportForm =
-            trim($application['form_name'] ?? '') === 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO' &&
-            trim($application['type'] ?? '') === 'Pasaporte' &&
-            trim($application['subtype'] ?? '') === 'Única Vez';
+            strpos($formNameNormalized, 'pasaporte americano') !== false &&
+            $formTypeNormalized === 'pasaporte' &&
+            strpos($formSubtypeNormalized, 'unica') !== false &&
+            strpos($formSubtypeNormalized, 'vez') !== false;
         if ($isUniqueUsPassportForm) {
             $basicFields = ['nombre_cliente' => 'Nombre del cliente', 'pago' => 'El pago', 'fecha_cita' => 'Fecha de la cita'];
             if (empty($basicData['nombre_cliente']) && !empty($application['client_name'])) {

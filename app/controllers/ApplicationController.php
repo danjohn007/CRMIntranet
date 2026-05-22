@@ -151,10 +151,24 @@ class ApplicationController extends BaseController {
             $stmtFormType->execute([$formId]);
             $selectedForm = $stmtFormType->fetch();
             if ($selectedForm) {
+                $normalizeText = function ($value) {
+                    $value = (string) $value;
+                    $value = strtr($value, [
+                        'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+                        'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+                    ]);
+                    return strtolower(trim($value));
+                };
+
+                $formNameNormalized = $normalizeText($selectedForm['name'] ?? '');
+                $formTypeNormalized = $normalizeText($selectedForm['type'] ?? '');
+                $formSubtypeNormalized = $normalizeText($selectedForm['subtype'] ?? '');
+
                 $isUniqueUsPassportForm =
-                    trim($selectedForm['name']) === 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO' &&
-                    trim($selectedForm['type']) === 'Pasaporte' &&
-                    trim($selectedForm['subtype'] ?? '') === 'Única Vez';
+                    strpos($formNameNormalized, 'pasaporte americano') !== false &&
+                    $formTypeNormalized === 'pasaporte' &&
+                    strpos($formSubtypeNormalized, 'unica') !== false &&
+                    strpos($formSubtypeNormalized, 'vez') !== false;
             }
         }
 
