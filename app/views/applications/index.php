@@ -3,6 +3,8 @@ $title = 'Solicitudes';
 ob_start(); 
 $flow = $flow ?? '';
 $isAsesorRole = $_SESSION['user_role'] === ROLE_ASESOR;
+$isAdminRole = $_SESSION['user_role'] === ROLE_ADMIN;
+$searchTerm = $searchTerm ?? '';
 ?>
 
 <div class="mb-4 md:mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -17,7 +19,7 @@ $isAsesorRole = $_SESSION['user_role'] === ROLE_ASESOR;
 
 <!-- Filtros -->
 <div class="bg-white rounded-lg shadow p-4 mb-4 md:mb-6">
-    <form method="GET" action="<?= BASE_URL ?>/solicitudes" class="grid grid-cols-1 md:grid-cols-3 gap-4" id="filterForm">
+    <form method="GET" action="<?= BASE_URL ?>/solicitudes" class="grid grid-cols-1 md:grid-cols-<?= $isAdminRole ? '4' : '3' ?> gap-4" id="filterForm">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Flujo</label>
             <select name="flow" id="flowSelect" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base" onchange="updateStatusOptions()">
@@ -32,6 +34,19 @@ $isAsesorRole = $_SESSION['user_role'] === ROLE_ASESOR;
                 <!-- Options populated by JS based on selected flow -->
             </select>
         </div>
+
+        <?php if ($isAdminRole): ?>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre / Apellido</label>
+            <input
+                type="text"
+                name="q"
+                value="<?= htmlspecialchars($searchTerm) ?>"
+                placeholder="Ej. Francisco o Montes"
+                class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base"
+            >
+        </div>
+        <?php endif; ?>
         
         <div class="flex items-end">
             <button type="submit" class="w-full bg-gray-600 text-white px-4 md:px-6 py-2 rounded-lg hover:bg-gray-700 transition text-sm md:text-base">
@@ -207,14 +222,14 @@ document.addEventListener('DOMContentLoaded', updateStatusOptions);
         </div>
         <div class="flex gap-2">
             <?php if ($page > 1): ?>
-            <a href="?page=<?= $page - 1 ?>&status=<?= urlencode($status) ?>&type=<?= urlencode($type) ?>&flow=<?= urlencode($flow) ?>" 
+            <a href="?page=<?= $page - 1 ?>&status=<?= urlencode($status) ?>&flow=<?= urlencode($flow) ?>&q=<?= urlencode($searchTerm) ?>" 
                class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
                 <i class="fas fa-chevron-left"></i> Anterior
             </a>
             <?php endif; ?>
             
             <?php if ($page < $totalPages): ?>
-            <a href="?page=<?= $page + 1 ?>&status=<?= urlencode($status) ?>&type=<?= urlencode($type) ?>&flow=<?= urlencode($flow) ?>" 
+            <a href="?page=<?= $page + 1 ?>&status=<?= urlencode($status) ?>&flow=<?= urlencode($flow) ?>&q=<?= urlencode($searchTerm) ?>" 
                class="px-4 py-2 btn-primary text-white rounded-lg hover:opacity-90">
                 Siguiente <i class="fas fa-chevron-right"></i>
             </a>
