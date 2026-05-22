@@ -68,6 +68,7 @@ class Router {
         // Ingresos adicionales (Asesor)
         $this->routes['GET']['/ingresos'] = ['AdvisorIncomeController', 'index'];
         $this->routes['POST']['/ingresos/catalogo'] = ['AdvisorIncomeController', 'storeCatalog'];
+        $this->routes['POST']['/ingresos/catalogo/actualizar'] = ['AdvisorIncomeController', 'updateCatalog'];
         $this->routes['POST']['/ingresos/registrar'] = ['AdvisorIncomeController', 'storeIncome'];
         
         // Reportes
