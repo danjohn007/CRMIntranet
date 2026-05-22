@@ -6,6 +6,7 @@ $role          = $_SESSION['user_role'];
 $isAdmin       = in_array($role, [ROLE_ADMIN, ROLE_GERENTE]);
 $isAsesor      = $role === ROLE_ASESOR;
 $status        = $application['status'];
+$isPassportService = stripos(trim((string) ($application['type'] ?? '')), 'pasaporte') !== false;
 $isRenovacion  = stripos($application['subtype'] ?? '', 'renov') !== false;
 $isCanadianVisa = !empty($application['is_canadian_visa']);
 
@@ -622,12 +623,13 @@ $canadianStatusLabels = [
             <?php if ($application['official_application_done'] && $application['consular_fee_sent']): ?>
             <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>"
                   class="mt-4" enctype="multipart/form-data">
-                <input type="hidden" name="status" value="<?= STATUS_EN_ESPERA_PAGO ?>">
+                <input type="hidden" name="status" value="<?= $isPassportService ? STATUS_CITA_PROGRAMADA : STATUS_EN_ESPERA_PAGO ?>">
                 <input type="hidden" name="official_application_done" value="1">
                 <input type="hidden" name="consular_fee_sent" value="1">
                 <textarea name="comment" rows="2" class="w-full border rounded px-3 py-2 text-sm mb-2" placeholder="Comentario opcional"></textarea>
                 <button type="submit" class="w-full bg-yellow-500 text-white py-2 rounded-lg hover:bg-yellow-600 font-semibold">
-                    <i class="fas fa-arrow-right mr-2"></i>Pasar a EN ESPERA DE PAGO (AMARILLO)
+                    <i class="fas fa-arrow-right mr-2"></i>
+                    <?= $isPassportService ? 'Pasar a CITA PROGRAMADA (AZUL)' : 'Pasar a EN ESPERA DE PAGO (AMARILLO)' ?>
                 </button>
             </form>
             <?php endif; ?>
@@ -1348,9 +1350,13 @@ $canadianStatusLabels = [
                         <?php else: ?>
                         <option value="<?= STATUS_VALIDANDO_RESPUESTAS ?>" <?= $status===STATUS_VALIDANDO_RESPUESTAS ? 'selected':'' ?>>Validando respuestas</option>
                         <option value="<?= STATUS_LISTO_SOLICITUD ?>"     <?= $status===STATUS_LISTO_SOLICITUD     ? 'selected':'' ?>>Listo para comenzar</option>
+                        <?php if (!$isPassportService): ?>
                         <option value="<?= STATUS_EN_ESPERA_PAGO ?>"      <?= $status===STATUS_EN_ESPERA_PAGO      ? 'selected':'' ?>>En espera de pago consular</option>
+                        <?php endif; ?>
                         <option value="<?= STATUS_CITA_PROGRAMADA ?>"     <?= $status===STATUS_CITA_PROGRAMADA     ? 'selected':'' ?>>Cita programada</option>
+                        <?php if (!$isPassportService): ?>
                         <option value="<?= STATUS_EN_ESPERA_RESULTADO ?>" <?= $status===STATUS_EN_ESPERA_RESULTADO ? 'selected':'' ?>>En espera de resultado</option>
+                        <?php endif; ?>
                         <option value="<?= STATUS_TRAMITE_CERRADO ?>"     <?= $status===STATUS_TRAMITE_CERRADO     ? 'selected':'' ?>>Trámite cerrado</option>
                         <?php endif; ?>
                     </select>

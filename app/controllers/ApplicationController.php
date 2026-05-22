@@ -592,6 +592,13 @@ class ApplicationController extends BaseController {
 
             // ── Detect Canadian Visa flag ───────────────────────────────────
             $isCanadianVisa = !empty($application['is_canadian_visa']);
+            $isPassportService = stripos(trim((string) ($application['type'] ?? '')), 'pasaporte') !== false;
+
+            // For passport service, these statuses are not used.
+            if (!$isCanadianVisa && $isPassportService && in_array($newStatus, [STATUS_EN_ESPERA_PAGO, STATUS_EN_ESPERA_RESULTADO], true)) {
+                $_SESSION['error'] = 'Para trámites de Pasaporte no se usan los estatus En espera de pago consular ni En espera de resultado.';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
 
             // ── Validaciones antes de pasar de NUEVO → ROJO ────────────────────
             if ($previousStatus === STATUS_NUEVO && $newStatus === STATUS_LISTO_SOLICITUD) {
@@ -1586,12 +1593,16 @@ class ApplicationController extends BaseController {
             $this->db->prepare("UPDATE applications SET client_attended = ?, client_attended_date = ? WHERE id = ?")
                 ->execute([$attended, $attendedDate, $id]);
 
-            // Advance to STATUS_EN_ESPERA_RESULTADO if attended
+            $isPassportService = stripos(trim((string) ($application['type'] ?? '')), 'pasaporte') !== false;
+
+            // For visa flow, advance to purple after attendance; for passport keep current status (AZUL).
             if ($attended && $application['status'] === STATUS_CITA_PROGRAMADA) {
-                $prevStatus = $application['status'];
-                $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_EN_ESPERA_RESULTADO, $id]);
-                $this->db->prepare("INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by) VALUES (?, ?, ?, ?, ?)")
-                    ->execute([$id, $prevStatus, STATUS_EN_ESPERA_RESULTADO, 'Cliente marcó asistencia a cita', $_SESSION['user_id']]);
+                if (!$isPassportService) {
+                    $prevStatus = $application['status'];
+                    $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_EN_ESPERA_RESULTADO, $id]);
+                    $this->db->prepare("INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by) VALUES (?, ?, ?, ?, ?)")
+                        ->execute([$id, $prevStatus, STATUS_EN_ESPERA_RESULTADO, 'Cliente marcó asistencia a cita', $_SESSION['user_id']]);
+                }
             }
 
             $_SESSION['success'] = 'Asistencia registrada correctamente';
