@@ -5,6 +5,7 @@ $flow = $flow ?? '';
 $isAsesorRole = $_SESSION['user_role'] === ROLE_ASESOR;
 $isAdminRole = $_SESSION['user_role'] === ROLE_ADMIN;
 $searchTerm = $searchTerm ?? '';
+$advisors = $advisors ?? [];
 ?>
 
 <div class="mb-4 md:mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -189,6 +190,17 @@ document.addEventListener('DOMContentLoaded', updateStatusOptions);
                             <i class="fas fa-folder-open mr-1"></i>Abrir expediente
                         </a>
                         <?php if ($_SESSION['user_role'] === ROLE_ADMIN): ?>
+                        <?php if (($app['status'] ?? '') === STATUS_TRAMITE_CERRADO): ?>
+                        <button
+                            type="button"
+                            class="text-blue-600 hover:text-blue-800"
+                            title="Reactivar temporal"
+                            data-reactivate-button="1"
+                            data-app-id="<?= intval($app['id']) ?>"
+                            data-folio="<?= htmlspecialchars($app['folio']) ?>">
+                            <i class="fas fa-user-clock"></i>
+                        </button>
+                        <?php endif; ?>
                         <form method="POST" action="<?= BASE_URL ?>/solicitudes/eliminar/<?= $app['id'] ?>"
                               class="inline" onsubmit="return confirm('Esta accion no se puede deshacer.')">
                             <button type="submit" class="text-red-600 hover:text-red-800" title="Eliminar">
@@ -238,6 +250,95 @@ document.addEventListener('DOMContentLoaded', updateStatusOptions);
     </div>
     <?php endif; ?>
 </div>
+
+<?php if ($isAdminRole): ?>
+<div id="reactivateModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 items-center justify-center p-4">
+    <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
+        <div class="flex items-center justify-between px-6 py-4 border-b">
+            <h3 class="text-lg font-bold text-gray-800">Reactivar trámite cerrado</h3>
+            <button type="button" id="reactivateClose" class="text-gray-400 hover:text-gray-700">
+                <i class="fas fa-times"></i>
+            </button>
+        </div>
+
+        <form id="reactivateForm" method="POST" action="">
+            <div class="px-6 py-4 space-y-4">
+                <p class="text-sm text-gray-600">Expediente: <span id="reactivateFolio" class="font-semibold text-gray-800"></span></p>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Asesor</label>
+                    <select name="advisor_id" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        <option value="">Selecciona asesor</option>
+                        <?php foreach ($advisors as $advisor): ?>
+                        <option value="<?= intval($advisor['id']) ?>"><?= htmlspecialchars($advisor['full_name']) ?></option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Inicio</label>
+                    <input type="datetime-local" name="start_at" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                </div>
+
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Fin</label>
+                    <input type="datetime-local" name="end_at" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                </div>
+            </div>
+
+            <div class="px-6 py-4 border-t flex justify-end gap-3">
+                <button type="button" id="reactivateCancel" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
+                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Guardar reactivación</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var modal = document.getElementById('reactivateModal');
+    var form = document.getElementById('reactivateForm');
+    var folioLabel = document.getElementById('reactivateFolio');
+    var closeBtn = document.getElementById('reactivateClose');
+    var cancelBtn = document.getElementById('reactivateCancel');
+    var triggerButtons = document.querySelectorAll('[data-reactivate-button="1"]');
+
+    if (!modal || !form || !folioLabel) {
+        return;
+    }
+
+    function closeModal() {
+        modal.classList.add('hidden');
+        modal.classList.remove('flex');
+    }
+
+    triggerButtons.forEach(function (button) {
+        button.addEventListener('click', function () {
+            var appId = button.getAttribute('data-app-id');
+            var folio = button.getAttribute('data-folio') || '';
+            form.action = '<?= BASE_URL ?>/solicitudes/reactivar-temporal/' + appId;
+            folioLabel.textContent = folio;
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        });
+    });
+
+    if (closeBtn) {
+        closeBtn.addEventListener('click', closeModal);
+    }
+
+    if (cancelBtn) {
+        cancelBtn.addEventListener('click', closeModal);
+    }
+
+    modal.addEventListener('click', function (event) {
+        if (event.target === modal) {
+            closeModal();
+        }
+    });
+});
+</script>
+<?php endif; ?>
 
 <?php 
 $content = ob_get_clean();

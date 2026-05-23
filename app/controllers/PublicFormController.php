@@ -318,7 +318,7 @@ class PublicFormController extends BaseController {
                     $stmtBasicData->execute([$applicationId]);
                     $existingAppRow = $stmtBasicData->fetch();
                     $existingBasic  = json_decode($existingAppRow['data_json'] ?? '{}', true) ?: [];
-                    $basicKeys      = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita', 'documentos_recibidos_pasaporte_americano', 'documentos_recibidos_pasaporte_mexicano', 'observaciones_incidencias_pasaporte', 'cita_sre_fecha_hora'];
+                    $basicKeys      = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita', 'documentos_recibidos_pasaporte_americano', 'documentos_recibidos_pasaporte_mexicano', 'observaciones_incidencias_pasaporte', 'cita_sre_fecha_hora', 'closed_visibility_grants'];
                     foreach ($basicKeys as $bk) {
                         if (!empty($existingBasic[$bk])) {
                             $data[$bk] = $existingBasic[$bk];

@@ -63,6 +63,8 @@ foreach ($documents as $doc) {
 $canadianIsRenovacion = $isCanadianVisa && stripos($application['canadian_modalidad'] ?? '', 'renov') !== false;
 $canadianIsETA        = $isCanadianVisa && stripos($application['canadian_tipo'] ?? '', 'ETA') !== false;
 $isClosedStatus       = $status === STATUS_TRAMITE_CERRADO || $status === STATUS_FINALIZADO;
+$isAdvisorTemporaryClosedAccess = !empty($advisorTemporaryClosedAccess);
+$canViewClosedContent = $isAdmin || !$isClosedStatus || $isAdvisorTemporaryClosedAccess;
 $inlinePreviewImageTypes = ['jpg','jpeg','png','gif','webp'];
 
 // Human-readable labels for each status in the Canadian visa flow
@@ -82,7 +84,7 @@ $canadianStatusLabels = [
             <p class="text-gray-600"><?= htmlspecialchars($application['form_name'] ?? '') ?></p>
         </div>
         <div class="flex space-x-3 flex-wrap gap-2">
-            <?php if (!$infoSheet || $isAdmin): ?>
+            <?php if ((!$infoSheet || $isAdmin) && !$isAdvisorTemporaryClosedAccess): ?>
             <button onclick="document.getElementById('infoSheetModal').classList.remove('hidden')"
                     class="bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition">
                 <i class="fas fa-file-alt mr-2"></i>
@@ -1112,7 +1114,7 @@ $canadianStatusLabels = [
         <?php endif; ?>
 
         <!-- Documentos Base (always visible to Admin/Gerente regardless of status; hidden for Asesor in closed state) -->
-        <?php if ($isAdmin || !$isClosedStatus): ?>
+        <?php if ($canViewClosedContent): ?>
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-passport text-blue-600 mr-2"></i>Documentos Base</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1245,7 +1247,7 @@ $canadianStatusLabels = [
         <?php endif; /* end Documentos Base */ ?>
 
         <!-- Documentos generales (always visible to Admin/Gerente) -->
-        <?php if ($isAdmin || !$isClosedStatus): ?>
+        <?php if ($canViewClosedContent): ?>
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">Documentos</h3>
@@ -1348,7 +1350,7 @@ $canadianStatusLabels = [
         <?php endif; /* end isAdmin || !closed */ ?>
 
         <!-- Pago (always visible to Admin/Gerente) -->
-        <?php if ($isAdmin || !$isClosedStatus): ?>
+        <?php if ($canViewClosedContent): ?>
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">Pago</h3>
@@ -1396,7 +1398,7 @@ $canadianStatusLabels = [
         <?php endif; /* end Pago */ ?>
 
         <!-- Indicaciones (always visible to Admin/Gerente) -->
-        <?php if ($isAdmin || !$isClosedStatus): ?>
+        <?php if ($canViewClosedContent): ?>
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">Indicaciones</h3>
@@ -1425,7 +1427,7 @@ $canadianStatusLabels = [
         <?php endif; /* end Indicaciones */ ?>
 
         <!-- Observaciones e incidencias (Pasaporte Americano/Mexicano) -->
-        <?php if (($isAdmin || !$isClosedStatus) && ($isAmericanPassportRequest || $isMexicanPassportRequest)): ?>
+        <?php if ($canViewClosedContent && ($isAmericanPassportRequest || $isMexicanPassportRequest)): ?>
         <?php
             $basicDataForIncidences = json_decode($application['data_json'], true) ?: [];
             $selectedIncidences = $basicDataForIncidences['observaciones_incidencias_pasaporte'] ?? [];

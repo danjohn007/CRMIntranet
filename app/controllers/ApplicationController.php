@@ -2,89 +2,199 @@
 require_once ROOT_PATH . '/app/controllers/BaseController.php';
 
 class ApplicationController extends BaseController {
-    
+    private function decodeApplicationDataJson($rawData) {
+        if (is_array($rawData)) {
+            return $rawData;
+        }
+
+        $decoded = json_decode((string) $rawData, true);
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+
+        return [];
+    }
+
+    private function canAdvisorViewClosedApplication(array $application, $advisorId) {
+        if (intval($application['created_by'] ?? 0) !== intval($advisorId)) {
+            return false;
+        }
+
+        if (($application['status'] ?? '') !== STATUS_TRAMITE_CERRADO) {
+            return false;
+        }
+
+        $data = $this->decodeApplicationDataJson($application['data_json'] ?? '{}');
+        $grants = $data['closed_visibility_grants'] ?? [];
+        if (!is_array($grants)) {
+            return false;
+        }
+
+        $nowTs = time();
+        foreach ($grants as $grant) {
+            if (!is_array($grant)) {
+                continue;
+            }
+
+            if (intval($grant['advisor_id'] ?? 0) !== intval($advisorId)) {
+                continue;
+            }
+
+            $startTs = strtotime((string) ($grant['start_at'] ?? ''));
+            $endTs = strtotime((string) ($grant['end_at'] ?? ''));
+            if ($startTs === false || $endTs === false) {
+                continue;
+            }
+
+            if ($nowTs >= $startTs && $nowTs <= $endTs) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private function isAdvisorReadOnlyClosedAccess(array $application, $advisorId) {
+        return $this->canAdvisorViewClosedApplication($application, $advisorId);
+    }
+
+    private function denyAdvisorReadOnlyClosedMutation($applicationId) {
+        $_SESSION['error'] = 'Este trámite cerrado está en modo solo lectura para asesor durante la reactivación temporal';
+        $this->redirect('/solicitudes/ver/' . $applicationId);
+    }
+
     public function index() {
         $this->requireLogin();
-        
+
         $role = $this->getUserRole();
         $userId = $_SESSION['user_id'];
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
         $limit = ITEMS_PER_PAGE;
         $offset = ($page - 1) * $limit;
-        
+
         // Filtros
         $status = $_GET['status'] ?? '';
         $flow = $_GET['flow'] ?? '';  // 'normal', 'canadiense', or '' (todos)
         $searchTerm = trim((string) ($_GET['q'] ?? ''));
-        
+
         try {
-            // Construir query según rol
-            $where = [];
-            $params = [];
-            
+            $applications = [];
+            $total = 0;
+            $totalPages = 0;
+
             if ($role === ROLE_ASESOR) {
-                // REGLA CRÍTICA: Asesor solo puede ver SUS PROPIAS solicitudes y no las cerradas
-                $where[] = "a.created_by = ?";
-                $params[] = $userId;
-                $where[] = "a.status != ?";
-                $params[] = STATUS_TRAMITE_CERRADO;
-            }
-            
-            if (!empty($status)) {
-                $where[] = "a.status = ?";
-                $params[] = $status;
-            }
-            
-            if ($flow === 'canadiense') {
-                $where[] = "a.is_canadian_visa = 1";
-            } elseif ($flow === 'normal') {
-                $where[] = "(a.is_canadian_visa = 0 OR a.is_canadian_visa IS NULL)";
+                $where = ["a.created_by = ?"];
+                $params = [$userId];
+
+                if (!empty($status)) {
+                    $where[] = "a.status = ?";
+                    $params[] = $status;
+                }
+
+                if ($flow === 'canadiense') {
+                    $where[] = "a.is_canadian_visa = 1";
+                } elseif ($flow === 'normal') {
+                    $where[] = "(a.is_canadian_visa = 0 OR a.is_canadian_visa IS NULL)";
+                }
+
+                $whereClause = 'WHERE ' . implode(' AND ', $where);
+
+                $stmt = $this->db->prepare("
+                    SELECT a.*, u.full_name as creator_name,
+                           f.name as form_name,
+                           fs.status as financial_status
+                    FROM applications a
+                    LEFT JOIN users u ON a.created_by = u.id
+                    LEFT JOIN forms f ON a.form_id = f.id
+                    LEFT JOIN financial_status fs ON a.id = fs.application_id
+                    $whereClause
+                    ORDER BY a.created_at DESC
+                ");
+                $stmt->execute($params);
+                $allApplications = $stmt->fetchAll();
+
+                $visibleApplications = [];
+                foreach ($allApplications as $candidate) {
+                    $candidateStatus = $candidate['status'] ?? '';
+
+                    if ($candidateStatus === STATUS_TRAMITE_CERRADO && !$this->canAdvisorViewClosedApplication($candidate, $userId)) {
+                        continue;
+                    }
+
+                    if ($candidateStatus === STATUS_FINALIZADO) {
+                        continue;
+                    }
+
+                    $visibleApplications[] = $candidate;
+                }
+
+                $total = count($visibleApplications);
+                $totalPages = max(1, intval(ceil($total / $limit)));
+                $applications = array_slice($visibleApplications, $offset, $limit);
+            } else {
+                $where = [];
+                $params = [];
+
+                if (!empty($status)) {
+                    $where[] = "a.status = ?";
+                    $params[] = $status;
+                }
+
+                if ($flow === 'canadiense') {
+                    $where[] = "a.is_canadian_visa = 1";
+                } elseif ($flow === 'normal') {
+                    $where[] = "(a.is_canadian_visa = 0 OR a.is_canadian_visa IS NULL)";
+                }
+
+                if ($role === ROLE_ADMIN && $searchTerm !== '') {
+                    $where[] = "(
+                        a.client_name LIKE ?
+                        OR JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.nombre')) LIKE ?
+                        OR JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.apellidos')) LIKE ?
+                        OR CONCAT(
+                            COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.nombre')), ''),
+                            ' ',
+                            COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.apellidos')), '')
+                        ) LIKE ?
+                    )";
+                    $likeSearch = '%' . $searchTerm . '%';
+                    $params[] = $likeSearch;
+                    $params[] = $likeSearch;
+                    $params[] = $likeSearch;
+                    $params[] = $likeSearch;
+                }
+
+                $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+
+                $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM applications a $whereClause");
+                $stmt->execute($params);
+                $total = $stmt->fetch()['total'];
+
+                $stmt = $this->db->prepare("
+                    SELECT a.*, u.full_name as creator_name,
+                           f.name as form_name,
+                           fs.status as financial_status
+                    FROM applications a
+                    LEFT JOIN users u ON a.created_by = u.id
+                    LEFT JOIN forms f ON a.form_id = f.id
+                    LEFT JOIN financial_status fs ON a.id = fs.application_id
+                    $whereClause
+                    ORDER BY a.created_at DESC
+                    LIMIT $limit OFFSET $offset
+                ");
+                $stmt->execute($params);
+                $applications = $stmt->fetchAll();
+
+                $totalPages = max(1, intval(ceil($total / $limit)));
             }
 
-            // Buscador por nombre/apellido solo para Administrador
-            if ($role === ROLE_ADMIN && $searchTerm !== '') {
-                $where[] = "(
-                    a.client_name LIKE ?
-                    OR JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.nombre')) LIKE ?
-                    OR JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.apellidos')) LIKE ?
-                    OR CONCAT(
-                        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.nombre')), ''),
-                        ' ',
-                        COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.apellidos')), '')
-                    ) LIKE ?
-                )";
-                $likeSearch = '%' . $searchTerm . '%';
-                $params[] = $likeSearch;
-                $params[] = $likeSearch;
-                $params[] = $likeSearch;
-                $params[] = $likeSearch;
+            $advisors = [];
+            if ($role === ROLE_ADMIN) {
+                $stmt = $this->db->prepare("SELECT id, full_name FROM users WHERE role = ? ORDER BY full_name ASC");
+                $stmt->execute([ROLE_ASESOR]);
+                $advisors = $stmt->fetchAll();
             }
-            
-            $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
-            
-            // Contar total
-            $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM applications a $whereClause");
-            $stmt->execute($params);
-            $total = $stmt->fetch()['total'];
-            
-            // Obtener solicitudes
-            $stmt = $this->db->prepare("
-                SELECT a.*, u.full_name as creator_name,
-                       f.name as form_name,
-                       fs.status as financial_status
-                FROM applications a
-                LEFT JOIN users u ON a.created_by = u.id
-                LEFT JOIN forms f ON a.form_id = f.id
-                LEFT JOIN financial_status fs ON a.id = fs.application_id
-                $whereClause
-                ORDER BY a.created_at DESC
-                LIMIT $limit OFFSET $offset
-            ");
-            $stmt->execute($params);
-            $applications = $stmt->fetchAll();
-            
-            $totalPages = ceil($total / $limit);
-            
+
             $this->view('applications/index', [
                 'applications' => $applications,
                 'page' => $page,
@@ -92,16 +202,17 @@ class ApplicationController extends BaseController {
                 'total' => $total,
                 'status' => $status,
                 'flow' => $flow,
-                'searchTerm' => $searchTerm
+                'searchTerm' => $searchTerm,
+                'advisors' => $advisors,
             ]);
-            
+
         } catch (PDOException $e) {
             error_log("Error en listado de solicitudes: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cargar solicitudes';
             $this->view('applications/index', ['applications' => []]);
         }
     }
-    
+
     public function create() {
         $this->requireLogin();
         
@@ -397,6 +508,7 @@ class ApplicationController extends BaseController {
         
         $role = $this->getUserRole();
         $userId = $_SESSION['user_id'];
+        $advisorTemporaryClosedAccess = false;
         
         try {
             // Obtener solicitud
@@ -418,13 +530,23 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
             
-            // REGLA CRÍTICA: Asesor solo puede ver SUS PROPIAS solicitudes y no las cerradas
+            // REGLA CRÍTICA: Asesor solo puede ver SUS PROPIAS solicitudes.
+            // Las cerradas solo se visualizan en modo lectura cuando tienen reactivación temporal activa.
             if ($role === ROLE_ASESOR) {
-                if ($application['status'] === STATUS_TRAMITE_CERRADO || $application['status'] === STATUS_FINALIZADO) {
+                if (intval($application['created_by']) !== intval($userId)) {
                     $_SESSION['error'] = 'No tiene permisos para ver esta solicitud';
                     $this->redirect('/solicitudes');
                 }
-                if (intval($application['created_by']) !== intval($userId)) {
+
+                if ($application['status'] === STATUS_TRAMITE_CERRADO) {
+                    if (!$this->canAdvisorViewClosedApplication($application, $userId)) {
+                        $_SESSION['error'] = 'No tiene permisos para ver esta solicitud';
+                        $this->redirect('/solicitudes');
+                    }
+                    $advisorTemporaryClosedAccess = true;
+                }
+
+                if ($application['status'] === STATUS_FINALIZADO) {
                     $_SESSION['error'] = 'No tiene permisos para ver esta solicitud';
                     $this->redirect('/solicitudes');
                 }
@@ -550,6 +672,7 @@ class ApplicationController extends BaseController {
                 'familiarMembers' => $familiarMembers,
                 'publishedForms' => $publishedForms,
                 'formLinkToken' => $formLinkToken,
+                'advisorTemporaryClosedAccess' => $advisorTemporaryClosedAccess,
             ]);
             
         } catch (PDOException $e) {
@@ -606,6 +729,19 @@ class ApplicationController extends BaseController {
             // Asesor: can only modify their own requests
             if ($role === ROLE_ASESOR) {
                 if (intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                    $this->redirect('/solicitudes');
+                }
+
+                if ($application['status'] === STATUS_FINALIZADO) {
+                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                    $this->redirect('/solicitudes');
+                }
+
+                if ($application['status'] === STATUS_TRAMITE_CERRADO) {
+                    if ($this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
+                        $this->denyAdvisorReadOnlyClosedMutation($id);
+                    }
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
                 }
@@ -902,11 +1038,18 @@ class ApplicationController extends BaseController {
             
             // REGLA: Asesor solo puede acceder a sus propias solicitudes y no las cerradas
             if ($role === ROLE_ASESOR) {
-                if ($application['status'] === STATUS_TRAMITE_CERRADO || $application['status'] === STATUS_FINALIZADO) {
+                if ($application['status'] === STATUS_FINALIZADO) {
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
                 }
                 if (intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                    $this->redirect('/solicitudes');
+                }
+                if ($application['status'] === STATUS_TRAMITE_CERRADO) {
+                    if ($this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
+                        $this->denyAdvisorReadOnlyClosedMutation($id);
+                    }
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
                 }
@@ -1282,6 +1425,10 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
 
+            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
+                $this->denyAdvisorReadOnlyClosedMutation($id);
+            }
+
             // Asesor solo puede crear la hoja de información, no editarla
             if ($role === ROLE_ASESOR) {
                 $stmtExisting = $this->db->prepare("SELECT id FROM information_sheets WHERE application_id = ?");
@@ -1487,6 +1634,10 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
 
+            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
+                $this->denyAdvisorReadOnlyClosedMutation($id);
+            }
+
             // Ensure the parent information_sheet exists
             $stmtSheet = $this->db->prepare("SELECT id FROM information_sheets WHERE application_id = ?");
             $stmtSheet->execute([$id]);
@@ -1608,6 +1759,10 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
 
+            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
+                $this->denyAdvisorReadOnlyClosedMutation($id);
+            }
+
             $attended     = isset($_POST['client_attended']) ? 1 : 0;
             $attendedDate = !empty($_POST['client_attended_date']) ? $_POST['client_attended_date'] : null;
 
@@ -1652,7 +1807,7 @@ class ApplicationController extends BaseController {
         }
 
         try {
-            $stmt = $this->db->prepare("SELECT created_by FROM applications WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT created_by, status, data_json FROM applications WHERE id = ?");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
 
@@ -1664,6 +1819,10 @@ class ApplicationController extends BaseController {
             if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                 $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                 $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
+                $this->denyAdvisorReadOnlyClosedMutation($id);
             }
 
             // Verify the form exists and is published before generating a link
@@ -1704,7 +1863,7 @@ class ApplicationController extends BaseController {
         $role = $this->getUserRole();
 
         try {
-            $stmt = $this->db->prepare("SELECT created_by, status FROM applications WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT created_by, status, data_json FROM applications WHERE id = ?");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
 
@@ -1716,6 +1875,10 @@ class ApplicationController extends BaseController {
             if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                 $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                 $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
+                $this->denyAdvisorReadOnlyClosedMutation($id);
             }
 
             $officeDate     = !empty($_POST['office_appointment_date']) ? $_POST['office_appointment_date'] : null;
@@ -1760,6 +1923,10 @@ class ApplicationController extends BaseController {
             if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                 $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                 $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
+                $this->denyAdvisorReadOnlyClosedMutation($id);
             }
 
             if ($application['status'] !== STATUS_CITA_PROGRAMADA) {
@@ -1850,6 +2017,10 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
 
+            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
+                $this->denyAdvisorReadOnlyClosedMutation($id);
+            }
+
             if ($application['status'] !== STATUS_VALIDANDO_RESPUESTAS) {
                 $_SESSION['error'] = 'Solo se pueden editar respuestas cuando el estatus es "Validando respuestas"';
                 $this->redirect('/solicitudes/ver/' . $id);
@@ -1910,6 +2081,10 @@ class ApplicationController extends BaseController {
             if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                 $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                 $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
+                $this->denyAdvisorReadOnlyClosedMutation($id);
             }
 
             $normalizeText = function ($value) {
@@ -2014,6 +2189,10 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
 
+            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
+                $this->denyAdvisorReadOnlyClosedMutation($id);
+            }
+
             $normalizeText = function ($value) {
                 $value = (string) $value;
                 $value = strtr($value, [
@@ -2092,7 +2271,7 @@ class ApplicationController extends BaseController {
         $role = $this->getUserRole();
 
         try {
-            $stmt = $this->db->prepare("SELECT created_by, status FROM applications WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT created_by, status, data_json FROM applications WHERE id = ?");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
 
@@ -2104,6 +2283,10 @@ class ApplicationController extends BaseController {
             if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                 $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                 $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
+                $this->denyAdvisorReadOnlyClosedMutation($id);
             }
 
             if ($application['status'] !== STATUS_VALIDANDO_RESPUESTAS) {
@@ -2192,7 +2375,7 @@ class ApplicationController extends BaseController {
         $role = $this->getUserRole();
 
         try {
-            $stmt = $this->db->prepare("SELECT created_by FROM applications WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT created_by, status, data_json FROM applications WHERE id = ?");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
 
@@ -2203,6 +2386,11 @@ class ApplicationController extends BaseController {
 
             if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                 $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                $this->redirect('/public/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
+                $_SESSION['error'] = 'Este trámite cerrado está en modo solo lectura para asesor durante la reactivación temporal';
                 $this->redirect('/public/solicitudes');
             }
 
@@ -2222,6 +2410,102 @@ class ApplicationController extends BaseController {
     /**
      * Eliminar solicitud (solo Admin).
      */
+    public function reactivateTemporary($id) {
+        $this->requireRole([ROLE_ADMIN]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes');
+        }
+
+        $advisorId = intval($_POST['advisor_id'] ?? 0);
+        $startRaw = trim($_POST['start_at'] ?? '');
+        $endRaw = trim($_POST['end_at'] ?? '');
+
+        if ($advisorId <= 0 || $startRaw === '' || $endRaw === '') {
+            $_SESSION['error'] = 'Debe seleccionar asesor y periodo de reactivación';
+            $this->redirect('/solicitudes');
+        }
+
+        $startAt = str_replace('T', ' ', $startRaw) . ':00';
+        $endAt = str_replace('T', ' ', $endRaw) . ':00';
+        $startTs = strtotime($startAt);
+        $endTs = strtotime($endAt);
+
+        if ($startTs === false || $endTs === false || $endTs <= $startTs) {
+            $_SESSION['error'] = 'El periodo de reactivación no es válido';
+            $this->redirect('/solicitudes');
+        }
+
+        try {
+            $stmt = $this->db->prepare("SELECT id, status, data_json FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            if (($application['status'] ?? '') !== STATUS_TRAMITE_CERRADO) {
+                $_SESSION['error'] = 'Solo se puede reactivar temporalmente un trámite cerrado';
+                $this->redirect('/solicitudes');
+            }
+
+            $stmtAdvisor = $this->db->prepare("SELECT id FROM users WHERE id = ? AND role = ? LIMIT 1");
+            $stmtAdvisor->execute([$advisorId, ROLE_ASESOR]);
+            if (!$stmtAdvisor->fetch()) {
+                $_SESSION['error'] = 'El asesor seleccionado no es válido';
+                $this->redirect('/solicitudes');
+            }
+
+            $data = $this->decodeApplicationDataJson($application['data_json'] ?? '{}');
+            $grants = $data['closed_visibility_grants'] ?? [];
+            if (!is_array($grants)) {
+                $grants = [];
+            }
+
+            $cleanedGrants = [];
+            $nowTs = time();
+            foreach ($grants as $grant) {
+                if (!is_array($grant)) {
+                    continue;
+                }
+
+                $grantAdvisorId = intval($grant['advisor_id'] ?? 0);
+                if ($grantAdvisorId === $advisorId) {
+                    continue;
+                }
+
+                $grantEndTs = strtotime((string) ($grant['end_at'] ?? ''));
+                if ($grantEndTs !== false && $grantEndTs >= $nowTs) {
+                    $cleanedGrants[] = $grant;
+                }
+            }
+
+            $cleanedGrants[] = [
+                'advisor_id' => $advisorId,
+                'start_at' => date('Y-m-d H:i:s', $startTs),
+                'end_at' => date('Y-m-d H:i:s', $endTs),
+                'granted_by' => intval($_SESSION['user_id']),
+                'granted_at' => date('Y-m-d H:i:s'),
+            ];
+
+            $data['closed_visibility_grants'] = $cleanedGrants;
+
+            $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
+                ->execute([json_encode($data, JSON_UNESCAPED_UNICODE), $id]);
+
+            logAudit('update', 'solicitudes', "Reactivación temporal para solicitud #$id asignada a asesor #$advisorId");
+
+            $_SESSION['success'] = 'Reactivación temporal guardada correctamente';
+            $this->redirect('/solicitudes');
+        } catch (PDOException $e) {
+            error_log("Error al guardar reactivación temporal: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al guardar la reactivación temporal';
+            $this->redirect('/solicitudes');
+        }
+    }
+
     public function delete($id) {
         $this->requireRole([ROLE_ADMIN]);
 
@@ -2291,7 +2575,7 @@ class ApplicationController extends BaseController {
 
         try {
             $stmt = $this->db->prepare("
-                SELECT d.*, a.id as app_id, a.created_by as app_created_by, a.status
+                SELECT d.*, a.id as app_id, a.created_by as app_created_by, a.status, a.data_json
                 FROM documents d
                 LEFT JOIN applications a ON d.application_id = a.id
                 WHERE d.id = ?
@@ -2308,11 +2592,21 @@ class ApplicationController extends BaseController {
             $docCreatorId = intval($doc['app_created_by'] ?? 0);
 
             if ($role === ROLE_ASESOR) {
-                if ($docStatus === STATUS_TRAMITE_CERRADO || $docStatus === STATUS_FINALIZADO) {
+                if ($docCreatorId !== intval($_SESSION['user_id'])) {
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
                 }
-                if ($docCreatorId !== intval($_SESSION['user_id'])) {
+
+                if ($docStatus === STATUS_FINALIZADO) {
+                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                    $this->redirect('/solicitudes');
+                }
+
+                if ($docStatus === STATUS_TRAMITE_CERRADO && !$this->canAdvisorViewClosedApplication([
+                    'created_by' => $docCreatorId,
+                    'status' => $docStatus,
+                    'data_json' => $doc['data_json'] ?? '{}',
+                ], $_SESSION['user_id'])) {
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
                 }
