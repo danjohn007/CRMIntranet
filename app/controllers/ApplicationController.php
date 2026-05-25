@@ -2506,6 +2506,137 @@ class ApplicationController extends BaseController {
         }
     }
 
+    /**
+     * Enviar correo personalizado de "trámite listo" al email de datos básicos del solicitante.
+     * Solo Administrador.
+     */
+    public function sendReadyProcedureEmail($id) {
+        $this->requireRole([ROLE_ADMIN]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $subject = trim((string) ($_POST['email_subject'] ?? ''));
+        $bodyText = trim((string) ($_POST['email_body'] ?? ''));
+
+        if ($subject === '' || $bodyText === '') {
+            $_SESSION['error'] = 'El asunto y el contenido del correo son obligatorios';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        try {
+            $stmt = $this->db->prepare("SELECT id, folio, type, subtype, data_json, client_name, created_by FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            $basicData = $this->decodeApplicationDataJson($application['data_json'] ?? '{}');
+            $recipient = trim((string) ($basicData['email'] ?? ''));
+
+            if ($recipient === '' || !filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
+                $_SESSION['error'] = 'No se encontró un email válido en los datos básicos del solicitante';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            $stmtCfg = $this->db->query("SELECT config_key, config_value FROM global_config WHERE config_key IN ('smtp_user','smtp_password','smtp_host','smtp_port','site_name')");
+            $config = $stmtCfg->fetchAll(PDO::FETCH_KEY_PAIR);
+
+            $smtpHost = $config['smtp_host'] ?? '';
+            $smtpUser = $config['smtp_user'] ?? '';
+            $smtpPassword = $config['smtp_password'] ?? '';
+            $smtpPort = intval($config['smtp_port'] ?? 465);
+            $siteName = $config['site_name'] ?? (function_exists('getSiteName') ? getSiteName() : 'CRM Visas');
+
+            if ($smtpHost === '' || $smtpUser === '' || $smtpPassword === '') {
+                $_SESSION['error'] = 'La configuración SMTP está incompleta. Verifique Configuración del Sistema.';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            require_once ROOT_PATH . '/vendor/autoload.php';
+
+            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+
+            $mail->isSMTP();
+            $mail->Host = $smtpHost;
+            $mail->SMTPAuth = true;
+            $mail->Username = $smtpUser;
+            $mail->Password = $smtpPassword;
+            $mail->Port = $smtpPort;
+            $mail->SMTPSecure = ($smtpPort === 465)
+                ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
+                : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+
+            $mail->CharSet = 'UTF-8';
+            $mail->setFrom($smtpUser, $siteName);
+            $mail->addAddress($recipient);
+
+            $allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx', 'xls', 'xlsx'];
+            if (!empty($_FILES['email_attachments']) && is_array($_FILES['email_attachments']['name'] ?? null)) {
+                $totalFiles = count($_FILES['email_attachments']['name']);
+                for ($i = 0; $i < $totalFiles; $i++) {
+                    $error = $_FILES['email_attachments']['error'][$i] ?? UPLOAD_ERR_NO_FILE;
+                    if ($error === UPLOAD_ERR_NO_FILE) {
+                        continue;
+                    }
+                    if ($error !== UPLOAD_ERR_OK) {
+                        continue;
+                    }
+
+                    $tmpName = $_FILES['email_attachments']['tmp_name'][$i] ?? '';
+                    $originalName = $_FILES['email_attachments']['name'][$i] ?? 'adjunto';
+                    $size = intval($_FILES['email_attachments']['size'][$i] ?? 0);
+                    $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
+
+                    if (!in_array($extension, $allowedExtensions, true)) {
+                        continue;
+                    }
+                    if ($size <= 0 || $size > MAX_FILE_SIZE) {
+                        continue;
+                    }
+                    if ($tmpName === '' || !is_uploaded_file($tmpName)) {
+                        continue;
+                    }
+
+                    $mail->addAttachment($tmpName, $originalName);
+                }
+            }
+
+            $safeBody = nl2br(htmlspecialchars($bodyText, ENT_QUOTES, 'UTF-8'));
+            $mail->isHTML(true);
+            $mail->Subject = $subject;
+            $mail->Body = '<div style="font-family:Arial,sans-serif;max-width:700px;line-height:1.5;">' . $safeBody . '</div>';
+            $mail->AltBody = $bodyText;
+
+            $mail->send();
+
+            $clientName = trim((string) ($application['client_name'] ?? ''));
+            logAudit('email', 'solicitudes', "Correo 'trámite listo' enviado a $recipient para solicitud #$id");
+            logCustomerJourney(
+                $id,
+                'email',
+                'Correo de trámite listo enviado',
+                "Asunto: $subject" . ($clientName !== '' ? " | Cliente: $clientName" : ''),
+                'email'
+            );
+
+            $_SESSION['success'] = 'Correo enviado correctamente a ' . $recipient;
+            $this->redirect('/solicitudes/ver/' . $id);
+        } catch (\PHPMailer\PHPMailer\Exception $e) {
+            error_log("Error PHPMailer al enviar trámite listo: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al enviar correo: ' . $e->getMessage();
+            $this->redirect('/solicitudes/ver/' . $id);
+        } catch (PDOException $e) {
+            error_log("Error al enviar correo de trámite listo: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al enviar correo';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
     public function delete($id) {
         $this->requireRole([ROLE_ADMIN]);
 

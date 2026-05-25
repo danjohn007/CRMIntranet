@@ -4,6 +4,7 @@ ob_start();
 
 $role          = $_SESSION['user_role'];
 $isAdmin       = in_array($role, [ROLE_ADMIN, ROLE_GERENTE]);
+$isStrictAdmin = $role === ROLE_ADMIN;
 $isAsesor      = $role === ROLE_ASESOR;
 $status        = $application['status'];
 $isPassportService = stripos(trim((string) ($application['type'] ?? '')), 'pasaporte') !== false;
@@ -75,6 +76,10 @@ $canadianStatusLabels = [
     STATUS_EN_ESPERA_RESULTADO => 'En espera de resolución',
     STATUS_TRAMITE_CERRADO     => 'Trámite cerrado',
 ];
+
+$topBasicDataForMail = json_decode($application['data_json'] ?? '{}', true) ?: [];
+$basicApplicantEmail = trim((string) ($topBasicDataForMail['email'] ?? ''));
+$hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplicantEmail, FILTER_VALIDATE_EMAIL);
 ?>
 
 <div class="mb-6">
@@ -89,6 +94,14 @@ $canadianStatusLabels = [
                     class="bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition">
                 <i class="fas fa-file-alt mr-2"></i>
                 <?= $infoSheet ? 'Editar hoja de información' : 'Crear hoja de información' ?>
+            </button>
+            <?php endif; ?>
+            <?php if ($isStrictAdmin && !$isAdvisorTemporaryClosedAccess): ?>
+            <button type="button"
+                    onclick="document.getElementById('readyEmailModal').classList.remove('hidden')"
+                    class="bg-emerald-600 text-white px-4 py-3 rounded-lg hover:bg-emerald-700 transition <?= $hasBasicApplicantEmail ? '' : 'opacity-60 cursor-not-allowed' ?>"
+                    <?= $hasBasicApplicantEmail ? '' : 'disabled' ?>>
+                <i class="fas fa-paper-plane mr-2"></i>Enviar trámite listo
             </button>
             <?php endif; ?>
             <a href="<?= BASE_URL ?>/customer-journey/<?= $application['id'] ?>"
@@ -1737,6 +1750,54 @@ $canadianStatusLabels = [
             <?php endif; ?>
         </div><!-- /tab-familiar -->
 
+    </div>
+</div>
+<?php endif; ?>
+
+<?php if ($isStrictAdmin && !$isAdvisorTemporaryClosedAccess): ?>
+<div id="readyEmailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+    <div class="bg-white rounded-lg p-6 w-full max-w-2xl">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="text-xl font-bold">Enviar trámite listo</h3>
+            <button type="button" onclick="document.getElementById('readyEmailModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times text-xl"></i></button>
+        </div>
+
+        <?php if (!$hasBasicApplicantEmail): ?>
+        <div class="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+            <i class="fas fa-exclamation-triangle mr-1"></i>
+            No hay un email válido en los datos básicos del solicitante.
+        </div>
+        <?php endif; ?>
+
+        <form method="POST" action="<?= BASE_URL ?>/solicitudes/enviar-tramite-listo/<?= $application['id'] ?>" enctype="multipart/form-data">
+            <div class="mb-3">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Destinatario (Datos básicos)</label>
+                <input type="email" value="<?= htmlspecialchars($basicApplicantEmail) ?>" readonly class="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 text-gray-700">
+            </div>
+
+            <div class="mb-3">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Asunto</label>
+                <input type="text" name="email_subject" required maxlength="200" class="w-full border border-gray-300 rounded-lg px-4 py-2" placeholder="Ej. Trámite listo para continuar">
+            </div>
+
+            <div class="mb-3">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Contenido del correo</label>
+                <textarea name="email_body" rows="8" required class="w-full border border-gray-300 rounded-lg px-4 py-2" placeholder="Escribe aquí el contenido del correo..."></textarea>
+            </div>
+
+            <div class="mb-4">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Adjuntar archivos</label>
+                <input type="file" name="email_attachments[]" multiple class="w-full border border-gray-300 rounded-lg px-4 py-2" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
+                <p class="text-xs text-gray-500 mt-1">Formatos permitidos: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX (máx 2MB por archivo)</p>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition" <?= $hasBasicApplicantEmail ? '' : 'disabled' ?>>
+                    <i class="fas fa-paper-plane mr-2"></i>Enviar correo
+                </button>
+                <button type="button" onclick="document.getElementById('readyEmailModal').classList.add('hidden')" class="flex-1 bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600">Cancelar</button>
+            </div>
+        </form>
     </div>
 </div>
 <?php endif; ?>

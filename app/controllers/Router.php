@@ -44,6 +44,7 @@ class Router {
         $this->routes['POST']['/solicitudes/guardar-documentos-recibidos/{id}'] = ['ApplicationController', 'saveReceivedDocumentsChecklist'];
         $this->routes['POST']['/solicitudes/guardar-observaciones-incidencias/{id}'] = ['ApplicationController', 'saveObservationsIncidencesChecklist'];
         $this->routes['POST']['/solicitudes/confirmar-respuestas/{id}'] = ['ApplicationController', 'confirmFormResponses'];
+        $this->routes['POST']['/solicitudes/enviar-tramite-listo/{id}'] = ['ApplicationController', 'sendReadyProcedureEmail'];
         
         // Solicitudes
         $this->routes['GET']['/solicitudes'] = ['ApplicationController', 'index'];
