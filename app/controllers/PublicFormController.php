@@ -24,6 +24,74 @@ class PublicFormController extends BaseController {
         
         return ['fields' => []];
     }
+
+    private function normalizeText($value) {
+        $value = (string) $value;
+        $value = strtr($value, [
+            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+        ]);
+        return strtolower(trim($value));
+    }
+
+    private function resolveMexicanPassportSubtypeFromAnswer($answer) {
+        $normalized = $this->normalizeText($answer);
+
+        if ($normalized === 'primera vez' || $normalized === 'primera_vez') {
+            return 'Primera vez';
+        }
+        if (strpos($normalized, 'renov') !== false) {
+            return 'Renovación';
+        }
+        if (strpos($normalized, 'menor') !== false) {
+            return 'Menor de edad';
+        }
+        if (
+            strpos($normalized, 'robo') !== false ||
+            strpos($normalized, 'extravio') !== false ||
+            strpos($normalized, 'reposicion') !== false
+        ) {
+            return 'Robo/ extravío';
+        }
+        if (
+            strpos($normalized, 'correccion') !== false ||
+            strpos($normalized, 'dato') !== false ||
+            strpos($normalized, 'danado') !== false
+        ) {
+            return 'Corrección de Datos';
+        }
+
+        return null;
+    }
+
+    private function extractTipoTramiteAnswer(array $data, array $fields) {
+        $tipoTramiteValue = null;
+
+        foreach ($fields['fields'] ?? [] as $field) {
+            $labelNormalized = $this->normalizeText($field['label'] ?? '');
+            if (strpos($labelNormalized, 'tipo de tramite') !== false) {
+                $fieldId = $field['id'] ?? null;
+                if ($fieldId !== null && isset($data[$fieldId]) && !is_array($data[$fieldId])) {
+                    $tipoTramiteValue = trim((string) $data[$fieldId]);
+                    if ($tipoTramiteValue !== '') {
+                        return $tipoTramiteValue;
+                    }
+                }
+            }
+        }
+
+        // Fallback for legacy payloads that might store semantic keys.
+        foreach (['tipo_tramite', 'tipoTramite', 'tipo de tramite', 'tipo de trámite', 'Tipo de Trámite'] as $key) {
+            if (isset($data[$key]) && !is_array($data[$key])) {
+                $tipoTramiteValue = trim((string) $data[$key]);
+                if ($tipoTramiteValue !== '') {
+                    return $tipoTramiteValue;
+                }
+            }
+        }
+
+        return null;
+    }
     
     /**
      * Show public form by token (no authentication required)
@@ -331,6 +399,29 @@ class PublicFormController extends BaseController {
                         SET form_link_status = 'completado', data_json = ?, progress_percentage = 100
                         WHERE id = ?
                     ")->execute([$submissionData, $applicationId]);
+
+                    // For Mexican passport forms, sync application subtype from client's
+                    // "Tipo de Trámite" answer when available.
+                    $tipoTramiteAnswer = $this->extractTipoTramiteAnswer($data, $fields);
+                    if ($tipoTramiteAnswer !== null) {
+                        $stmtSubtypeContext = $this->db->prepare("SELECT type, subtype FROM applications WHERE id = ?");
+                        $stmtSubtypeContext->execute([$applicationId]);
+                        $appSubtypeContext = $stmtSubtypeContext->fetch();
+
+                        $isMexicanPassportApplication =
+                            $appSubtypeContext &&
+                            $this->normalizeText($appSubtypeContext['type'] ?? '') === 'pasaporte' &&
+                            strpos($this->normalizeText($appSubtypeContext['subtype'] ?? ''), 'mexicano') !== false;
+
+                        if ($isMexicanPassportApplication) {
+                            $resolvedSubtype = $this->resolveMexicanPassportSubtypeFromAnswer($tipoTramiteAnswer);
+                            if ($resolvedSubtype !== null) {
+                                $newSubtypeValue = 'Mexicano - ' . $resolvedSubtype;
+                                $this->db->prepare("UPDATE applications SET subtype = ? WHERE id = ?")
+                                    ->execute([$newSubtypeValue, $applicationId]);
+                            }
+                        }
+                    }
 
                     // Link submission to application
                     $this->db->prepare("

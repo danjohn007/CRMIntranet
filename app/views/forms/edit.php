@@ -25,6 +25,14 @@ if (stripos($currentSubtypeRaw, 'mexicano - ') === 0) {
 if ($passportSubtypeCurrent === '') {
     $passportSubtypeCurrent = 'Primera vez';
 }
+
+if ($passportCategoryCurrent === 'Mexicano') {
+    if (strcasecmp($passportSubtypeCurrent, 'Reposición por robo') === 0) {
+        $passportSubtypeCurrent = 'Robo/ extravío';
+    } elseif (strcasecmp($passportSubtypeCurrent, 'Pasaporte dañado') === 0) {
+        $passportSubtypeCurrent = 'Corrección de Datos';
+    }
+}
 ?>
 
 <div class="mb-6">
@@ -170,7 +178,7 @@ document.getElementById('pagination_enabled').addEventListener('change', functio
 
     const passportSubtypeOptions = {
         Americano: ['Primera vez', 'Renovación', 'Menor de edad', 'Reposición por robo', 'Pasaporte dañado'],
-        Mexicano: ['Primera vez', 'Renovación', 'Menor de edad', 'Reposición por robo', 'Pasaporte dañado']
+        Mexicano: ['Primera vez', 'Renovación', 'Menor de edad', 'Robo/ extravío', 'Corrección de Datos']
     };
 
     function renderPassportSubtypeOptions() {
