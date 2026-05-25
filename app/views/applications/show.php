@@ -211,9 +211,14 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
     if (!empty($sreAppointmentDateValue)) {
         $sreAppointmentDateInputValue = date('Y-m-d\TH:i', strtotime($sreAppointmentDateValue));
     }
+    
+    // Determinar texto según tipo de pasaporte
+    $appointmentLabel = $isAmericanPassportRequest ? 'Cita del consulado de américa' : 'Cita de la SRE';
+    $saveButtonText = $isAmericanPassportRequest ? 'Guardar cita consulado' : 'Guardar cita SRE';
+    $scheduledText = $isAmericanPassportRequest ? 'Cita consulado agendada:' : 'Cita SRE agendada:';
 ?>
 <div class="bg-white border border-blue-200 rounded-lg p-5 mb-6 shadow-sm">
-    <h4 class="text-base font-bold text-blue-800 mb-3"><i class="fas fa-landmark text-blue-500 mr-2"></i>Cita de la SRE</h4>
+    <h4 class="text-base font-bold text-blue-800 mb-3"><i class="fas fa-landmark text-blue-500 mr-2"></i><?= $appointmentLabel ?></h4>
     <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-cita-sre/<?= $application['id'] ?>" class="flex flex-wrap gap-4 items-end">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Día y hora</label>
@@ -223,14 +228,14 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
         </div>
         <div>
             <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 transition">
-                <i class="fas fa-save mr-1"></i>Guardar cita SRE
+                <i class="fas fa-save mr-1"></i><?= $saveButtonText ?>
             </button>
         </div>
     </form>
     <?php if (!empty($sreAppointmentDateValue)): ?>
     <div class="mt-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
         <i class="fas fa-calendar-check mr-1"></i>
-        <strong>Cita SRE agendada:</strong>
+        <strong><?= $scheduledText ?></strong>
         <?= date('d/m/Y H:i', strtotime($sreAppointmentDateValue)) ?>
     </div>
     <?php endif; ?>
