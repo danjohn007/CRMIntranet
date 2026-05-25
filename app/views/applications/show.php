@@ -377,7 +377,7 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
         }
 
         $showResponsesSection =
-            ($isAsesor && $application['form_link_status'] === 'completado') ||
+            (($isAsesor || $isAdvisorTemporaryClosedAccess) && $application['form_link_status'] === 'completado') ||
             ($isAdmin && ($application['form_link_status'] === 'completado' || $hasQuestionnaireResponseData));
         ?>
         <?php if ($showResponsesSection): ?>
@@ -1285,18 +1285,18 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
                                 <p class="text-sm text-gray-500"><?= htmlspecialchars($doc['uploaded_by_name']) ?> · <?= date('d/m/Y H:i', strtotime($doc['created_at'])) ?> · <?= number_format($doc['file_size']/1024, 0) ?> KB</p>
                             </div>
                         </div>
-                        <?php if ($isAdmin): ?>
+                        <?php if ($isAdmin || $isAdvisorTemporaryClosedAccess): ?>
                         <div class="flex items-center space-x-3">
                             <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" target="_blank" class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></a>
                             <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $doc['id'] ?>" class="text-primary hover:underline"><i class="fas fa-download"></i></a>
                         </div>
                         <?php endif; ?>
                     </div>
-                    <?php if ($isAdmin && $isImage): ?>
+                    <?php if (($isAdmin || $isAdvisorTemporaryClosedAccess) && $isImage): ?>
                     <div class="mt-2">
                         <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" alt="<?= htmlspecialchars($doc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:400px;">
                     </div>
-                    <?php elseif ($isAdmin && $doc['file_type'] === 'pdf'): ?>
+                    <?php elseif (($isAdmin || $isAdvisorTemporaryClosedAccess) && $doc['file_type'] === 'pdf'): ?>
                     <div class="mt-2">
                         <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" type="application/pdf" title="<?= htmlspecialchars($doc['name']) ?>" class="w-full rounded border border-gray-200" style="height:400px;">
                     </div>
@@ -1387,18 +1387,18 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
                                 <p class="text-sm text-gray-500"><?= htmlspecialchars($doc['uploaded_by_name']) ?> · <?= date('d/m/Y H:i', strtotime($doc['created_at'])) ?> · <?= number_format($doc['file_size']/1024, 0) ?> KB</p>
                             </div>
                         </div>
-                        <?php if ($isAdmin): ?>
+                        <?php if ($isAdmin || $isAdvisorTemporaryClosedAccess): ?>
                         <div class="flex items-center space-x-3">
                             <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" target="_blank" class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></a>
                             <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $doc['id'] ?>" class="text-primary hover:underline"><i class="fas fa-download"></i></a>
                         </div>
                         <?php endif; ?>
                     </div>
-                    <?php if ($isAdmin && $isImage): ?>
+                    <?php if (($isAdmin || $isAdvisorTemporaryClosedAccess) && $isImage): ?>
                     <div class="mt-2">
                         <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" alt="<?= htmlspecialchars($doc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:400px;">
                     </div>
-                    <?php elseif ($isAdmin && $doc['file_type'] === 'pdf'): ?>
+                    <?php elseif (($isAdmin || $isAdvisorTemporaryClosedAccess) && $doc['file_type'] === 'pdf'): ?>
                     <div class="mt-2">
                         <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" type="application/pdf" title="<?= htmlspecialchars($doc['name']) ?>" class="w-full rounded border border-gray-200" style="height:400px;">
                     </div>
