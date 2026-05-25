@@ -2559,31 +2559,15 @@ class ApplicationController extends BaseController {
 
             require_once ROOT_PATH . '/vendor/autoload.php';
 
-            $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+            $safeBody = nl2br(htmlspecialchars($bodyText, ENT_QUOTES, 'UTF-8'));
 
-            $mail->isSMTP();
-            $mail->Host = $smtpHost;
-            $mail->SMTPAuth = true;
-            $mail->Username = $smtpUser;
-            $mail->Password = $smtpPassword;
-            $mail->Port = $smtpPort;
-            $mail->SMTPSecure = ($smtpPort === 465)
-                ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
-                : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-
-            $mail->CharSet = 'UTF-8';
-            $mail->setFrom($smtpUser, $siteName);
-            $mail->addAddress($recipient);
-
+            $attachmentFiles = [];
             $allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx', 'xls', 'xlsx'];
             if (!empty($_FILES['email_attachments']) && is_array($_FILES['email_attachments']['name'] ?? null)) {
                 $totalFiles = count($_FILES['email_attachments']['name']);
                 for ($i = 0; $i < $totalFiles; $i++) {
                     $error = $_FILES['email_attachments']['error'][$i] ?? UPLOAD_ERR_NO_FILE;
-                    if ($error === UPLOAD_ERR_NO_FILE) {
-                        continue;
-                    }
-                    if ($error !== UPLOAD_ERR_OK) {
+                    if ($error === UPLOAD_ERR_NO_FILE || $error !== UPLOAD_ERR_OK) {
                         continue;
                     }
 
@@ -2602,17 +2586,63 @@ class ApplicationController extends BaseController {
                         continue;
                     }
 
-                    $mail->addAttachment($tmpName, $originalName);
+                    $attachmentFiles[] = ['tmp' => $tmpName, 'name' => $originalName];
                 }
             }
 
-            $safeBody = nl2br(htmlspecialchars($bodyText, ENT_QUOTES, 'UTF-8'));
-            $mail->isHTML(true);
-            $mail->Subject = $subject;
-            $mail->Body = '<div style="font-family:Arial,sans-serif;max-width:700px;line-height:1.5;">' . $safeBody . '</div>';
-            $mail->AltBody = $bodyText;
+            $sendAttempt = function () use (
+                $smtpHost,
+                $smtpUser,
+                $smtpPassword,
+                $smtpPort,
+                $siteName,
+                $recipient,
+                $subject,
+                $safeBody,
+                $bodyText,
+                $attachmentFiles
+            ) {
+                $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
+                $mail->isSMTP();
+                $mail->Host = $smtpHost;
+                $mail->SMTPAuth = true;
+                $mail->Username = $smtpUser;
+                $mail->Password = $smtpPassword;
+                $mail->Port = $smtpPort;
+                $mail->SMTPSecure = ($smtpPort === 465)
+                    ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
+                    : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
+                $mail->SMTPOptions = [
+                    'ssl' => [
+                        'verify_peer' => false,
+                        'verify_peer_name' => false,
+                        'allow_self_signed' => true,
+                    ],
+                ];
+                $mail->Timeout = 25;
+                $mail->CharSet = 'UTF-8';
+                $mail->setFrom($smtpUser, $siteName);
+                $mail->addAddress($recipient);
 
-            $mail->send();
+                foreach ($attachmentFiles as $attachmentFile) {
+                    $mail->addAttachment($attachmentFile['tmp'], $attachmentFile['name']);
+                }
+
+                $mail->isHTML(true);
+                $mail->Subject = $subject;
+                $mail->Body = '<div style="font-family:Arial,sans-serif;max-width:700px;line-height:1.5;">' . $safeBody . '</div>';
+                $mail->AltBody = $bodyText;
+
+                $mail->send();
+            };
+
+            try {
+                $sendAttempt();
+            } catch (\PHPMailer\PHPMailer\Exception $firstTryError) {
+                error_log("Primer intento fallido (trámite listo #$id): " . $firstTryError->getMessage());
+                // Reintento inmediato para errores transitorios del SMTP.
+                $sendAttempt();
+            }
 
             $clientName = trim((string) ($application['client_name'] ?? ''));
             logAudit('email', 'solicitudes', "Correo 'trámite listo' enviado a $recipient para solicitud #$id");
@@ -2624,7 +2654,7 @@ class ApplicationController extends BaseController {
                 'email'
             );
 
-            $_SESSION['success'] = 'Correo enviado correctamente a ' . $recipient;
+            $_SESSION['success'] = 'Correo enviado correctamente a ' . $recipient . '. Si su proveedor lo retrasa, puede tardar unos minutos en recibirse.';
             $this->redirect('/solicitudes/ver/' . $id);
         } catch (\PHPMailer\PHPMailer\Exception $e) {
             error_log("Error PHPMailer al enviar trámite listo: " . $e->getMessage());
