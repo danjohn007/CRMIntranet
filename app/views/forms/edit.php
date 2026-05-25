@@ -3,6 +3,29 @@ $title = 'Editar Formulario';
 ob_start(); 
 
 $currentSubtypeRaw = trim((string) ($form['subtype'] ?? ''));
+$visaCategoryCurrent = 'Americana';
+$visaSubtypeCurrent = $currentSubtypeRaw;
+
+if (stripos($currentSubtypeRaw, 'canadiense - ') === 0) {
+    $visaCategoryCurrent = 'Canadiense';
+    $visaSubtypeCurrent = trim(substr($currentSubtypeRaw, strlen('Canadiense - ')));
+} elseif (stripos($currentSubtypeRaw, 'americana - ') === 0) {
+    $visaCategoryCurrent = 'Americana';
+    $visaSubtypeCurrent = trim(substr($currentSubtypeRaw, strlen('Americana - ')));
+} elseif (stripos($currentSubtypeRaw, 'canadiense') !== false) {
+    $visaCategoryCurrent = 'Canadiense';
+    $visaSubtypeCurrent = trim(str_ireplace('canadiense', '', $currentSubtypeRaw));
+    $visaSubtypeCurrent = trim($visaSubtypeCurrent, " -");
+} elseif (stripos($currentSubtypeRaw, 'americana') !== false) {
+    $visaCategoryCurrent = 'Americana';
+    $visaSubtypeCurrent = trim(str_ireplace('americana', '', $currentSubtypeRaw));
+    $visaSubtypeCurrent = trim($visaSubtypeCurrent, " -");
+}
+
+if ($visaSubtypeCurrent === '') {
+    $visaSubtypeCurrent = 'PRIMERA VEZ - SIN TRASLADO';
+}
+
 $passportCategoryCurrent = 'Americano';
 $passportSubtypeCurrent = $currentSubtypeRaw;
 
@@ -70,6 +93,20 @@ if ($passportCategoryCurrent === 'Mexicano') {
                     <option value="Pasaporte" <?= $form['type'] === 'Pasaporte' ? 'selected' : '' ?>>Pasaporte</option>
                 </select>
             </div>
+
+            <div id="visaCategoryWrapper" class="<?= $form['type'] === 'Visa' ? '' : 'hidden' ?>">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Subtipo de visa</label>
+                <select id="visaCategorySelect" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
+                    <option value="Americana" <?= $visaCategoryCurrent === 'Americana' ? 'selected' : '' ?>>Americana</option>
+                    <option value="Canadiense" <?= $visaCategoryCurrent === 'Canadiense' ? 'selected' : '' ?>>Canadiense</option>
+                </select>
+            </div>
+
+            <div id="visaSubtypeSelectWrapper" class="<?= $form['type'] === 'Visa' ? '' : 'hidden' ?>">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Tipo de trámite</label>
+                <select id="visaSubtypeSelect" class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                        data-current-value="<?= htmlspecialchars($visaSubtypeCurrent, ENT_QUOTES, 'UTF-8') ?>"></select>
+            </div>
             
             <div id="passportCategoryWrapper" class="<?= $form['type'] === 'Pasaporte' ? '' : 'hidden' ?>">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Subtipo de pasaporte</label>
@@ -85,9 +122,9 @@ if ($passportCategoryCurrent === 'Mexicano') {
                         data-current-value="<?= htmlspecialchars($passportSubtypeCurrent, ENT_QUOTES, 'UTF-8') ?>"></select>
             </div>
 
-            <div id="genericSubtypeInputWrapper" class="<?= $form['type'] === 'Pasaporte' ? 'hidden' : '' ?>">
+            <div id="genericSubtypeInputWrapper" class="<?= in_array($form['type'], ['Pasaporte', 'Visa'], true) ? 'hidden' : '' ?>">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Subtipo</label>
-                <input type="text" id="genericSubtypeInput" value="<?= $form['type'] === 'Pasaporte' ? '' : htmlspecialchars($form['subtype'] ?? '') ?>"
+                <input type="text" id="genericSubtypeInput" value="<?= in_array($form['type'], ['Pasaporte', 'Visa'], true) ? '' : htmlspecialchars($form['subtype'] ?? '') ?>"
                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
                        placeholder="Ej: Primera vez, Renovación, etc.">
             </div>
@@ -167,6 +204,10 @@ document.getElementById('pagination_enabled').addEventListener('change', functio
 
 (function() {
     const typeSelect = document.getElementById('formTypeSelect');
+    const visaCategoryWrapper = document.getElementById('visaCategoryWrapper');
+    const visaCategorySelect = document.getElementById('visaCategorySelect');
+    const visaSubtypeSelectWrapper = document.getElementById('visaSubtypeSelectWrapper');
+    const visaSubtypeSelect = document.getElementById('visaSubtypeSelect');
     const passportCategoryWrapper = document.getElementById('passportCategoryWrapper');
     const passportCategorySelect = document.getElementById('passportCategorySelect');
     const passportSubtypeSelectWrapper = document.getElementById('passportSubtypeSelectWrapper');
@@ -180,6 +221,34 @@ document.getElementById('pagination_enabled').addEventListener('change', functio
         Americano: ['Primera vez', 'Renovación', 'Menor de edad', 'Reposición por robo', 'Pasaporte dañado'],
         Mexicano: ['Primera vez', 'Renovación', 'Menor de edad', 'Robo/ extravío', 'Corrección de Datos']
     };
+
+    const visaSubtypeOptions = {
+        Americana: ['PRIMERA VEZ - SIN TRASLADO', 'PRIMERA VEZ - CON TRASLADO', 'RENOVACIÓN - CON TRASLADO'],
+        Canadiense: ['PRIMERA VEZ - SIN TRASLADO', 'PRIMERA VEZ - CON TRASLADO', 'RENOVACIÓN - CON TRASLADO']
+    };
+
+    function renderVisaSubtypeOptions() {
+        if (!visaSubtypeSelect || !visaCategorySelect) {
+            return;
+        }
+
+        const category = visaCategorySelect.value || 'Americana';
+        const options = visaSubtypeOptions[category] || [];
+        const preferredCurrentValue = visaSubtypeSelect.dataset.currentValue || '';
+        const previousValue = visaSubtypeSelect.value || preferredCurrentValue;
+
+        visaSubtypeSelect.innerHTML = '<option value="">Seleccione...</option>';
+        options.forEach(function(option) {
+            const optionEl = document.createElement('option');
+            optionEl.value = option;
+            optionEl.textContent = option;
+            visaSubtypeSelect.appendChild(optionEl);
+        });
+
+        if (options.indexOf(previousValue) !== -1) {
+            visaSubtypeSelect.value = previousValue;
+        }
+    }
 
     function renderPassportSubtypeOptions() {
         if (!passportSubtypeSelect || !passportCategorySelect) {
@@ -210,9 +279,17 @@ document.getElementById('pagination_enabled').addEventListener('change', functio
         }
 
         const isPassport = typeSelect && typeSelect.value === 'Pasaporte';
+        const isVisa = typeSelect && typeSelect.value === 'Visa';
         if (isPassport) {
             const category = passportCategorySelect ? passportCategorySelect.value : '';
             const subtype = passportSubtypeSelect ? passportSubtypeSelect.value : '';
+            subtypeValue.value = subtype ? (category + ' - ' + subtype) : '';
+            return;
+        }
+
+        if (isVisa) {
+            const category = visaCategorySelect ? visaCategorySelect.value : '';
+            const subtype = visaSubtypeSelect ? visaSubtypeSelect.value : '';
             subtypeValue.value = subtype ? (category + ' - ' + subtype) : '';
             return;
         }
@@ -222,6 +299,15 @@ document.getElementById('pagination_enabled').addEventListener('change', functio
 
     function syncSubtypeField() {
         const isPassport = typeSelect && typeSelect.value === 'Pasaporte';
+        const isVisa = typeSelect && typeSelect.value === 'Visa';
+
+        if (visaCategoryWrapper) {
+            visaCategoryWrapper.classList.toggle('hidden', !isVisa);
+        }
+
+        if (visaSubtypeSelectWrapper) {
+            visaSubtypeSelectWrapper.classList.toggle('hidden', !isVisa);
+        }
 
         if (passportCategoryWrapper) {
             passportCategoryWrapper.classList.toggle('hidden', !isPassport);
@@ -238,15 +324,35 @@ document.getElementById('pagination_enabled').addEventListener('change', functio
             passportSubtypeSelect.required = isPassport;
             if (isPassport) {
                 renderPassportSubtypeOptions();
+            } else {
+                passportSubtypeSelect.value = '';
             }
         }
+
+        if (visaSubtypeSelect) {
+            visaSubtypeSelect.required = isVisa;
+            if (isVisa) {
+                renderVisaSubtypeOptions();
+            } else {
+                visaSubtypeSelect.value = '';
+            }
+        }
+
+        if (visaCategorySelect && !isVisa) {
+            visaCategorySelect.value = 'Americana';
+        }
+
         if (genericSubtypeInput) {
-            genericSubtypeInput.required = !isPassport;
-            if (isPassport) {
+            genericSubtypeInput.required = !isPassport && !isVisa;
+            if (isPassport || isVisa) {
                 genericSubtypeInput.value = '';
             } else if (passportSubtypeSelect && passportSubtypeSelect.value === '') {
                 // keep current typed value when switching back from passport
             }
+        }
+
+        if (genericSubtypeInputWrapper) {
+            genericSubtypeInputWrapper.classList.toggle('hidden', isPassport || isVisa);
         }
 
         syncSubtypeValue();
@@ -260,8 +366,17 @@ document.getElementById('pagination_enabled').addEventListener('change', functio
                 syncSubtypeValue();
             });
         }
+        if (visaCategorySelect) {
+            visaCategorySelect.addEventListener('change', function() {
+                renderVisaSubtypeOptions();
+                syncSubtypeValue();
+            });
+        }
         if (passportSubtypeSelect) {
             passportSubtypeSelect.addEventListener('change', syncSubtypeValue);
+        }
+        if (visaSubtypeSelect) {
+            visaSubtypeSelect.addEventListener('change', syncSubtypeValue);
         }
         if (genericSubtypeInput) {
             genericSubtypeInput.addEventListener('input', syncSubtypeValue);
