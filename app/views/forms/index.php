@@ -77,6 +77,12 @@ ob_start();
                                class="text-primary hover:underline" title="Editar">
                                 <i class="fas fa-edit"></i>
                             </a>
+                            <form method="POST" action="<?= BASE_URL ?>/formularios/duplicar/<?= $form['id'] ?>" class="inline">
+                                <button type="submit" class="text-blue-600 hover:text-blue-800" 
+                                        title="Duplicar">
+                                    <i class="fas fa-copy"></i>
+                                </button>
+                            </form>
                             <form method="POST" action="<?= BASE_URL ?>/formularios/publicar/<?= $form['id'] ?>" class="inline">
                                 <button type="submit" class="<?= $form['is_published'] ? 'text-gray-600 hover:text-gray-800' : 'text-green-600 hover:text-green-800' ?>" 
                                         title="<?= $form['is_published'] ? 'Despublicar' : 'Publicar' ?>">

@@ -32,6 +32,7 @@ class Router {
         $this->routes['POST']['/formularios/actualizar/{id}'] = ['FormController', 'update'];
         $this->routes['POST']['/formularios/eliminar/{id}'] = ['FormController', 'delete'];
         $this->routes['POST']['/formularios/publicar/{id}'] = ['FormController', 'publish'];
+        $this->routes['POST']['/formularios/duplicar/{id}'] = ['FormController', 'duplicate'];
         
         $this->routes['POST']['/solicitudes/guardar-hoja-info/{id}'] = ['ApplicationController', 'saveInfoSheet'];
         $this->routes['POST']['/solicitudes/guardar-familiar/{id}'] = ['ApplicationController', 'saveFamiliar'];
