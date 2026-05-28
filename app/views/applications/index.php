@@ -139,6 +139,32 @@ document.addEventListener('DOMContentLoaded', updateStatusOptions);
                     // Is Canadian visa flow?
                     $appIsCanadian = !empty($app['is_canadian_visa']);
 
+                    // Principal service subtype shown in list (Americano/Mexicano/Canadiense)
+                    $servicePrimarySubtype = '';
+                    $typeLower = strtolower((string) ($app['type'] ?? ''));
+                    $subtypeLower = strtolower((string) $subtype);
+                    $formNameLower = strtolower((string) ($app['form_name'] ?? ''));
+
+                    if (
+                        $appIsCanadian
+                        || strpos($subtypeLower, 'canad') !== false
+                        || strpos($formNameLower, 'canad') !== false
+                    ) {
+                        $servicePrimarySubtype = 'Canadiense';
+                    } elseif (
+                        strpos($subtypeLower, 'americ') !== false
+                        || strpos($formNameLower, 'americ') !== false
+                        || strpos($typeLower, 'americano') !== false
+                    ) {
+                        $servicePrimarySubtype = 'Americano';
+                    } elseif (
+                        strpos($subtypeLower, 'mexic') !== false
+                        || strpos($formNameLower, 'mexic') !== false
+                        || strpos($typeLower, 'mexicano') !== false
+                    ) {
+                        $servicePrimarySubtype = 'Mexicano';
+                    }
+
                     // Status color class
                     $sc = 'bg-gray-100 text-gray-800';
                     if (in_array($app['status'], [STATUS_TRAMITE_CERRADO, STATUS_FINALIZADO])) $sc = 'bg-green-100 text-green-800';
@@ -165,6 +191,9 @@ document.addEventListener('DOMContentLoaded', updateStatusOptions);
                         <span class="text-sm text-gray-900"><?= htmlspecialchars($app['type']) ?></span>
                         <?php if ($appIsCanadian): ?>
                         <span class="ml-1 text-base" title="Visa Canadiense">🍁</span>
+                        <?php endif; ?>
+                        <?php if (!empty($servicePrimarySubtype)): ?>
+                        <p class="text-xs text-gray-500 mt-0.5">Subtipo: <?= htmlspecialchars($servicePrimarySubtype) ?></p>
                         <?php endif; ?>
                     </td>
                     <td class="px-3 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
