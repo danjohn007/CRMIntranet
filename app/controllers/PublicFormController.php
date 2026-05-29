@@ -92,6 +92,79 @@ class PublicFormController extends BaseController {
 
         return null;
     }
+
+    private function shouldCountFieldForProgress(array $field, array $data) {
+        $fieldType = strtolower((string) ($field['type'] ?? ''));
+        $fieldId = (string) ($field['id'] ?? '');
+
+        if ($fieldType === 'label' || $fieldId === '') {
+            return false;
+        }
+
+        $conditional = $field['conditional'] ?? [];
+        $conditionalEnabled = !empty($conditional['enabled']);
+        if (!$conditionalEnabled) {
+            return true;
+        }
+
+        $parentFieldId = (string) ($conditional['parentFieldId'] ?? '');
+        $expectedValue = trim((string) ($conditional['value'] ?? ''));
+
+        if ($parentFieldId === '' || $expectedValue === '') {
+            return true;
+        }
+
+        if (!array_key_exists($parentFieldId, $data)) {
+            return false;
+        }
+
+        $parentValue = $data[$parentFieldId];
+
+        if (is_array($parentValue)) {
+            foreach ($parentValue as $value) {
+                if (trim((string) $value) === $expectedValue) {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        if (is_bool($parentValue)) {
+            $parentValue = $parentValue ? 'on' : '';
+        }
+
+        return trim((string) $parentValue) === $expectedValue;
+    }
+
+    private function isFieldFilledForProgress(array $field, array $data) {
+        $fieldId = (string) ($field['id'] ?? '');
+        if ($fieldId === '' || !array_key_exists($fieldId, $data)) {
+            return false;
+        }
+
+        $value = $data[$fieldId];
+        $fieldType = strtolower((string) ($field['type'] ?? ''));
+
+        if (is_array($value)) {
+            foreach ($value as $item) {
+                if (trim((string) $item) !== '') {
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        if ($fieldType === 'checkbox') {
+            if (is_bool($value)) {
+                return $value;
+            }
+
+            $normalized = strtolower(trim((string) $value));
+            return in_array($normalized, ['1', 'true', 'on', 'si', 'sí'], true);
+        }
+
+        return trim((string) $value) !== '';
+    }
     
     /**
      * Show public form by token (no authentication required)
@@ -252,11 +325,17 @@ class PublicFormController extends BaseController {
             
             // Calculate progress
             $fields = $this->normalizeFieldsPayload(json_decode($form['fields_json'], true));
-            $totalFields = count($fields['fields'] ?? []);
+            $totalFields = 0;
             $filledFields = 0;
             
             foreach ($fields['fields'] ?? [] as $field) {
-                if (isset($data[$field['id']]) && !empty($data[$field['id']])) {
+                if (!$this->shouldCountFieldForProgress($field, $data)) {
+                    continue;
+                }
+
+                $totalFields++;
+
+                if ($this->isFieldFilledForProgress($field, $data)) {
                     $filledFields++;
                 }
             }

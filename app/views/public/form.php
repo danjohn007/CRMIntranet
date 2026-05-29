@@ -557,6 +557,75 @@
                 saveDraftBtn.classList.remove('hidden');
             }
         }
+
+        function shouldCountFieldInProgress(fieldDiv) {
+            if (!fieldDiv) {
+                return false;
+            }
+
+            const controls = fieldDiv.querySelectorAll('input, select, textarea');
+            if (controls.length === 0) {
+                return false;
+            }
+
+            if (fieldDiv.getAttribute('data-conditional-enabled') !== '1') {
+                return true;
+            }
+
+            const parentFieldId = fieldDiv.getAttribute('data-conditional-parent');
+            const expectedValue = (fieldDiv.getAttribute('data-conditional-value') || '').trim();
+
+            if (!parentFieldId || expectedValue === '') {
+                return true;
+            }
+
+            const parentField = document.getElementById(`field_${parentFieldId}`);
+            if (!parentField) {
+                return false;
+            }
+
+            let parentValue = '';
+            if (parentField.type === 'checkbox') {
+                parentValue = parentField.checked ? String(parentField.value || 'on').trim() : '';
+            } else if (parentField.type === 'radio') {
+                const checkedRadio = Array.from(document.getElementsByName(parentField.name || '')).find(function(radio) {
+                    return radio.checked;
+                });
+                parentValue = checkedRadio ? String(checkedRadio.value || '').trim() : '';
+            } else {
+                parentValue = String(parentField.value || '').trim();
+            }
+
+            return parentValue === expectedValue;
+        }
+
+        function isFieldFilledForProgress(fieldDiv) {
+            if (!fieldDiv) {
+                return false;
+            }
+
+            const radioInputs = fieldDiv.querySelectorAll('input[type="radio"]');
+            if (radioInputs.length > 0) {
+                return Array.from(radioInputs).some(function(radio) {
+                    return radio.checked;
+                });
+            }
+
+            const control = fieldDiv.querySelector('input, select, textarea');
+            if (!control) {
+                return false;
+            }
+
+            if (control.type === 'checkbox') {
+                return control.checked;
+            }
+
+            if (control.type === 'file') {
+                return !!((control.files && control.files.length > 0) || control.value);
+            }
+
+            return String(control.value || '').trim() !== '';
+        }
         
         function calculateProgress() {
             if (!paginationEnabled || pages.length === 0) return;
@@ -567,47 +636,18 @@
                 page.fieldIds.forEach(fieldId => uniqueFieldIds.add(fieldId));
             });
             
-            // Count filled fields and track radio groups
             let filledCount = 0;
             let totalCountableFields = 0;
-            const processedRadioGroups = new Set(); // Track radio groups to count only once
             
             uniqueFieldIds.forEach(fieldId => {
-                const field = document.getElementById(`field_${fieldId}`);
-                if (field) {
-                    const fieldContainer = field.closest('.form-field');
-                    if (fieldContainer && fieldContainer.style.display === 'none') {
-                        return;
-                    }
+                const fieldContainer = document.querySelector(`.form-field[data-field-id="${fieldId}"]`);
+                if (!fieldContainer || !shouldCountFieldInProgress(fieldContainer)) {
+                    return;
+                }
 
-                    let isFilled = false;
-                    let shouldCount = true;
-                    
-                    if (field.type === 'checkbox') {
-                        isFilled = field.checked;
-                    } else if (field.type === 'radio') {
-                        // For radio buttons, check if any in the group is selected
-                        // Only count each radio group once
-                        const radioName = field.name;
-                        if (!processedRadioGroups.has(radioName)) {
-                            processedRadioGroups.add(radioName);
-                            const radioGroup = document.querySelectorAll(`input[name="${radioName}"]`);
-                            isFilled = Array.from(radioGroup).some(radio => radio.checked);
-                        } else {
-                            // Skip this field as we already processed this radio group
-                            shouldCount = false;
-                        }
-                    } else {
-                        // For text inputs, selects, textareas, etc.
-                        isFilled = field.value && field.value.trim() !== '';
-                    }
-                    
-                    if (shouldCount) {
-                        totalCountableFields++;
-                        if (isFilled) {
-                            filledCount++;
-                        }
-                    }
+                totalCountableFields++;
+                if (isFieldFilledForProgress(fieldContainer)) {
+                    filledCount++;
                 }
             });
             
