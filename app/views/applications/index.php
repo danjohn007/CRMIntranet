@@ -1,7 +1,6 @@
 <?php 
 $title = 'Solicitudes';
 ob_start(); 
-$flow = $flow ?? '';
 $isAsesorRole = $_SESSION['user_role'] === ROLE_ASESOR;
 $isAdminRole = $_SESSION['user_role'] === ROLE_ADMIN;
 $searchTerm = $searchTerm ?? '';
@@ -20,30 +19,32 @@ $advisors = $advisors ?? [];
 
 <!-- Filtros -->
 <div class="bg-white rounded-lg shadow p-4 mb-4 md:mb-6">
-    <form method="GET" action="<?= BASE_URL ?>/solicitudes" class="grid grid-cols-1 md:grid-cols-<?= $isAdminRole ? '4' : '3' ?> gap-4" id="filterForm">
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Flujo</label>
-            <select name="flow" id="flowSelect" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base" onchange="updateStatusOptions()">
-                <option value="" <?= $flow === '' ? 'selected' : '' ?>>Todos los flujos</option>
-                <option value="normal" <?= $flow === 'normal' ? 'selected' : '' ?>>Flujo normal</option>
-                <option value="canadiense" <?= $flow === 'canadiense' ? 'selected' : '' ?>>Flujo canadiense 🍁</option>
-            </select>
-        </div>
+    <form method="GET" action="<?= BASE_URL ?>/solicitudes" class="grid grid-cols-1 md:grid-cols-<?= $isAdminRole ? '3' : '2' ?> gap-4" id="filterForm">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Estatus</label>
             <select name="status" id="statusSelect" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base">
-                <!-- Options populated by JS based on selected flow -->
+                <option value="" <?= $status === '' ? 'selected' : '' ?>>Todos los estatus</option>
+                <option value="<?= htmlspecialchars(STATUS_NUEVO) ?>" <?= $status === STATUS_NUEVO ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_NUEVO . ' (Nuevo)') ?></option>
+                <option value="<?= htmlspecialchars(STATUS_VALIDANDO_RESPUESTAS) ?>" <?= $status === STATUS_VALIDANDO_RESPUESTAS ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_VALIDANDO_RESPUESTAS) ?></option>
+                <option value="<?= htmlspecialchars(STATUS_LISTO_SOLICITUD) ?>" <?= $status === STATUS_LISTO_SOLICITUD ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_LISTO_SOLICITUD) ?></option>
+                <option value="<?= htmlspecialchars(STATUS_EN_ESPERA_PAGO) ?>" <?= $status === STATUS_EN_ESPERA_PAGO ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_EN_ESPERA_PAGO) ?></option>
+                <option value="<?= htmlspecialchars(STATUS_CITA_PROGRAMADA) ?>" <?= $status === STATUS_CITA_PROGRAMADA ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_CITA_PROGRAMADA) ?></option>
+                <option value="<?= htmlspecialchars(STATUS_EN_ESPERA_RESULTADO) ?>" <?= $status === STATUS_EN_ESPERA_RESULTADO ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_EN_ESPERA_RESULTADO) ?></option>
+                <?php if (!$isAsesorRole): ?>
+                <option value="<?= htmlspecialchars(STATUS_TRAMITE_CERRADO) ?>" <?= $status === STATUS_TRAMITE_CERRADO ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_TRAMITE_CERRADO) ?></option>
+                <option value="<?= htmlspecialchars(STATUS_FINALIZADO) ?>" <?= $status === STATUS_FINALIZADO ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_FINALIZADO . ' (legacy)') ?></option>
+                <?php endif; ?>
             </select>
         </div>
 
         <?php if ($isAdminRole): ?>
         <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre / Apellido</label>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Folio</label>
             <input
                 type="text"
                 name="q"
                 value="<?= htmlspecialchars($searchTerm) ?>"
-                placeholder="Ej. Francisco o Montes"
+                placeholder="Ej. VISA-2026-000021"
                 class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base"
             >
         </div>
@@ -56,55 +57,6 @@ $advisors = $advisors ?? [];
         </div>
     </form>
 </div>
-
-<script>
-// Status options per flow (PHP-injected current values)
-var currentStatus = <?= json_encode($status) ?>;
-var isAsesor = <?= json_encode($isAsesorRole) ?>;
-
-var normalStatuses = [
-    { value: '', label: 'Todos los estatus' },
-    { value: <?= json_encode(STATUS_NUEVO) ?>, label: <?= json_encode(STATUS_NUEVO . ' (Nuevo)') ?> },
-    { value: <?= json_encode(STATUS_VALIDANDO_RESPUESTAS) ?>, label: <?= json_encode(STATUS_VALIDANDO_RESPUESTAS) ?> },
-    { value: <?= json_encode(STATUS_LISTO_SOLICITUD) ?>, label: <?= json_encode(STATUS_LISTO_SOLICITUD) ?> },
-    { value: <?= json_encode(STATUS_EN_ESPERA_PAGO) ?>, label: <?= json_encode(STATUS_EN_ESPERA_PAGO) ?> },
-    { value: <?= json_encode(STATUS_CITA_PROGRAMADA) ?>, label: <?= json_encode(STATUS_CITA_PROGRAMADA) ?> },
-    { value: <?= json_encode(STATUS_EN_ESPERA_RESULTADO) ?>, label: <?= json_encode(STATUS_EN_ESPERA_RESULTADO) ?> },
-    <?php if (!$isAsesorRole): ?>
-    { value: <?= json_encode(STATUS_TRAMITE_CERRADO) ?>, label: <?= json_encode(STATUS_TRAMITE_CERRADO) ?> },
-    { value: <?= json_encode(STATUS_FINALIZADO) ?>, label: <?= json_encode(STATUS_FINALIZADO . ' (legacy)') ?> },
-    <?php endif; ?>
-];
-
-var canadianStatuses = [
-    { value: '', label: 'Todos los estatus' },
-    { value: <?= json_encode(STATUS_NUEVO) ?>, label: <?= json_encode(STATUS_NUEVO . ' (Nuevo)') ?> },
-    { value: <?= json_encode(STATUS_LISTO_SOLICITUD) ?>, label: 'Listo para carga en portal' },
-    { value: <?= json_encode(STATUS_EN_ESPERA_PAGO) ?>, label: 'En espera de cita biométrica' },
-    { value: <?= json_encode(STATUS_CITA_PROGRAMADA) ?>, label: 'Biométricos programados' },
-    { value: <?= json_encode(STATUS_EN_ESPERA_RESULTADO) ?>, label: 'En espera de resolución' },
-    <?php if (!$isAsesorRole): ?>
-    { value: <?= json_encode(STATUS_TRAMITE_CERRADO) ?>, label: <?= json_encode(STATUS_TRAMITE_CERRADO) ?> },
-    <?php endif; ?>
-];
-
-function updateStatusOptions() {
-    var flow = document.getElementById('flowSelect').value;
-    var select = document.getElementById('statusSelect');
-    var options = (flow === 'canadiense') ? canadianStatuses : normalStatuses;
-    select.innerHTML = '';
-    options.forEach(function(opt) {
-        var el = document.createElement('option');
-        el.value = opt.value;
-        el.textContent = opt.label;
-        if (opt.value === currentStatus) el.selected = true;
-        select.appendChild(el);
-    });
-}
-
-// Initialize on page load
-document.addEventListener('DOMContentLoaded', updateStatusOptions);
-</script>
 
 <!-- Tabla de Solicitudes -->
 <div class="bg-white rounded-lg shadow overflow-hidden">
@@ -263,14 +215,14 @@ document.addEventListener('DOMContentLoaded', updateStatusOptions);
         </div>
         <div class="flex gap-2">
             <?php if ($page > 1): ?>
-            <a href="?page=<?= $page - 1 ?>&status=<?= urlencode($status) ?>&flow=<?= urlencode($flow) ?>&q=<?= urlencode($searchTerm) ?>" 
+            <a href="?page=<?= $page - 1 ?>&status=<?= urlencode($status) ?><?= $isAdminRole && $searchTerm !== '' ? '&q=' . urlencode($searchTerm) : '' ?>" 
                class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
                 <i class="fas fa-chevron-left"></i> Anterior
             </a>
             <?php endif; ?>
             
             <?php if ($page < $totalPages): ?>
-            <a href="?page=<?= $page + 1 ?>&status=<?= urlencode($status) ?>&flow=<?= urlencode($flow) ?>&q=<?= urlencode($searchTerm) ?>" 
+            <a href="?page=<?= $page + 1 ?>&status=<?= urlencode($status) ?><?= $isAdminRole && $searchTerm !== '' ? '&q=' . urlencode($searchTerm) : '' ?>" 
                class="px-4 py-2 btn-primary text-white rounded-lg hover:opacity-90">
                 Siguiente <i class="fas fa-chevron-right"></i>
             </a>

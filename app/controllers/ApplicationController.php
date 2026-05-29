@@ -74,7 +74,6 @@ class ApplicationController extends BaseController {
 
         // Filtros
         $status = $_GET['status'] ?? '';
-        $flow = $_GET['flow'] ?? '';  // 'normal', 'canadiense', or '' (todos)
         $searchTerm = trim((string) ($_GET['q'] ?? ''));
 
         try {
@@ -89,12 +88,6 @@ class ApplicationController extends BaseController {
                 if (!empty($status)) {
                     $where[] = "a.status = ?";
                     $params[] = $status;
-                }
-
-                if ($flow === 'canadiense') {
-                    $where[] = "a.is_canadian_visa = 1";
-                } elseif ($flow === 'normal') {
-                    $where[] = "(a.is_canadian_visa = 0 OR a.is_canadian_visa IS NULL)";
                 }
 
                 $whereClause = 'WHERE ' . implode(' AND ', $where);
@@ -140,27 +133,11 @@ class ApplicationController extends BaseController {
                     $params[] = $status;
                 }
 
-                if ($flow === 'canadiense') {
-                    $where[] = "a.is_canadian_visa = 1";
-                } elseif ($flow === 'normal') {
-                    $where[] = "(a.is_canadian_visa = 0 OR a.is_canadian_visa IS NULL)";
-                }
-
                 if ($role === ROLE_ADMIN && $searchTerm !== '') {
                     $where[] = "(
-                        a.client_name LIKE ?
-                        OR JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.nombre')) LIKE ?
-                        OR JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.apellidos')) LIKE ?
-                        OR CONCAT(
-                            COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.nombre')), ''),
-                            ' ',
-                            COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.apellidos')), '')
-                        ) LIKE ?
+                        a.folio LIKE ?
                     )";
                     $likeSearch = '%' . $searchTerm . '%';
-                    $params[] = $likeSearch;
-                    $params[] = $likeSearch;
-                    $params[] = $likeSearch;
                     $params[] = $likeSearch;
                 }
 
@@ -201,7 +178,6 @@ class ApplicationController extends BaseController {
                 'totalPages' => $totalPages,
                 'total' => $total,
                 'status' => $status,
-                'flow' => $flow,
                 'searchTerm' => $searchTerm,
                 'advisors' => $advisors,
             ]);
