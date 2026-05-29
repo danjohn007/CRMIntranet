@@ -1911,7 +1911,12 @@ class ApplicationController extends BaseController {
         $role = $this->getUserRole();
 
         try {
-            $stmt = $this->db->prepare("SELECT created_by, status, type, subtype, form_name, data_json FROM applications WHERE id = ?");
+            $stmt = $this->db->prepare("
+                SELECT a.created_by, a.status, a.type, a.subtype, f.name AS form_name, a.data_json
+                FROM applications a
+                LEFT JOIN forms f ON a.form_id = f.id
+                WHERE a.id = ?
+            ");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
 
@@ -2069,7 +2074,12 @@ class ApplicationController extends BaseController {
         $role = $this->getUserRole();
 
         try {
-            $stmt = $this->db->prepare("SELECT created_by, type, subtype, form_name, data_json FROM applications WHERE id = ?");
+            $stmt = $this->db->prepare("
+                SELECT a.created_by, a.status, a.type, a.subtype, f.name AS form_name, a.data_json
+                FROM applications a
+                LEFT JOIN forms f ON a.form_id = f.id
+                WHERE a.id = ?
+            ");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
 
@@ -2175,7 +2185,12 @@ class ApplicationController extends BaseController {
         $role = $this->getUserRole();
 
         try {
-            $stmt = $this->db->prepare("SELECT created_by, type, subtype, form_name, data_json FROM applications WHERE id = ?");
+            $stmt = $this->db->prepare("
+                SELECT a.created_by, a.status, a.type, a.subtype, f.name AS form_name, a.data_json
+                FROM applications a
+                LEFT JOIN forms f ON a.form_id = f.id
+                WHERE a.id = ?
+            ");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
 
