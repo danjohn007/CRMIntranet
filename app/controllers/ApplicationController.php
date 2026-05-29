@@ -75,6 +75,7 @@ class ApplicationController extends BaseController {
         // Filtros
         $status = $_GET['status'] ?? '';
         $searchTerm = trim((string) ($_GET['q'] ?? ''));
+        $nameSearchTerm = trim((string) ($_GET['qn'] ?? ''));
 
         try {
             $applications = [];
@@ -134,11 +135,27 @@ class ApplicationController extends BaseController {
                 }
 
                 if ($role === ROLE_ADMIN && $searchTerm !== '') {
-                    $where[] = "(
-                        a.folio LIKE ?
-                    )";
+                    $where[] = "a.folio LIKE ?";
                     $likeSearch = '%' . $searchTerm . '%';
                     $params[] = $likeSearch;
+                }
+
+                if ($role === ROLE_ADMIN && $nameSearchTerm !== '') {
+                    $where[] = "(
+                        a.client_name LIKE ?
+                        OR JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.nombre')) LIKE ?
+                        OR JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.apellidos')) LIKE ?
+                        OR CONCAT(
+                            COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.nombre')), ''),
+                            ' ',
+                            COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.apellidos')), '')
+                        ) LIKE ?
+                    )";
+                    $likeNameSearch = '%' . $nameSearchTerm . '%';
+                    $params[] = $likeNameSearch;
+                    $params[] = $likeNameSearch;
+                    $params[] = $likeNameSearch;
+                    $params[] = $likeNameSearch;
                 }
 
                 $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
@@ -179,6 +196,7 @@ class ApplicationController extends BaseController {
                 'total' => $total,
                 'status' => $status,
                 'searchTerm' => $searchTerm,
+                'nameSearchTerm' => $nameSearchTerm,
                 'advisors' => $advisors,
             ]);
 

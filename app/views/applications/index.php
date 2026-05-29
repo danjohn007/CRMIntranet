@@ -4,6 +4,7 @@ ob_start();
 $isAsesorRole = $_SESSION['user_role'] === ROLE_ASESOR;
 $isAdminRole = $_SESSION['user_role'] === ROLE_ADMIN;
 $searchTerm = $searchTerm ?? '';
+$nameSearchTerm = $nameSearchTerm ?? '';
 $advisors = $advisors ?? [];
 ?>
 
@@ -19,7 +20,7 @@ $advisors = $advisors ?? [];
 
 <!-- Filtros -->
 <div class="bg-white rounded-lg shadow p-4 mb-4 md:mb-6">
-    <form method="GET" action="<?= BASE_URL ?>/solicitudes" class="grid grid-cols-1 md:grid-cols-<?= $isAdminRole ? '3' : '2' ?> gap-4" id="filterForm">
+    <form method="GET" action="<?= BASE_URL ?>/solicitudes" class="grid grid-cols-1 md:grid-cols-<?= $isAdminRole ? '4' : '2' ?> gap-4" id="filterForm">
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Estatus</label>
             <select name="status" id="statusSelect" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base">
@@ -45,6 +46,16 @@ $advisors = $advisors ?? [];
                 name="q"
                 value="<?= htmlspecialchars($searchTerm) ?>"
                 placeholder="Ej. VISA-2026-000021"
+                class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base"
+            >
+        </div>
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre / Apellido</label>
+            <input
+                type="text"
+                name="qn"
+                value="<?= htmlspecialchars($nameSearchTerm) ?>"
+                placeholder="Ej. Francisco o Montes"
                 class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base"
             >
         </div>
@@ -215,14 +226,14 @@ $advisors = $advisors ?? [];
         </div>
         <div class="flex gap-2">
             <?php if ($page > 1): ?>
-            <a href="?page=<?= $page - 1 ?>&status=<?= urlencode($status) ?><?= $isAdminRole && $searchTerm !== '' ? '&q=' . urlencode($searchTerm) : '' ?>" 
+            <a href="?page=<?= $page - 1 ?>&status=<?= urlencode($status) ?><?= $isAdminRole && $searchTerm !== '' ? '&q=' . urlencode($searchTerm) : '' ?><?= $isAdminRole && $nameSearchTerm !== '' ? '&qn=' . urlencode($nameSearchTerm) : '' ?>" 
                class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
                 <i class="fas fa-chevron-left"></i> Anterior
             </a>
             <?php endif; ?>
             
             <?php if ($page < $totalPages): ?>
-            <a href="?page=<?= $page + 1 ?>&status=<?= urlencode($status) ?><?= $isAdminRole && $searchTerm !== '' ? '&q=' . urlencode($searchTerm) : '' ?>" 
+            <a href="?page=<?= $page + 1 ?>&status=<?= urlencode($status) ?><?= $isAdminRole && $searchTerm !== '' ? '&q=' . urlencode($searchTerm) : '' ?><?= $isAdminRole && $nameSearchTerm !== '' ? '&qn=' . urlencode($nameSearchTerm) : '' ?>" 
                class="px-4 py-2 btn-primary text-white rounded-lg hover:opacity-90">
                 Siguiente <i class="fas fa-chevron-right"></i>
             </a>
