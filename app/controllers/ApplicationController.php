@@ -15,6 +15,71 @@ class ApplicationController extends BaseController {
         return [];
     }
 
+    private function normalizeMatchingText($value) {
+        $value = (string) $value;
+        $value = strtr($value, [
+            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
+            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
+        ]);
+        return strtolower(trim($value));
+    }
+
+    private function resolveMexicanPassportSubtypeFromAnswer($answer) {
+        $normalized = $this->normalizeMatchingText($answer);
+
+        if ($normalized === 'primera vez' || $normalized === 'primera_vez') {
+            return 'Primera vez';
+        }
+        if (strpos($normalized, 'renov') !== false) {
+            return 'Renovación';
+        }
+        if (strpos($normalized, 'menor') !== false) {
+            return 'Menor de Edad';
+        }
+        if (
+            strpos($normalized, 'robo') !== false ||
+            strpos($normalized, 'extravio') !== false ||
+            strpos($normalized, 'reposicion') !== false
+        ) {
+            return 'Robo/ extravío';
+        }
+        if (
+            strpos($normalized, 'correccion') !== false ||
+            strpos($normalized, 'dato') !== false ||
+            strpos($normalized, 'danado') !== false
+        ) {
+            return 'Corrección de Datos';
+        }
+
+        return null;
+    }
+
+    private function extractTipoTramiteAnswerFromData(array $data, array $fields) {
+        foreach ($fields['fields'] ?? [] as $field) {
+            $labelNormalized = $this->normalizeMatchingText($field['label'] ?? '');
+            if (strpos($labelNormalized, 'tipo de tramite') !== false) {
+                $fieldId = $field['id'] ?? null;
+                if ($fieldId !== null && isset($data[$fieldId]) && !is_array($data[$fieldId])) {
+                    $value = trim((string) $data[$fieldId]);
+                    if ($value !== '') {
+                        return $value;
+                    }
+                }
+            }
+        }
+
+        foreach (['tipo_tramite', 'tipoTramite', 'tipo de tramite', 'tipo de trámite', 'Tipo de Trámite'] as $key) {
+            if (isset($data[$key]) && !is_array($data[$key])) {
+                $value = trim((string) $data[$key]);
+                if ($value !== '') {
+                    return $value;
+                }
+            }
+        }
+
+        return null;
+    }
+
     private function canAdvisorViewClosedApplication(array $application, $advisorId) {
         if (intval($application['created_by'] ?? 0) !== intval($advisorId)) {
             return false;
@@ -1801,7 +1866,12 @@ class ApplicationController extends BaseController {
         }
 
         try {
-            $stmt = $this->db->prepare("SELECT created_by, status, data_json FROM applications WHERE id = ?");
+            $stmt = $this->db->prepare("
+                SELECT a.created_by, a.status, a.type, a.subtype, a.data_json, f.name AS form_name, f.fields_json
+                FROM applications a
+                LEFT JOIN forms f ON a.form_id = f.id
+                WHERE a.id = ?
+            ");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
 
@@ -2039,8 +2109,39 @@ class ApplicationController extends BaseController {
             }
 
             $newJson = json_encode($existingData, JSON_UNESCAPED_UNICODE);
-            $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
-                ->execute([$newJson, $id]);
+
+            $typeNormalized = $this->normalizeMatchingText($application['type'] ?? '');
+            $subtypeNormalized = $this->normalizeMatchingText($application['subtype'] ?? '');
+            $formNameNormalized = $this->normalizeMatchingText($application['form_name'] ?? '');
+            $decodedFields = json_decode($application['fields_json'] ?? '[]', true);
+            if (!is_array($decodedFields)) {
+                $decodedFields = [];
+            }
+            $fieldsPayload = isset($decodedFields['fields']) && is_array($decodedFields['fields'])
+                ? $decodedFields
+                : ['fields' => $decodedFields];
+            $tipoTramiteAnswer = $this->extractTipoTramiteAnswerFromData($existingData, $fieldsPayload);
+
+            $isMexicanPassportApplication =
+                $typeNormalized === 'pasaporte' &&
+                (
+                    strpos($subtypeNormalized, 'mexicano') !== false ||
+                    strpos($formNameNormalized, 'pasaporte mexicano') !== false
+                );
+
+            if ($isMexicanPassportApplication && $tipoTramiteAnswer !== null) {
+                $resolvedSubtype = $this->resolveMexicanPassportSubtypeFromAnswer($tipoTramiteAnswer);
+                if ($resolvedSubtype !== null) {
+                    $this->db->prepare("UPDATE applications SET data_json = ?, subtype = ? WHERE id = ?")
+                        ->execute([$newJson, $resolvedSubtype, $id]);
+                } else {
+                    $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
+                        ->execute([$newJson, $id]);
+                }
+            } else {
+                $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
+                    ->execute([$newJson, $id]);
+            }
 
             logAudit(
                 'update',

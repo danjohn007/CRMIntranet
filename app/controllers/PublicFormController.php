@@ -44,7 +44,7 @@ class PublicFormController extends BaseController {
             return 'Renovación';
         }
         if (strpos($normalized, 'menor') !== false) {
-            return 'Menor de edad';
+            return 'Menor de Edad';
         }
         if (
             strpos($normalized, 'robo') !== false ||
@@ -483,21 +483,28 @@ class PublicFormController extends BaseController {
                     // "Tipo de Trámite" answer when available.
                     $tipoTramiteAnswer = $this->extractTipoTramiteAnswer($data, $fields);
                     if ($tipoTramiteAnswer !== null) {
-                        $stmtSubtypeContext = $this->db->prepare("SELECT type, subtype FROM applications WHERE id = ?");
+                        $stmtSubtypeContext = $this->db->prepare("
+                            SELECT a.type, a.subtype, f.name AS form_name
+                            FROM applications a
+                            LEFT JOIN forms f ON a.form_id = f.id
+                            WHERE a.id = ?
+                        ");
                         $stmtSubtypeContext->execute([$applicationId]);
                         $appSubtypeContext = $stmtSubtypeContext->fetch();
 
                         $isMexicanPassportApplication =
                             $appSubtypeContext &&
                             $this->normalizeText($appSubtypeContext['type'] ?? '') === 'pasaporte' &&
-                            strpos($this->normalizeText($appSubtypeContext['subtype'] ?? ''), 'mexicano') !== false;
+                            (
+                                strpos($this->normalizeText($appSubtypeContext['subtype'] ?? ''), 'mexicano') !== false ||
+                                strpos($this->normalizeText($appSubtypeContext['form_name'] ?? ''), 'pasaporte mexicano') !== false
+                            );
 
                         if ($isMexicanPassportApplication) {
                             $resolvedSubtype = $this->resolveMexicanPassportSubtypeFromAnswer($tipoTramiteAnswer);
                             if ($resolvedSubtype !== null) {
-                                $newSubtypeValue = 'Mexicano - ' . $resolvedSubtype;
                                 $this->db->prepare("UPDATE applications SET subtype = ? WHERE id = ?")
-                                    ->execute([$newSubtypeValue, $applicationId]);
+                                    ->execute([$resolvedSubtype, $applicationId]);
                             }
                         }
                     }
