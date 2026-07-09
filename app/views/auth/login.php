@@ -7,32 +7,32 @@
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <?php
-    // Get theme colors from configuration
     $primaryColor = getConfig('primary_color', '#3b82f6');
     $secondaryColor = getConfig('secondary_color', '#1e40af');
+    $geoLoginEnabled = getConfig('geo_login_enabled', '0') === '1';
     ?>
     <style>
         :root {
             --primary-color: <?= $primaryColor ?>;
             --secondary-color: <?= $secondaryColor ?>;
         }
-        
+
         .bg-gradient-primary {
             background: linear-gradient(to bottom right, var(--primary-color), var(--secondary-color));
         }
-        
+
         .text-primary {
             color: var(--primary-color);
         }
-        
+
         .btn-primary {
             background-color: var(--primary-color);
         }
-        
+
         .btn-primary:hover {
             background-color: var(--secondary-color);
         }
-        
+
         .focus-ring-primary:focus {
             outline: none;
             ring: 2px;
@@ -43,7 +43,7 @@
 <body class="bg-gradient-primary min-h-screen flex items-center justify-center">
     <div class="bg-white rounded-lg shadow-2xl w-full max-w-md p-8 m-4">
         <div class="text-center mb-8">
-            <?php 
+            <?php
             $siteLogo = getSiteLogo();
             if ($siteLogo): ?>
                 <img src="<?= BASE_URL . htmlspecialchars($siteLogo) ?>" alt="Logo" class="h-24 mx-auto mb-4 object-contain">
@@ -51,16 +51,21 @@
                 <i class="fas fa-passport text-6xl text-primary mb-4"></i>
             <?php endif; ?>
             <h1 class="text-3xl font-bold text-gray-800"><?= htmlspecialchars(getSiteName()) ?></h1>
-            <p class="text-gray-600 mt-2">Inicie sesión para continuar</p>
+            <p class="text-gray-600 mt-2">Inicie sesion para continuar</p>
         </div>
-        
+
         <?php if (isset($_SESSION['error'])): ?>
         <div class="bg-red-100 border-l-4 border-red-500 text-red-700 p-4 mb-4 rounded" role="alert">
             <p><?= htmlspecialchars($_SESSION['error']) ?></p>
         </div>
         <?php unset($_SESSION['error']); endif; ?>
-        
-        <form action="<?= BASE_URL ?>/login" method="POST">
+
+        <div id="geo-status" class="hidden bg-yellow-100 border-l-4 border-yellow-500 text-yellow-700 p-4 mb-4 rounded text-sm" role="status"></div>
+
+        <form id="login-form" action="<?= BASE_URL ?>/login" method="POST" data-geo-enabled="<?= $geoLoginEnabled ? '1' : '0' ?>">
+            <input type="hidden" id="latitude" name="latitude" value="">
+            <input type="hidden" id="longitude" name="longitude" value="">
+
             <div class="mb-6">
                 <label for="username" class="block text-gray-700 font-semibold mb-2">
                     <i class="fas fa-user mr-2"></i>Usuario o Email
@@ -69,22 +74,21 @@
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus-ring-primary"
                     placeholder="Ingrese su usuario">
             </div>
-            
+
             <div class="mb-6">
                 <label for="password" class="block text-gray-700 font-semibold mb-2">
-                    <i class="fas fa-lock mr-2"></i>Contraseña
+                    <i class="fas fa-lock mr-2"></i>Contrasena
                 </label>
                 <input type="password" id="password" name="password" required
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus-ring-primary"
-                    placeholder="Ingrese su contraseña">
+                    placeholder="Ingrese su contrasena">
             </div>
-            
+
             <div class="mb-6">
                 <label for="captcha" class="block text-gray-700 font-semibold mb-2">
-                    <i class="fas fa-shield-alt mr-2"></i>Verificación Humana
+                    <i class="fas fa-shield-alt mr-2"></i>Verificacion Humana
                 </label>
-                <?php 
-                // Generate captcha only if not already set for this session
+                <?php
                 if (!isset($_SESSION['captcha_answer']) || !isset($_SESSION['captcha_num1']) || !isset($_SESSION['captcha_num2'])) {
                     $_SESSION['captcha_num1'] = rand(1, 10);
                     $_SESSION['captcha_num2'] = rand(1, 10);
@@ -92,17 +96,70 @@
                 }
                 ?>
                 <div class="bg-gray-100 p-3 rounded-lg mb-2 text-center">
-                    <p class="text-lg font-semibold text-gray-700">¿Cuánto es <?= $_SESSION['captcha_num1'] ?> + <?= $_SESSION['captcha_num2'] ?>?</p>
+                    <p class="text-lg font-semibold text-gray-700">Cuanto es <?= $_SESSION['captcha_num1'] ?> + <?= $_SESSION['captcha_num2'] ?>?</p>
                 </div>
                 <input type="number" id="captcha" name="captcha" required
                     class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus-ring-primary"
                     placeholder="Ingrese el resultado">
             </div>
-            
-            <button type="submit" class="w-full btn-primary text-white py-3 rounded-lg font-semibold transition duration-200">
-                <i class="fas fa-sign-in-alt mr-2"></i>Iniciar Sesión
+
+            <button id="login-button" type="submit" class="w-full btn-primary text-white py-3 rounded-lg font-semibold transition duration-200">
+                <i class="fas fa-sign-in-alt mr-2"></i>Iniciar Sesion
             </button>
         </form>
     </div>
+
+    <script>
+    (function() {
+        const form = document.getElementById('login-form');
+        const button = document.getElementById('login-button');
+        const statusBox = document.getElementById('geo-status');
+        const latitudeInput = document.getElementById('latitude');
+        const longitudeInput = document.getElementById('longitude');
+        const geoEnabled = form.dataset.geoEnabled === '1';
+
+        function showStatus(message) {
+            statusBox.textContent = message;
+            statusBox.classList.remove('hidden');
+        }
+
+        function submitForm() {
+            form.dataset.submitting = '1';
+            form.submit();
+        }
+
+        form.addEventListener('submit', function(event) {
+            if (!geoEnabled || form.dataset.submitting === '1') {
+                return;
+            }
+
+            event.preventDefault();
+            button.disabled = true;
+            button.classList.add('opacity-70', 'cursor-not-allowed');
+            showStatus('Verificando ubicacion...');
+
+            if (!navigator.geolocation) {
+                submitForm();
+                return;
+            }
+
+            navigator.geolocation.getCurrentPosition(
+                function(position) {
+                    latitudeInput.value = position.coords.latitude;
+                    longitudeInput.value = position.coords.longitude;
+                    submitForm();
+                },
+                function() {
+                    submitForm();
+                },
+                {
+                    enableHighAccuracy: true,
+                    timeout: 8000,
+                    maximumAge: 0
+                }
+            );
+        });
+    })();
+    </script>
 </body>
 </html>

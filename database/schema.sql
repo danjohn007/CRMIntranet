@@ -260,7 +260,27 @@ INSERT INTO `global_config` (`config_key`, `config_value`, `config_type`) VALUES
 ('smtp_host', 'recursoshumanos.digital', 'text'),
 ('smtp_port', '587', 'text'),
 ('smtp_imap_port', '993', 'text'),
-('smtp_pop3_port', '995', 'text');
+('smtp_pop3_port', '995', 'text'),
+('geo_login_enabled', '0', 'boolean'),
+('geo_login_latitude', '', 'number'),
+('geo_login_longitude', '', 'number'),
+('geo_login_radius_meters', '100', 'number'),
+('login_max_attempts', '5', 'number'),
+('login_lockout_minutes', '15', 'number'),
+('session_idle_timeout_minutes', '30', 'number');
+
+-- Tabla de Intentos de Login
+DROP TABLE IF EXISTS `login_attempts`;
+CREATE TABLE `login_attempts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(100) NOT NULL,
+  `ip_address` varchar(45) NOT NULL,
+  `user_agent` text,
+  `attempted_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`),
+  KEY `idx_login_attempts_lookup` (`username`, `ip_address`, `attempted_at`),
+  KEY `idx_login_attempts_attempted_at` (`attempted_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
 -- Tabla de Dispositivos HikVision
 DROP TABLE IF EXISTS `hikvision_devices`;

@@ -1,16 +1,16 @@
-<?php 
-$title = 'Configuración Global';
-ob_start(); 
+<?php
+$title = 'Configuracion Global';
+$geoEnabled = ($configs['geo_login_enabled']['config_value'] ?? '0') === '1';
+ob_start();
 ?>
 
 <div class="mb-6">
     <h2 class="text-3xl font-bold text-gray-800">
-        <i class="fas fa-cog text-gray-600 mr-2"></i>Configuración del Sistema
+        <i class="fas fa-cog text-gray-600 mr-2"></i>Configuracion del Sistema
     </h2>
     <p class="text-gray-500">Personaliza tu sistema CRM</p>
 </div>
 
-<!-- Section Navigation Cards Grid -->
 <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4 mb-8">
     <a href="#section-general" onclick="showSection('general')"
        class="config-card bg-white rounded-xl shadow hover:shadow-md transition cursor-pointer p-4 flex items-center space-x-4 border-2 border-transparent hover:border-blue-400">
@@ -63,7 +63,7 @@ ob_start();
         </div>
         <div>
             <p class="font-semibold text-gray-800 text-sm">Horarios</p>
-            <p class="text-xs text-gray-500">Atención y servicio</p>
+            <p class="text-xs text-gray-500">Atencion y servicio</p>
         </div>
     </a>
 
@@ -73,16 +73,25 @@ ob_start();
             <i class="fas fa-qrcode text-indigo-600 text-xl"></i>
         </div>
         <div>
-            <p class="font-semibold text-gray-800 text-sm">Códigos QR</p>
-            <p class="text-xs text-gray-500">API y configuración</p>
+            <p class="font-semibold text-gray-800 text-sm">Codigos QR</p>
+            <p class="text-xs text-gray-500">API y configuracion</p>
+        </div>
+    </a>
+
+    <a href="#section-seguridad" onclick="showSection('seguridad')"
+       class="config-card bg-white rounded-xl shadow hover:shadow-md transition cursor-pointer p-4 flex items-center space-x-4 border-2 border-transparent hover:border-red-400">
+        <div class="flex-shrink-0 w-12 h-12 rounded-xl bg-red-100 flex items-center justify-center">
+            <i class="fas fa-shield-alt text-red-600 text-xl"></i>
+        </div>
+        <div>
+            <p class="font-semibold text-gray-800 text-sm">Seguridad</p>
+            <p class="text-xs text-gray-500">Login y ubicacion</p>
         </div>
     </a>
 </div>
 
-<!-- Edit Forms (one per section) -->
 <form method="POST" action="<?= BASE_URL ?>/configuracion/guardar" enctype="multipart/form-data">
 
-    <!-- General -->
     <div id="section-general" class="config-section bg-white rounded-xl shadow p-6 mb-6">
         <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
             <span class="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center mr-3">
@@ -122,7 +131,6 @@ ob_start();
         </div>
     </div>
 
-    <!-- Tema -->
     <div id="section-tema" class="config-section bg-white rounded-xl shadow p-6 mb-6">
         <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
             <span class="w-8 h-8 rounded-lg bg-purple-100 flex items-center justify-center mr-3">
@@ -165,7 +173,6 @@ ob_start();
         </div>
     </div>
 
-    <!-- Correo / SMTP -->
     <div id="section-correo" class="config-section bg-white rounded-xl shadow p-6 mb-6">
         <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
             <span class="w-8 h-8 rounded-lg bg-green-100 flex items-center justify-center mr-3">
@@ -173,17 +180,17 @@ ob_start();
             </span>
             Correo &amp; SMTP
         </h3>
-        <p class="text-xs text-gray-500 mb-4">Configuración del servidor de correo para el envío de notificaciones del sistema (SSL/TLS)</p>
+        <p class="text-xs text-gray-500 mb-4">Configuracion del servidor de correo para notificaciones del sistema</p>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Usuario SMTP (Username)</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Usuario SMTP</label>
                 <input type="text" name="config_smtp_user"
                        value="<?= htmlspecialchars($configs['smtp_user']['config_value'] ?? '') ?>"
                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
                        autocomplete="username">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Contraseña SMTP</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Contrasena SMTP</label>
                 <div class="relative">
                     <input type="password" name="config_smtp_password" id="smtp_password"
                            value="<?= htmlspecialchars($configs['smtp_password']['config_value'] ?? '') ?>"
@@ -196,7 +203,7 @@ ob_start();
                 </div>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Servidor de Salida (SMTP Host)</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Servidor de Salida</label>
                 <input type="text" name="config_smtp_host"
                        value="<?= htmlspecialchars($configs['smtp_host']['config_value'] ?? '') ?>"
                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
@@ -207,23 +214,20 @@ ob_start();
                        value="<?= htmlspecialchars($configs['smtp_port']['config_value'] ?? '587') ?>"
                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
                        min="1" max="65535">
-                <p class="text-xs text-gray-500 mt-1">Puerto 587 (TLS) o 465 (SSL)</p>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Puerto IMAP (Entrada)</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Puerto IMAP</label>
                 <input type="number" name="config_smtp_imap_port"
                        value="<?= htmlspecialchars($configs['smtp_imap_port']['config_value'] ?? '993') ?>"
                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
                        min="1" max="65535">
-                <p class="text-xs text-gray-500 mt-1">Servidor: <?= htmlspecialchars($configs['smtp_host']['config_value'] ?? '') ?></p>
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Puerto POP3 (Entrada)</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Puerto POP3</label>
                 <input type="number" name="config_smtp_pop3_port"
                        value="<?= htmlspecialchars($configs['smtp_pop3_port']['config_value'] ?? '995') ?>"
                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
                        min="1" max="65535">
-                <p class="text-xs text-gray-500 mt-1">Servidor: <?= htmlspecialchars($configs['smtp_host']['config_value'] ?? '') ?></p>
             </div>
         </div>
         <div class="mt-4 flex justify-end">
@@ -233,7 +237,6 @@ ob_start();
         </div>
     </div>
 
-    <!-- Pagos -->
     <div id="section-pagos" class="config-section bg-white rounded-xl shadow p-6 mb-6">
         <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
             <span class="w-8 h-8 rounded-lg bg-yellow-100 flex items-center justify-center mr-3">
@@ -262,7 +265,6 @@ ob_start();
         </div>
     </div>
 
-    <!-- Horarios -->
     <div id="section-horarios" class="config-section bg-white rounded-xl shadow p-6 mb-6">
         <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
             <span class="w-8 h-8 rounded-lg bg-orange-100 flex items-center justify-center mr-3">
@@ -272,19 +274,19 @@ ob_start();
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Teléfono 1</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Telefono 1</label>
                 <input type="tel" name="config_contact_phone"
                        value="<?= htmlspecialchars($configs['contact_phone']['config_value'] ?? '') ?>"
                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
             </div>
             <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Teléfono 2</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Telefono 2</label>
                 <input type="tel" name="config_contact_phone_2"
                        value="<?= htmlspecialchars($configs['contact_phone_2']['config_value'] ?? '') ?>"
                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
             </div>
             <div class="md:col-span-2">
-                <label class="block text-sm font-medium text-gray-700 mb-2">Horario de Atención</label>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Horario de Atencion</label>
                 <input type="text" name="config_business_hours"
                        value="<?= htmlspecialchars($configs['business_hours']['config_value'] ?? '') ?>"
                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500">
@@ -297,13 +299,12 @@ ob_start();
         </div>
     </div>
 
-    <!-- Códigos QR -->
     <div id="section-qr" class="config-section bg-white rounded-xl shadow p-6 mb-6">
         <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
             <span class="w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center mr-3">
                 <i class="fas fa-qrcode text-indigo-600 text-sm"></i>
             </span>
-            Códigos QR
+            Codigos QR
         </h3>
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
@@ -326,52 +327,135 @@ ob_start();
         </div>
     </div>
 
+    <div id="section-seguridad" class="config-section bg-white rounded-xl shadow p-6 mb-6">
+        <h3 class="text-lg font-bold text-gray-800 mb-4 flex items-center">
+            <span class="w-8 h-8 rounded-lg bg-red-100 flex items-center justify-center mr-3">
+                <i class="fas fa-shield-alt text-red-600 text-sm"></i>
+            </span>
+            Seguridad / Ubicacion
+        </h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div class="md:col-span-2">
+                <input type="hidden" name="config_geo_login_enabled" value="0">
+                <label class="inline-flex items-center cursor-pointer">
+                    <input type="checkbox" name="config_geo_login_enabled" value="1"
+                           class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                           <?= $geoEnabled ? 'checked' : '' ?>>
+                    <span class="ml-3 text-sm font-medium text-gray-700">Activar login geolocalizado para asesores</span>
+                </label>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Latitud permitida</label>
+                <input type="text" name="config_geo_login_latitude" id="geo_login_latitude"
+                       value="<?= htmlspecialchars($configs['geo_login_latitude']['config_value'] ?? '') ?>"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                       placeholder="20.5888">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Longitud permitida</label>
+                <input type="text" name="config_geo_login_longitude" id="geo_login_longitude"
+                       value="<?= htmlspecialchars($configs['geo_login_longitude']['config_value'] ?? '') ?>"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                       placeholder="-100.3899">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Radio permitido (metros)</label>
+                <input type="number" name="config_geo_login_radius_meters"
+                       value="<?= htmlspecialchars($configs['geo_login_radius_meters']['config_value'] ?? '100') ?>"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                       min="1" max="100000">
+            </div>
+            <div class="flex items-end">
+                <button type="button" onclick="useCurrentLocation()"
+                        class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition text-sm">
+                    <i class="fas fa-location-crosshairs mr-2"></i>Usar mi ubicacion actual
+                </button>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Intentos maximos</label>
+                <input type="number" name="config_login_max_attempts"
+                       value="<?= htmlspecialchars($configs['login_max_attempts']['config_value'] ?? '5') ?>"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                       min="1" max="20">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Bloqueo por intentos (minutos)</label>
+                <input type="number" name="config_login_lockout_minutes"
+                       value="<?= htmlspecialchars($configs['login_lockout_minutes']['config_value'] ?? '15') ?>"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                       min="1" max="1440">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Cerrar sesion por inactividad (minutos)</label>
+                <input type="number" name="config_session_idle_timeout_minutes"
+                       value="<?= htmlspecialchars($configs['session_idle_timeout_minutes']['config_value'] ?? '30') ?>"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                       min="5" max="1440">
+            </div>
+            <div class="md:col-span-2">
+                <p id="location_status" class="text-sm text-gray-500"></p>
+            </div>
+        </div>
+        <div class="mt-4 flex justify-end">
+            <button type="submit" class="btn-primary text-white px-6 py-2 rounded-lg hover:opacity-90 transition text-sm">
+                <i class="fas fa-save mr-2"></i>Guardar Seguridad
+            </button>
+        </div>
+    </div>
+
 </form>
 
-<!-- Configuración Actual (Read-only Summary) -->
 <div class="bg-white rounded-xl shadow p-6 mt-2">
     <h3 class="text-lg font-bold text-gray-800 mb-4 border-b pb-2">
-        <i class="fas fa-eye text-gray-500 mr-2"></i>Configuración Actual
+        <i class="fas fa-eye text-gray-500 mr-2"></i>Configuracion Actual
     </h3>
-    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        <!-- General -->
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         <div>
             <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">General</p>
             <ul class="space-y-1 text-sm text-gray-600">
-                <li><span class="font-medium text-gray-700">Sitio:</span> <?= htmlspecialchars($configs['site_name']['config_value'] ?? '—') ?></li>
-                <li><span class="font-medium text-gray-700">Email:</span> <?= htmlspecialchars($configs['email_from']['config_value'] ?? '—') ?></li>
-                <li><span class="font-medium text-gray-700">Teléfono 1:</span> <?= htmlspecialchars($configs['contact_phone']['config_value'] ?? '—') ?></li>
-                <li><span class="font-medium text-gray-700">Teléfono 2:</span> <?= htmlspecialchars($configs['contact_phone_2']['config_value'] ?? '—') ?></li>
-                <li><span class="font-medium text-gray-700">Horario:</span> <?= htmlspecialchars($configs['business_hours']['config_value'] ?? '—') ?></li>
+                <li><span class="font-medium text-gray-700">Sitio:</span> <?= htmlspecialchars($configs['site_name']['config_value'] ?? '-') ?></li>
+                <li><span class="font-medium text-gray-700">Email:</span> <?= htmlspecialchars($configs['email_from']['config_value'] ?? '-') ?></li>
+                <li><span class="font-medium text-gray-700">Telefono 1:</span> <?= htmlspecialchars($configs['contact_phone']['config_value'] ?? '-') ?></li>
+                <li><span class="font-medium text-gray-700">Telefono 2:</span> <?= htmlspecialchars($configs['contact_phone_2']['config_value'] ?? '-') ?></li>
+                <li><span class="font-medium text-gray-700">Horario:</span> <?= htmlspecialchars($configs['business_hours']['config_value'] ?? '-') ?></li>
             </ul>
         </div>
-        <!-- Correo SMTP -->
         <div>
             <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Correo SMTP</p>
             <ul class="space-y-1 text-sm text-gray-600">
-                <li><span class="font-medium text-gray-700">Usuario:</span> <?= htmlspecialchars($configs['smtp_user']['config_value'] ?? '—') ?></li>
-                <li><span class="font-medium text-gray-700">Servidor salida:</span> <?= htmlspecialchars($configs['smtp_host']['config_value'] ?? '—') ?></li>
-                <li><span class="font-medium text-gray-700">Puerto SMTP:</span> <?= htmlspecialchars($configs['smtp_port']['config_value'] ?? '—') ?></li>
-                <li><span class="font-medium text-gray-700">Puerto IMAP:</span> <?= htmlspecialchars($configs['smtp_imap_port']['config_value'] ?? '—') ?></li>
-                <li><span class="font-medium text-gray-700">Puerto POP3:</span> <?= htmlspecialchars($configs['smtp_pop3_port']['config_value'] ?? '—') ?></li>
+                <li><span class="font-medium text-gray-700">Usuario:</span> <?= htmlspecialchars($configs['smtp_user']['config_value'] ?? '-') ?></li>
+                <li><span class="font-medium text-gray-700">Servidor:</span> <?= htmlspecialchars($configs['smtp_host']['config_value'] ?? '-') ?></li>
+                <li><span class="font-medium text-gray-700">SMTP:</span> <?= htmlspecialchars($configs['smtp_port']['config_value'] ?? '-') ?></li>
+                <li><span class="font-medium text-gray-700">IMAP:</span> <?= htmlspecialchars($configs['smtp_imap_port']['config_value'] ?? '-') ?></li>
+                <li><span class="font-medium text-gray-700">POP3:</span> <?= htmlspecialchars($configs['smtp_pop3_port']['config_value'] ?? '-') ?></li>
             </ul>
         </div>
-        <!-- Tema -->
         <div>
             <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Tema</p>
             <ul class="space-y-1 text-sm text-gray-600">
                 <li class="flex items-center space-x-2">
-                    <span class="font-medium text-gray-700">Color primario:</span>
+                    <span class="font-medium text-gray-700">Primario:</span>
                     <span class="inline-block w-5 h-5 rounded border border-gray-300"
                           style="background-color: <?= htmlspecialchars($configs['primary_color']['config_value'] ?? '#3b82f6') ?>"></span>
                     <span><?= htmlspecialchars($configs['primary_color']['config_value'] ?? '#3b82f6') ?></span>
                 </li>
                 <li class="flex items-center space-x-2">
-                    <span class="font-medium text-gray-700">Color secundario:</span>
+                    <span class="font-medium text-gray-700">Secundario:</span>
                     <span class="inline-block w-5 h-5 rounded border border-gray-300"
                           style="background-color: <?= htmlspecialchars($configs['secondary_color']['config_value'] ?? '#1e40af') ?>"></span>
                     <span><?= htmlspecialchars($configs['secondary_color']['config_value'] ?? '#1e40af') ?></span>
                 </li>
+            </ul>
+        </div>
+        <div>
+            <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Seguridad</p>
+            <ul class="space-y-1 text-sm text-gray-600">
+                <li><span class="font-medium text-gray-700">Geo login:</span> <?= $geoEnabled ? 'Activo' : 'Inactivo' ?></li>
+                <li><span class="font-medium text-gray-700">Latitud:</span> <?= htmlspecialchars($configs['geo_login_latitude']['config_value'] ?? '-') ?></li>
+                <li><span class="font-medium text-gray-700">Longitud:</span> <?= htmlspecialchars($configs['geo_login_longitude']['config_value'] ?? '-') ?></li>
+                <li><span class="font-medium text-gray-700">Radio:</span> <?= htmlspecialchars($configs['geo_login_radius_meters']['config_value'] ?? '100') ?> m</li>
+                <li><span class="font-medium text-gray-700">Intentos:</span> <?= htmlspecialchars($configs['login_max_attempts']['config_value'] ?? '5') ?></li>
+                <li><span class="font-medium text-gray-700">Inactividad:</span> <?= htmlspecialchars($configs['session_idle_timeout_minutes']['config_value'] ?? '30') ?> min</li>
             </ul>
         </div>
     </div>
@@ -389,7 +473,7 @@ function showSection(sectionId) {
 
 function toggleSmtpPassword() {
     const input = document.getElementById('smtp_password');
-    const icon  = document.getElementById('smtp_password_icon');
+    const icon = document.getElementById('smtp_password_icon');
     if (input.type === 'password') {
         input.type = 'text';
         icon.classList.replace('fa-eye', 'fa-eye-slash');
@@ -398,10 +482,42 @@ function toggleSmtpPassword() {
         icon.classList.replace('fa-eye-slash', 'fa-eye');
     }
 }
+
+function useCurrentLocation() {
+    const status = document.getElementById('location_status');
+    const latInput = document.getElementById('geo_login_latitude');
+    const lngInput = document.getElementById('geo_login_longitude');
+
+    if (!navigator.geolocation) {
+        status.textContent = 'Este navegador no permite obtener ubicacion.';
+        status.className = 'text-sm text-red-600';
+        return;
+    }
+
+    status.textContent = 'Obteniendo ubicacion...';
+    status.className = 'text-sm text-gray-500';
+
+    navigator.geolocation.getCurrentPosition(
+        function(position) {
+            latInput.value = position.coords.latitude.toFixed(8);
+            lngInput.value = position.coords.longitude.toFixed(8);
+            status.textContent = 'Ubicacion capturada.';
+            status.className = 'text-sm text-green-600';
+        },
+        function() {
+            status.textContent = 'No se pudo obtener la ubicacion. Revise permisos del navegador.';
+            status.className = 'text-sm text-red-600';
+        },
+        {
+            enableHighAccuracy: true,
+            timeout: 10000,
+            maximumAge: 0
+        }
+    );
+}
 </script>
 
-<?php 
+<?php
 $content = ob_get_clean();
 require ROOT_PATH . '/app/views/layouts/main.php';
 ?>
-

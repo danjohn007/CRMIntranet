@@ -2,91 +2,205 @@
 require_once ROOT_PATH . '/app/controllers/BaseController.php';
 
 class AuthController extends BaseController {
-    
+    private const GEO_DENIED_MESSAGE = 'No se encuentra en la ubicacion permitida. Active su ubicacion e intente nuevamente.';
+
     public function login() {
         if ($this->isLoggedIn()) {
             $this->redirect('/dashboard');
         }
-        
+
         $this->view('auth/login');
     }
-    
+
     public function authenticate() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/login');
         }
-        
+
         $username = trim($_POST['username'] ?? '');
         $password = $_POST['password'] ?? '';
         $captcha = trim($_POST['captcha'] ?? '');
-        
+        $ipAddress = $this->getClientIp();
+
         if (empty($username) || empty($password)) {
-            $_SESSION['error'] = 'Por favor, ingrese usuario y contraseña';
+            $_SESSION['error'] = 'Por favor, ingrese usuario y contrasena';
             $this->redirect('/login');
         }
-        
-        // Validate captcha
+
+        if ($this->isLoginLocked($username, $ipAddress)) {
+            logAudit('login_blocked', 'autenticacion', "Login bloqueado temporalmente para: $username");
+            $_SESSION['error'] = 'Demasiados intentos fallidos. Intente nuevamente en ' . max(1, (int) getConfig('login_lockout_minutes', 15)) . ' minutos.';
+            $this->redirect('/login');
+        }
+
         if (empty($captcha) || !isset($_SESSION['captcha_answer'])) {
-            $_SESSION['error'] = 'Por favor, complete la verificación humana';
+            $this->registerFailedLogin($username, $ipAddress);
+            $_SESSION['error'] = 'Por favor, complete la verificacion humana';
             unset($_SESSION['captcha_answer'], $_SESSION['captcha_num1'], $_SESSION['captcha_num2']);
             $this->redirect('/login');
         }
-        
-        if ((int)$captcha !== (int)$_SESSION['captcha_answer']) {
-            $_SESSION['error'] = 'Verificación humana incorrecta. Por favor, intente nuevamente';
+
+        if ((int) $captcha !== (int) $_SESSION['captcha_answer']) {
+            $this->registerFailedLogin($username, $ipAddress);
+            logAudit('login_failed', 'autenticacion', "Verificacion humana incorrecta para: $username");
+            $_SESSION['error'] = 'Verificacion humana incorrecta. Por favor, intente nuevamente';
             unset($_SESSION['captcha_answer'], $_SESSION['captcha_num1'], $_SESSION['captcha_num2']);
             $this->redirect('/login');
         }
-        
-        // Clear captcha after successful validation
+
         unset($_SESSION['captcha_answer'], $_SESSION['captcha_num1'], $_SESSION['captcha_num2']);
-        
+
         try {
             $stmt = $this->db->prepare("
-                SELECT id, username, email, password, full_name, role, is_active 
-                FROM users 
+                SELECT id, username, email, password, full_name, role, is_active
+                FROM users
                 WHERE (username = :username OR email = :email) AND is_active = 1
             ");
             $stmt->execute(['username' => $username, 'email' => $username]);
             $user = $stmt->fetch();
-            
+
             if ($user && password_verify($password, $user['password'])) {
-                // Login exitoso
+                if (!$this->validateGeoLogin($user)) {
+                    logAudit('login_geo_denied', 'autenticacion', "Login denegado por ubicacion para asesor: {$user['username']}");
+                    $_SESSION['error'] = self::GEO_DENIED_MESSAGE;
+                    $this->redirect('/login');
+                }
+
+                $this->clearFailedLogins($username, $ipAddress);
+                session_regenerate_id(true);
+
                 $_SESSION['user_id'] = $user['id'];
                 $_SESSION['username'] = $user['username'];
                 $_SESSION['user_name'] = $user['full_name'];
                 $_SESSION['user_email'] = $user['email'];
                 $_SESSION['user_role'] = $user['role'];
-                
-                // Registrar último acceso
+                $_SESSION['last_activity'] = time();
+
                 $stmt = $this->db->prepare("UPDATE users SET updated_at = NOW() WHERE id = ?");
                 $stmt->execute([$user['id']]);
-                
-                // Log audit trail
-                logAudit('login', 'autenticacion', "Usuario {$user['full_name']} inició sesión");
-                
+
+                logAudit('login', 'autenticacion', "Usuario {$user['full_name']} inicio sesion");
+
                 $this->redirect('/dashboard');
-            } else {
-                // Log failed login attempt
-                logAudit('login_failed', 'autenticacion', "Intento de inicio de sesión fallido para: $username");
-                
-                $_SESSION['error'] = 'Usuario o contraseña incorrectos';
-                $this->redirect('/login');
             }
+
+            $this->registerFailedLogin($username, $ipAddress);
+            logAudit('login_failed', 'autenticacion', "Intento de inicio de sesion fallido para: $username");
+
+            $_SESSION['error'] = 'Usuario o contrasena incorrectos';
+            $this->redirect('/login');
         } catch (PDOException $e) {
-            error_log("Error en autenticación: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al iniciar sesión. Por favor, intente nuevamente.';
+            error_log("Error en autenticacion: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al iniciar sesion. Por favor, intente nuevamente.';
             $this->redirect('/login');
         }
     }
-    
+
     public function logout() {
-        // Log audit trail before destroying session
         if (isset($_SESSION['user_name'])) {
-            logAudit('logout', 'autenticacion', "Usuario {$_SESSION['user_name']} cerró sesión");
+            logAudit('logout', 'autenticacion', "Usuario {$_SESSION['user_name']} cerro sesion");
         }
-        
+
         session_destroy();
         $this->redirect('/login');
+    }
+
+    private function getClientIp(): string {
+        return $_SERVER['REMOTE_ADDR'] ?? '0.0.0.0';
+    }
+
+    private function normalizeLoginIdentifier(string $username): string {
+        return strtolower(trim($username));
+    }
+
+    private function isLoginLocked(string $username, string $ipAddress): bool {
+        $maxAttempts = max(1, (int) getConfig('login_max_attempts', 5));
+        $lockoutMinutes = max(1, (int) getConfig('login_lockout_minutes', 15));
+        $lockoutSince = date('Y-m-d H:i:s', time() - ($lockoutMinutes * 60));
+
+        try {
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*)
+                FROM login_attempts
+                WHERE username = ?
+                  AND ip_address = ?
+                  AND attempted_at >= ?
+            ");
+            $stmt->execute([$this->normalizeLoginIdentifier($username), $ipAddress, $lockoutSince]);
+            return (int) $stmt->fetchColumn() >= $maxAttempts;
+        } catch (PDOException $e) {
+            error_log("Error checking login attempts: " . $e->getMessage());
+            return false;
+        }
+    }
+
+    private function registerFailedLogin(string $username, string $ipAddress): void {
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO login_attempts (username, ip_address, user_agent)
+                VALUES (?, ?, ?)
+            ");
+            $stmt->execute([
+                $this->normalizeLoginIdentifier($username),
+                $ipAddress,
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            ]);
+        } catch (PDOException $e) {
+            error_log("Error registering failed login: " . $e->getMessage());
+        }
+    }
+
+    private function clearFailedLogins(string $username, string $ipAddress): void {
+        try {
+            $stmt = $this->db->prepare("DELETE FROM login_attempts WHERE username = ? AND ip_address = ?");
+            $stmt->execute([$this->normalizeLoginIdentifier($username), $ipAddress]);
+        } catch (PDOException $e) {
+            error_log("Error clearing failed logins: " . $e->getMessage());
+        }
+    }
+
+    private function validateGeoLogin(array $user): bool {
+        if (($user['role'] ?? '') !== ROLE_ASESOR) {
+            return true;
+        }
+
+        if (getConfig('geo_login_enabled', '0') !== '1') {
+            return true;
+        }
+
+        $allowedLat = getConfig('geo_login_latitude', '');
+        $allowedLng = getConfig('geo_login_longitude', '');
+        $radiusMeters = (float) getConfig('geo_login_radius_meters', 100);
+        $userLat = $_POST['latitude'] ?? null;
+        $userLng = $_POST['longitude'] ?? null;
+
+        if (!$this->isValidLatitude($allowedLat) || !$this->isValidLongitude($allowedLng) || $radiusMeters <= 0) {
+            return false;
+        }
+
+        if (!$this->isValidLatitude($userLat) || !$this->isValidLongitude($userLng)) {
+            return false;
+        }
+
+        return $this->distanceInMeters((float) $allowedLat, (float) $allowedLng, (float) $userLat, (float) $userLng) <= $radiusMeters;
+    }
+
+    private function isValidLatitude($value): bool {
+        return is_numeric($value) && (float) $value >= -90 && (float) $value <= 90;
+    }
+
+    private function isValidLongitude($value): bool {
+        return is_numeric($value) && (float) $value >= -180 && (float) $value <= 180;
+    }
+
+    private function distanceInMeters(float $lat1, float $lng1, float $lat2, float $lng2): float {
+        $earthRadius = 6371000;
+        $latDelta = deg2rad($lat2 - $lat1);
+        $lngDelta = deg2rad($lng2 - $lng1);
+
+        $a = sin($latDelta / 2) ** 2
+            + cos(deg2rad($lat1)) * cos(deg2rad($lat2)) * sin($lngDelta / 2) ** 2;
+
+        return $earthRadius * 2 * atan2(sqrt($a), sqrt(1 - $a));
     }
 }
