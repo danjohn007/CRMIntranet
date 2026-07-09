@@ -116,7 +116,6 @@ class AuthController extends BaseController {
     private function isLoginLocked(string $username, string $ipAddress): bool {
         $maxAttempts = max(1, (int) getConfig('login_max_attempts', 5));
         $lockoutMinutes = max(1, (int) getConfig('login_lockout_minutes', 15));
-        $lockoutSince = date('Y-m-d H:i:s', time() - ($lockoutMinutes * 60));
 
         try {
             $stmt = $this->db->prepare("
@@ -124,9 +123,9 @@ class AuthController extends BaseController {
                 FROM login_attempts
                 WHERE username = ?
                   AND ip_address = ?
-                  AND attempted_at >= ?
+                  AND attempted_at >= DATE_SUB(NOW(), INTERVAL {$lockoutMinutes} MINUTE)
             ");
-            $stmt->execute([$this->normalizeLoginIdentifier($username), $ipAddress, $lockoutSince]);
+            $stmt->execute([$this->normalizeLoginIdentifier($username), $ipAddress]);
             return (int) $stmt->fetchColumn() >= $maxAttempts;
         } catch (PDOException $e) {
             error_log("Error checking login attempts: " . $e->getMessage());
@@ -137,7 +136,6 @@ class AuthController extends BaseController {
     private function getRemainingLoginAttempts(string $username, string $ipAddress): int {
         $maxAttempts = max(1, (int) getConfig('login_max_attempts', 5));
         $lockoutMinutes = max(1, (int) getConfig('login_lockout_minutes', 15));
-        $lockoutSince = date('Y-m-d H:i:s', time() - ($lockoutMinutes * 60));
 
         try {
             $stmt = $this->db->prepare("
@@ -145,9 +143,9 @@ class AuthController extends BaseController {
                 FROM login_attempts
                 WHERE username = ?
                   AND ip_address = ?
-                  AND attempted_at >= ?
+                  AND attempted_at >= DATE_SUB(NOW(), INTERVAL {$lockoutMinutes} MINUTE)
             ");
-            $stmt->execute([$this->normalizeLoginIdentifier($username), $ipAddress, $lockoutSince]);
+            $stmt->execute([$this->normalizeLoginIdentifier($username), $ipAddress]);
             return max(0, $maxAttempts - (int) $stmt->fetchColumn());
         } catch (PDOException $e) {
             error_log("Error calculating remaining login attempts: " . $e->getMessage());
