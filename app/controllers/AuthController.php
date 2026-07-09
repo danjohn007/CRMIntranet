@@ -61,6 +61,7 @@ class AuthController extends BaseController {
 
             if ($user && password_verify($password, $user['password'])) {
                 if (!$this->validateGeoLogin($user)) {
+                    $this->registerFailedLogin($username, $ipAddress);
                     logAudit('login_geo_denied', 'autenticacion', "Login denegado por ubicacion para asesor: {$user['username']}");
                     $_SESSION['error'] = self::GEO_DENIED_MESSAGE;
                     $this->redirect('/login');
@@ -165,14 +166,32 @@ class AuthController extends BaseController {
     }
 
     private function registerFailedLogin(string $username, string $ipAddress): void {
+        $locationData = $this->getLoginLocationAttemptData();
+
         try {
             $stmt = $this->db->prepare("
-                INSERT INTO login_attempts (username, ip_address, user_agent)
-                VALUES (?, ?, ?)
+                INSERT INTO login_attempts (
+                    username,
+                    ip_address,
+                    latitude,
+                    longitude,
+                    allowed_latitude,
+                    allowed_longitude,
+                    distance_meters,
+                    location_status,
+                    user_agent
+                )
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
             ");
             $stmt->execute([
                 $this->normalizeLoginIdentifier($username),
                 $ipAddress,
+                $locationData['latitude'],
+                $locationData['longitude'],
+                $locationData['allowed_latitude'],
+                $locationData['allowed_longitude'],
+                $locationData['distance_meters'],
+                $locationData['location_status'],
                 $_SERVER['HTTP_USER_AGENT'] ?? null
             ]);
         } catch (PDOException $e) {
@@ -187,6 +206,49 @@ class AuthController extends BaseController {
         } catch (PDOException $e) {
             error_log("Error clearing failed logins: " . $e->getMessage());
         }
+    }
+
+    private function getLoginLocationAttemptData(): array {
+        $data = [
+            'latitude' => null,
+            'longitude' => null,
+            'allowed_latitude' => null,
+            'allowed_longitude' => null,
+            'distance_meters' => null,
+            'location_status' => getConfig('geo_login_enabled', '0') === '1' ? 'missing' : 'not_required',
+        ];
+
+        $userLat = $_POST['latitude'] ?? null;
+        $userLng = $_POST['longitude'] ?? null;
+        $allowedLat = getConfig('geo_login_latitude', '');
+        $allowedLng = getConfig('geo_login_longitude', '');
+        $radiusMeters = (float) getConfig('geo_login_radius_meters', 100);
+
+        if ($this->isValidLatitude($userLat) && $this->isValidLongitude($userLng)) {
+            $data['latitude'] = round((float) $userLat, 8);
+            $data['longitude'] = round((float) $userLng, 8);
+        } elseif ($userLat !== null || $userLng !== null) {
+            $data['location_status'] = 'invalid';
+        }
+
+        if ($this->isValidLatitude($allowedLat) && $this->isValidLongitude($allowedLng)) {
+            $data['allowed_latitude'] = round((float) $allowedLat, 8);
+            $data['allowed_longitude'] = round((float) $allowedLng, 8);
+        }
+
+        if ($data['latitude'] !== null && $data['longitude'] !== null && $data['allowed_latitude'] !== null && $data['allowed_longitude'] !== null) {
+            $distance = $this->distanceInMeters(
+                (float) $data['allowed_latitude'],
+                (float) $data['allowed_longitude'],
+                (float) $data['latitude'],
+                (float) $data['longitude']
+            );
+
+            $data['distance_meters'] = round($distance, 2);
+            $data['location_status'] = $distance <= $radiusMeters ? 'inside_range' : 'outside_range';
+        }
+
+        return $data;
     }
 
     private function validateGeoLogin(array $user): bool {

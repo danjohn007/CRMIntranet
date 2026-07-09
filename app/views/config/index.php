@@ -1,8 +1,11 @@
 <?php
 $title = 'Configuracion Global';
 $geoEnabled = trim((string)($configs['geo_login_enabled']['config_value'] ?? '0')) === '1';
+$geoAddress = $configs['geo_login_address']['config_value'] ?? '';
 ob_start();
 ?>
+
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
 
 <div class="mb-6">
     <h2 class="text-3xl font-bold text-gray-800">
@@ -354,6 +357,17 @@ ob_start();
                 </label>
             </div>
             <div id="geo_login_fields" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 <?= $geoEnabled ? '' : 'hidden' ?>">
+                <div class="md:col-span-2 relative">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Direccion permitida</label>
+                    <input type="text" name="config_geo_login_address" id="geo_login_address"
+                           value="<?= htmlspecialchars($geoAddress) ?>"
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                           placeholder="Escribe una direccion para buscarla en el mapa"
+                           autocomplete="off">
+                    <div id="geo_address_suggestions"
+                         class="hidden absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto"></div>
+                    <p class="text-xs text-gray-500 mt-1">Selecciona una sugerencia para completar coordenadas automaticamente.</p>
+                </div>
                 <div>
                     <label class="block text-sm font-medium text-gray-700 mb-2">Latitud permitida</label>
                     <input type="text" name="config_geo_login_latitude" id="geo_login_latitude"
@@ -383,6 +397,10 @@ ob_start();
                 </div>
                 <div class="md:col-span-2">
                     <p id="location_status" class="text-sm text-gray-500"></p>
+                </div>
+                <div class="md:col-span-2">
+                    <div id="geo_login_map" class="h-80 w-full rounded-lg border border-gray-300"></div>
+                    <p class="text-xs text-gray-500 mt-2">Puedes hacer clic en el mapa o arrastrar el marcador para ajustar la ubicacion permitida.</p>
                 </div>
             </div>
             <div>
@@ -462,6 +480,7 @@ ob_start();
             <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Seguridad</p>
             <ul class="space-y-1 text-sm text-gray-600">
                 <li><span class="font-medium text-gray-700">Geo login:</span> <?= $geoEnabled ? 'Activo' : 'Inactivo' ?></li>
+                <li><span class="font-medium text-gray-700">Direccion:</span> <?= htmlspecialchars($geoAddress ?: '-') ?></li>
                 <li><span class="font-medium text-gray-700">Latitud:</span> <?= htmlspecialchars($configs['geo_login_latitude']['config_value'] ?? '-') ?></li>
                 <li><span class="font-medium text-gray-700">Longitud:</span> <?= htmlspecialchars($configs['geo_login_longitude']['config_value'] ?? '-') ?></li>
                 <li><span class="font-medium text-gray-700">Radio:</span> <?= htmlspecialchars($configs['geo_login_radius_meters']['config_value'] ?? '100') ?> m</li>
@@ -472,7 +491,12 @@ ob_start();
     </div>
 </div>
 
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
+let geoMap = null;
+let geoMarker = null;
+let addressSearchTimer = null;
+
 function showSection(sectionId) {
     const el = document.getElementById('section-' + sectionId);
     if (el) {
@@ -522,6 +546,10 @@ function updateGeoLoginFields() {
         track.classList.add('bg-gray-300');
         thumb.classList.remove('translate-x-8');
     }
+
+    if (toggle.checked) {
+        setTimeout(ensureGeoMap, 100);
+    }
 }
 
 document.addEventListener('DOMContentLoaded', function() {
@@ -530,12 +558,25 @@ document.addEventListener('DOMContentLoaded', function() {
         toggle.addEventListener('change', updateGeoLoginFields);
         updateGeoLoginFields();
     }
+
+    const addressInput = document.getElementById('geo_login_address');
+    if (addressInput) {
+        addressInput.addEventListener('input', handleAddressInput);
+        addressInput.addEventListener('blur', function() {
+            setTimeout(hideAddressSuggestions, 200);
+        });
+    }
+
+    const latInput = document.getElementById('geo_login_latitude');
+    const lngInput = document.getElementById('geo_login_longitude');
+    if (latInput && lngInput) {
+        latInput.addEventListener('change', syncMapFromCoordinateInputs);
+        lngInput.addEventListener('change', syncMapFromCoordinateInputs);
+    }
 });
 
 function useCurrentLocation() {
     const status = document.getElementById('location_status');
-    const latInput = document.getElementById('geo_login_latitude');
-    const lngInput = document.getElementById('geo_login_longitude');
 
     if (!navigator.geolocation) {
         status.textContent = 'Este navegador no permite obtener ubicacion.';
@@ -548,8 +589,7 @@ function useCurrentLocation() {
 
     navigator.geolocation.getCurrentPosition(
         function(position) {
-            latInput.value = position.coords.latitude.toFixed(8);
-            lngInput.value = position.coords.longitude.toFixed(8);
+            setLatLngInputs(position.coords.latitude, position.coords.longitude, true);
             status.textContent = 'Ubicacion capturada.';
             status.className = 'text-sm text-green-600';
         },
@@ -563,6 +603,205 @@ function useCurrentLocation() {
             maximumAge: 0
         }
     );
+}
+
+function getConfiguredLatLng() {
+    const lat = parseFloat(document.getElementById('geo_login_latitude')?.value || '');
+    const lng = parseFloat(document.getElementById('geo_login_longitude')?.value || '');
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return [lat, lng];
+    }
+
+    return [20.5888, -100.3899];
+}
+
+function ensureGeoMap() {
+    const mapEl = document.getElementById('geo_login_map');
+    if (!mapEl || mapEl.offsetParent === null) {
+        return;
+    }
+
+    if (!window.L) {
+        const status = document.getElementById('location_status');
+        if (status) {
+            status.textContent = 'No se pudo cargar el mapa. Revisa la conexion a OpenStreetMap.';
+            status.className = 'text-sm text-red-600';
+        }
+        return;
+    }
+
+    const initialLatLng = getConfiguredLatLng();
+
+    if (!geoMap) {
+        geoMap = L.map('geo_login_map').setView(initialLatLng, 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(geoMap);
+
+        geoMarker = L.marker(initialLatLng, { draggable: true }).addTo(geoMap);
+        geoMarker.on('dragend', function(event) {
+            const position = event.target.getLatLng();
+            setLatLngInputs(position.lat, position.lng, false);
+        });
+
+        geoMap.on('click', function(event) {
+            setLatLngInputs(event.latlng.lat, event.latlng.lng, true);
+        });
+    } else {
+        geoMap.invalidateSize();
+    }
+
+    setTimeout(function() {
+        geoMap.invalidateSize();
+    }, 150);
+}
+
+function setLatLngInputs(lat, lng, updateMap) {
+    const latInput = document.getElementById('geo_login_latitude');
+    const lngInput = document.getElementById('geo_login_longitude');
+
+    if (latInput) {
+        latInput.value = Number(lat).toFixed(8);
+    }
+
+    if (lngInput) {
+        lngInput.value = Number(lng).toFixed(8);
+    }
+
+    if (updateMap) {
+        setMapMarker(Number(lat), Number(lng), true);
+    }
+}
+
+function setMapMarker(lat, lng, centerMap) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return;
+    }
+
+    if (!geoMap) {
+        ensureGeoMap();
+    }
+
+    if (!geoMap || !geoMarker) {
+        return;
+    }
+
+    const latLng = [lat, lng];
+    geoMarker.setLatLng(latLng);
+
+    if (centerMap) {
+        geoMap.setView(latLng, Math.max(geoMap.getZoom(), 16));
+    }
+}
+
+function syncMapFromCoordinateInputs() {
+    const lat = parseFloat(document.getElementById('geo_login_latitude')?.value || '');
+    const lng = parseFloat(document.getElementById('geo_login_longitude')?.value || '');
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        setMapMarker(lat, lng, true);
+    }
+}
+
+function handleAddressInput(event) {
+    const query = event.target.value.trim();
+
+    clearTimeout(addressSearchTimer);
+
+    if (query.length < 3) {
+        hideAddressSuggestions();
+        return;
+    }
+
+    addressSearchTimer = setTimeout(function() {
+        searchAddress(query);
+    }, 350);
+}
+
+function searchAddress(query) {
+    const suggestions = document.getElementById('geo_address_suggestions');
+    if (!suggestions) {
+        return;
+    }
+
+    suggestions.innerHTML = '<div class="px-4 py-3 text-sm text-gray-500">Buscando...</div>';
+    suggestions.classList.remove('hidden');
+
+    const url = 'https://nominatim.openstreetmap.org/search?format=jsonv2&addressdetails=1&limit=6&countrycodes=mx&q=' + encodeURIComponent(query);
+
+    fetch(url, {
+        headers: {
+            'Accept': 'application/json',
+            'Accept-Language': 'es'
+        }
+    })
+        .then(function(response) {
+            if (!response.ok) {
+                throw new Error('Busqueda no disponible');
+            }
+            return response.json();
+        })
+        .then(renderAddressSuggestions)
+        .catch(function() {
+            suggestions.innerHTML = '<div class="px-4 py-3 text-sm text-red-600">No se pudieron cargar sugerencias.</div>';
+        });
+}
+
+function renderAddressSuggestions(results) {
+    const suggestions = document.getElementById('geo_address_suggestions');
+    if (!suggestions) {
+        return;
+    }
+
+    if (!Array.isArray(results) || results.length === 0) {
+        suggestions.innerHTML = '<div class="px-4 py-3 text-sm text-gray-500">Sin resultados.</div>';
+        suggestions.classList.remove('hidden');
+        return;
+    }
+
+    suggestions.innerHTML = '';
+    results.forEach(function(result) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'block w-full px-4 py-3 text-left text-sm hover:bg-blue-50 focus:bg-blue-50 focus:outline-none border-b border-gray-100 last:border-b-0';
+        button.textContent = result.display_name;
+        button.addEventListener('click', function() {
+            selectAddressSuggestion(result);
+        });
+        suggestions.appendChild(button);
+    });
+
+    suggestions.classList.remove('hidden');
+}
+
+function selectAddressSuggestion(result) {
+    const addressInput = document.getElementById('geo_login_address');
+    const status = document.getElementById('location_status');
+    const lat = parseFloat(result.lat);
+    const lng = parseFloat(result.lon);
+
+    if (addressInput) {
+        addressInput.value = result.display_name || '';
+    }
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        setLatLngInputs(lat, lng, true);
+        if (status) {
+            status.textContent = 'Direccion seleccionada y coordenadas actualizadas.';
+            status.className = 'text-sm text-green-600';
+        }
+    }
+
+    hideAddressSuggestions();
+}
+
+function hideAddressSuggestions() {
+    const suggestions = document.getElementById('geo_address_suggestions');
+    if (suggestions) {
+        suggestions.classList.add('hidden');
+    }
 }
 </script>
 
