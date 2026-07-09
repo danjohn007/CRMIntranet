@@ -33,6 +33,9 @@ class ConfigController extends BaseController {
         try {
             $this->db->beginTransaction();
 
+            $_POST['config_geo_login_enabled'] = isset($_POST['geo_login_enabled_toggle']) ? '1' : '0';
+            unset($_POST['geo_login_enabled_toggle']);
+
             foreach ($_POST as $key => $value) {
                 if (strpos($key, 'config_') !== 0) {
                     continue;

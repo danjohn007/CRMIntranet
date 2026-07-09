@@ -338,7 +338,7 @@ ob_start();
             <div class="md:col-span-2">
                 <input type="hidden" name="config_geo_login_enabled" value="0">
                 <label class="inline-flex items-center cursor-pointer">
-                    <input type="checkbox" name="config_geo_login_enabled" value="1"
+                    <input type="checkbox" name="geo_login_enabled_toggle" value="1"
                            class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
                            <?= $geoEnabled ? 'checked' : '' ?>>
                     <span class="ml-3 text-sm font-medium text-gray-700">Activar login geolocalizado para asesores</span>

@@ -35,7 +35,7 @@ class AuthController extends BaseController {
 
         if (empty($captcha) || !isset($_SESSION['captcha_answer'])) {
             $this->registerFailedLogin($username, $ipAddress);
-            $_SESSION['error'] = 'Por favor, complete la verificacion humana';
+            $_SESSION['error'] = $this->buildFailedLoginMessage('Por favor, complete la verificacion humana.', $username, $ipAddress);
             unset($_SESSION['captcha_answer'], $_SESSION['captcha_num1'], $_SESSION['captcha_num2']);
             $this->redirect('/login');
         }
@@ -43,7 +43,7 @@ class AuthController extends BaseController {
         if ((int) $captcha !== (int) $_SESSION['captcha_answer']) {
             $this->registerFailedLogin($username, $ipAddress);
             logAudit('login_failed', 'autenticacion', "Verificacion humana incorrecta para: $username");
-            $_SESSION['error'] = 'Verificacion humana incorrecta. Por favor, intente nuevamente';
+            $_SESSION['error'] = $this->buildFailedLoginMessage('Verificacion humana incorrecta. Por favor, intente nuevamente.', $username, $ipAddress);
             unset($_SESSION['captcha_answer'], $_SESSION['captcha_num1'], $_SESSION['captcha_num2']);
             $this->redirect('/login');
         }
@@ -87,7 +87,7 @@ class AuthController extends BaseController {
             $this->registerFailedLogin($username, $ipAddress);
             logAudit('login_failed', 'autenticacion', "Intento de inicio de sesion fallido para: $username");
 
-            $_SESSION['error'] = 'Usuario o contrasena incorrectos';
+            $_SESSION['error'] = $this->buildFailedLoginMessage('Usuario o contrasena incorrectos.', $username, $ipAddress);
             $this->redirect('/login');
         } catch (PDOException $e) {
             error_log("Error en autenticacion: " . $e->getMessage());
@@ -132,6 +132,38 @@ class AuthController extends BaseController {
             error_log("Error checking login attempts: " . $e->getMessage());
             return false;
         }
+    }
+
+    private function getRemainingLoginAttempts(string $username, string $ipAddress): int {
+        $maxAttempts = max(1, (int) getConfig('login_max_attempts', 5));
+        $lockoutMinutes = max(1, (int) getConfig('login_lockout_minutes', 15));
+        $lockoutSince = date('Y-m-d H:i:s', time() - ($lockoutMinutes * 60));
+
+        try {
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*)
+                FROM login_attempts
+                WHERE username = ?
+                  AND ip_address = ?
+                  AND attempted_at >= ?
+            ");
+            $stmt->execute([$this->normalizeLoginIdentifier($username), $ipAddress, $lockoutSince]);
+            return max(0, $maxAttempts - (int) $stmt->fetchColumn());
+        } catch (PDOException $e) {
+            error_log("Error calculating remaining login attempts: " . $e->getMessage());
+            return $maxAttempts;
+        }
+    }
+
+    private function buildFailedLoginMessage(string $baseMessage, string $username, string $ipAddress): string {
+        $remainingAttempts = $this->getRemainingLoginAttempts($username, $ipAddress);
+        $lockoutMinutes = max(1, (int) getConfig('login_lockout_minutes', 15));
+
+        if ($remainingAttempts <= 0) {
+            return $baseMessage . ' Demasiados intentos fallidos. Intente nuevamente en ' . $lockoutMinutes . ' minutos.';
+        }
+
+        return $baseMessage . ' Intentos restantes: ' . $remainingAttempts . '.';
     }
 
     private function registerFailedLogin(string $username, string $ipAddress): void {
