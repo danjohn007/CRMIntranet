@@ -767,7 +767,16 @@ function renderAddressSuggestions(results) {
         button.type = 'button';
         button.className = 'block w-full px-4 py-3 text-left text-sm hover:bg-blue-50 focus:bg-blue-50 focus:outline-none border-b border-gray-100 last:border-b-0';
         button.textContent = result.display_name;
-        button.addEventListener('click', function() {
+        button.addEventListener('pointerdown', function(event) {
+            event.preventDefault();
+            selectAddressSuggestion(result);
+        });
+        button.addEventListener('mousedown', function(event) {
+            event.preventDefault();
+            selectAddressSuggestion(result);
+        });
+        button.addEventListener('click', function(event) {
+            event.preventDefault();
             selectAddressSuggestion(result);
         });
         suggestions.appendChild(button);
@@ -781,9 +790,10 @@ function selectAddressSuggestion(result) {
     const status = document.getElementById('location_status');
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
+    const displayName = String(result.display_name || '');
 
     if (addressInput) {
-        addressInput.value = result.display_name || '';
+        addressInput.value = displayName;
     }
 
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
