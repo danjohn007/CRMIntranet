@@ -13,6 +13,17 @@ class Router {
         $this->routes['POST']['/login'] = ['AuthController', 'authenticate'];
         $this->routes['GET']['/logout'] = ['AuthController', 'logout'];
         
+
+        // Portal del Cliente
+        $this->routes['GET']['/mi-tramite'] = ['ClientPortalController', 'index'];
+        $this->routes['GET']['/mi-tramite/ver/{id}'] = ['ClientPortalController', 'show'];
+        $this->routes['POST']['/mi-tramite/actualizar-perfil'] = ['ClientPortalController', 'updateProfile'];
+        $this->routes['POST']['/mi-tramite/actualizar-formulario/{id}'] = ['ClientPortalController', 'updateForm'];
+        $this->routes['POST']['/mi-tramite/subir-documento/{id}'] = ['ClientPortalController', 'uploadDocument'];
+        $this->routes['POST']['/mi-tramite/responder-observacion/{id}'] = ['ClientPortalController', 'respondObservation'];
+        $this->routes['POST']['/mi-tramite/mensajes/{id}'] = ['ClientPortalController', 'sendMessage'];
+        $this->routes['POST']['/mi-tramite/enviar-revision/{id}'] = ['ClientPortalController', 'submitForReview'];
+
         // Dashboard
         $this->routes['GET']['/dashboard'] = ['DashboardController', 'index'];
         
@@ -54,6 +65,11 @@ class Router {
         $this->routes['GET']['/solicitudes/descargar-documento/{docId}'] = ['ApplicationController', 'downloadDocument'];
         $this->routes['GET']['/solicitudes/ver-documento/{docId}'] = ['ApplicationController', 'viewDocument'];
         $this->routes['POST']['/solicitudes/eliminar/{id}'] = ['ApplicationController', 'delete'];
+
+        $this->routes['POST']['/solicitudes/vincular-cliente/{id}'] = ['ApplicationController', 'linkClient'];
+        $this->routes['POST']['/solicitudes/mensajes-cliente/{id}'] = ['ApplicationController', 'sendClientMessage'];
+        $this->routes['POST']['/solicitudes/marcar-revision-cliente/{id}'] = ['ApplicationController', 'markClientUpdateReviewed'];
+
         
         // Módulo Financiero
         $this->routes['GET']['/financiero'] = ['FinancialController', 'index'];

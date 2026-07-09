@@ -7,6 +7,9 @@ class ApplicationController extends BaseController {
         $this->requireLogin();
         
         $role = $this->getUserRole();
+        if ($role === ROLE_CLIENTE) {
+            $this->redirect('/mi-tramite');
+        }
         $userId = $_SESSION['user_id'];
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
         $limit = ITEMS_PER_PAGE;
@@ -354,13 +357,16 @@ class ApplicationController extends BaseController {
         $this->requireLogin();
         
         $role = $this->getUserRole();
+        if ($role === ROLE_CLIENTE) {
+            $this->redirect('/mi-tramite/ver/' . $id);
+        }
         $userId = $_SESSION['user_id'];
         
         try {
             // Obtener solicitud
             $stmt = $this->db->prepare("
                 SELECT a.*, u.full_name as creator_name,
-                       f.name as form_name, f.fields_json,
+                       f.name as form_name, f.fields_json, f.pages_json, f.pagination_enabled,
                        fs.total_costs, fs.total_paid, fs.balance, fs.status as financial_status
                 FROM applications a
                 LEFT JOIN users u ON a.created_by = u.id
@@ -388,6 +394,20 @@ class ApplicationController extends BaseController {
                 }
             }
             
+            // Preparar datos capturados por el cliente para mostrarlos al equipo.
+            // El portal del cliente guarda avances parciales en applications.data_json,
+            // por eso el admin/asesor puede revisar aunque el cliente aún no haya terminado todo.
+            $clientFormData = json_decode($application['data_json'] ?? '{}', true) ?: [];
+            $decodedFields = json_decode($application['fields_json'] ?? '[]', true) ?: [];
+            if (isset($decodedFields['fields']) && is_array($decodedFields['fields'])) {
+                $clientFormFields = $decodedFields['fields'];
+            } elseif (is_array($decodedFields)) {
+                $clientFormFields = $decodedFields;
+            } else {
+                $clientFormFields = [];
+            }
+            $clientFormPages = json_decode($application['pages_json'] ?? '[]', true) ?: [];
+
             // Obtener historial de estatus
             $stmt = $this->db->prepare("
                 SELECT sh.*, u.full_name as changed_by_name
@@ -420,6 +440,41 @@ class ApplicationController extends BaseController {
             ");
             $stmt->execute([$id]);
             $notes = $stmt->fetchAll();
+
+            // Datos del portal del cliente
+            $clients = [];
+            $clientMessages = [];
+            $clientNoteResponses = [];
+            try {
+                $stmt = $this->db->query("SELECT id, full_name, email, phone FROM users WHERE role = 'Cliente' AND is_active = 1 ORDER BY full_name ASC");
+                $clients = $stmt->fetchAll();
+            } catch (PDOException $e) {}
+            try {
+                $stmt = $this->db->prepare("
+                    SELECT cm.*, u.full_name as sender_name
+                    FROM client_messages cm
+                    LEFT JOIN users u ON cm.sender_user_id = u.id
+                    WHERE cm.application_id = ?
+                    ORDER BY cm.created_at ASC
+                ");
+                $stmt->execute([$id]);
+                $clientMessages = $stmt->fetchAll();
+
+                $this->db->prepare("UPDATE client_messages SET is_read_by_staff = 1 WHERE application_id = ? AND sender_role = 'Cliente'")
+                    ->execute([$id]);
+            } catch (PDOException $e) {}
+            try {
+                $stmt = $this->db->prepare("
+                    SELECT r.*, n.note_text, u.full_name as client_name
+                    FROM application_note_responses r
+                    LEFT JOIN application_notes n ON r.note_id = n.id
+                    LEFT JOIN users u ON r.client_user_id = u.id
+                    WHERE r.application_id = ?
+                    ORDER BY r.created_at DESC
+                ");
+                $stmt->execute([$id]);
+                $clientNoteResponses = $stmt->fetchAll();
+            } catch (PDOException $e) {}
             
             // Obtener costos (solo Admin y Gerente)
             $costs = [];
@@ -508,6 +563,12 @@ class ApplicationController extends BaseController {
                 'familiarMembers' => $familiarMembers,
                 'publishedForms' => $publishedForms,
                 'formLinkToken' => $formLinkToken,
+                'clients' => $clients,
+                'clientMessages' => $clientMessages,
+                'clientNoteResponses' => $clientNoteResponses,
+                'clientFormData' => $clientFormData,
+                'clientFormFields' => $clientFormFields,
+                'clientFormPages' => $clientFormPages,
             ]);
             
         } catch (PDOException $e) {
@@ -1076,6 +1137,8 @@ class ApplicationController extends BaseController {
         
         $noteText = trim($_POST['note_text'] ?? '');
         $isImportant = isset($_POST['is_important']) ? 1 : 0;
+        $visibleToClient = isset($_POST['visible_to_client']) ? 1 : 0;
+        $requiresClientResponse = isset($_POST['requires_client_response']) ? 1 : 0;
         
         if (empty($noteText)) {
             $_SESSION['error'] = 'La indicación no puede estar vacía';
@@ -1092,16 +1155,31 @@ class ApplicationController extends BaseController {
             }
             
             // Insertar indicación
-            $stmt = $this->db->prepare("
-                INSERT INTO application_notes (application_id, note_text, is_important, created_by)
-                VALUES (?, ?, ?, ?)
-            ");
-            $stmt->execute([
-                $id,
-                $noteText,
-                $isImportant,
-                $_SESSION['user_id']
-            ]);
+            try {
+                $stmt = $this->db->prepare("
+                    INSERT INTO application_notes (application_id, note_text, is_important, visible_to_client, requires_client_response, created_by)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $id,
+                    $noteText,
+                    $isImportant,
+                    $visibleToClient,
+                    $requiresClientResponse,
+                    $_SESSION['user_id']
+                ]);
+            } catch (PDOException $e) {
+                $stmt = $this->db->prepare("
+                    INSERT INTO application_notes (application_id, note_text, is_important, created_by)
+                    VALUES (?, ?, ?, ?)
+                ");
+                $stmt->execute([
+                    $id,
+                    $noteText,
+                    $isImportant,
+                    $_SESSION['user_id']
+                ]);
+            }
             
             // Log audit trail
             logAudit('create', 'solicitudes', 
@@ -1969,7 +2047,7 @@ class ApplicationController extends BaseController {
 
         try {
             $stmt = $this->db->prepare("
-                SELECT d.*, a.id as app_id, a.created_by as app_created_by, a.status
+                SELECT d.*, a.id as app_id, a.created_by as app_created_by, a.client_user_id, a.status
                 FROM documents d
                 LEFT JOIN applications a ON d.application_id = a.id
                 WHERE d.id = ?
@@ -1993,6 +2071,11 @@ class ApplicationController extends BaseController {
                 if ($docCreatorId !== intval($_SESSION['user_id'])) {
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
+                }
+            } elseif ($role === ROLE_CLIENTE) {
+                if (intval($doc['client_user_id'] ?? 0) !== intval($_SESSION['user_id'])) {
+                    $_SESSION['error'] = 'No tiene permisos para visualizar este documento';
+                    $this->redirect('/mi-tramite');
                 }
             } elseif (!in_array($role, [ROLE_ADMIN, ROLE_GERENTE])) {
                 $_SESSION['error'] = 'No tiene permisos para visualizar documentos';
@@ -2112,4 +2195,144 @@ class ApplicationController extends BaseController {
 
         return true;
     }
+
+    /**
+     * Vincular una solicitud con un usuario Cliente.
+     */
+    public function linkClient($id) {
+        $this->requireRole([ROLE_ADMIN, ROLE_GERENTE, ROLE_ASESOR]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $role = $this->getUserRole();
+        $clientUserId = intval($_POST['client_user_id'] ?? 0);
+
+        try {
+            $stmt = $this->db->prepare("SELECT id, created_by FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para vincular este trámite';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            if ($clientUserId > 0) {
+                $stmt = $this->db->prepare("SELECT id FROM users WHERE id = ? AND role = ? AND is_active = 1");
+                $stmt->execute([$clientUserId, ROLE_CLIENTE]);
+                if (!$stmt->fetch()) {
+                    $_SESSION['error'] = 'El usuario seleccionado no es un cliente activo';
+                    $this->redirect('/solicitudes/ver/' . $id);
+                }
+            } else {
+                $clientUserId = null;
+            }
+
+            $stmt = $this->db->prepare("UPDATE applications SET client_user_id = ? WHERE id = ?");
+            $stmt->execute([$clientUserId, $id]);
+
+            logAudit('update', 'solicitudes', "Cliente vinculado a solicitud #$id");
+            logCustomerJourney($id, 'client_portal', 'Acceso de cliente actualizado', 'Se actualizó el usuario cliente vinculado al trámite', 'sistema');
+
+            $_SESSION['success'] = $clientUserId ? 'Cliente vinculado correctamente' : 'Vínculo del cliente eliminado';
+            $this->redirect('/solicitudes/ver/' . $id);
+        } catch (PDOException $e) {
+            error_log("Error al vincular cliente: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al vincular cliente. Verifica que la migración de BD esté aplicada.';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
+    /**
+     * Enviar mensaje interno al cliente desde el detalle de solicitud.
+     */
+    public function sendClientMessage($id) {
+        $this->requireRole([ROLE_ADMIN, ROLE_GERENTE, ROLE_ASESOR]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $message = trim($_POST['message'] ?? '');
+        if ($message === '') {
+            $_SESSION['error'] = 'El mensaje no puede estar vacío';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
+        $role = $this->getUserRole();
+
+        try {
+            $stmt = $this->db->prepare("SELECT id, created_by, client_user_id FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para enviar mensajes en este trámite';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            if (empty($application['client_user_id'])) {
+                $_SESSION['error'] = 'Primero debes vincular un usuario cliente al trámite';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            $stmt = $this->db->prepare("\n                INSERT INTO client_messages (application_id, sender_user_id, sender_role, message, is_read_by_client, is_read_by_staff)\n                VALUES (?, ?, 'Equipo', ?, 0, 1)\n            ");
+            $stmt->execute([$id, $_SESSION['user_id'], $message]);
+
+            logCustomerJourney($id, 'message', 'Mensaje enviado al cliente', $message, 'portal', [
+                'sender_role' => 'Equipo',
+                'source' => 'staff_portal'
+            ]);
+
+            $_SESSION['success'] = 'Mensaje enviado al cliente';
+            $this->redirect('/solicitudes/ver/' . $id);
+        } catch (PDOException $e) {
+            error_log("Error al enviar mensaje al cliente: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al enviar mensaje. Verifica que la migración de BD esté aplicada.';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
+    /**
+     * Marcar como revisada la actualización enviada por el cliente.
+     */
+    public function markClientUpdateReviewed($id) {
+        $this->requireRole([ROLE_ADMIN, ROLE_GERENTE, ROLE_ASESOR]);
+
+        $role = $this->getUserRole();
+        try {
+            $stmt = $this->db->prepare("SELECT id, created_by FROM applications WHERE id = ?");
+            $stmt->execute([$id]);
+            $application = $stmt->fetch();
+            if (!$application) {
+                $_SESSION['error'] = 'Solicitud no encontrada';
+                $this->redirect('/solicitudes');
+            }
+            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
+                $_SESSION['error'] = 'No tiene permisos para revisar este trámite';
+                $this->redirect('/solicitudes/ver/' . $id);
+            }
+
+            $this->db->prepare("\n                UPDATE applications\n                SET client_update_pending = 0, client_last_update_comment = NULL\n                WHERE id = ?\n            ")->execute([$id]);
+
+            logCustomerJourney($id, 'client_portal', 'Actualización de cliente revisada', 'El equipo marcó como revisada la actualización enviada por el cliente', 'sistema');
+            $_SESSION['success'] = 'Actualización del cliente marcada como revisada';
+            $this->redirect('/solicitudes/ver/' . $id);
+        } catch (PDOException $e) {
+            error_log("Error al marcar revisión cliente: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al marcar como revisado';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+    }
+
 }

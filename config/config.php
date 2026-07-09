@@ -44,6 +44,7 @@ define('ALLOWED_EXTENSIONS', ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx']);
 define('ROLE_ADMIN', 'Administrador');
 define('ROLE_GERENTE', 'Gerente');
 define('ROLE_ASESOR', 'Asesor');
+define('ROLE_CLIENTE', 'Cliente');
 
 // Estatus de Solicitudes (sistema de colores)
 define('STATUS_NUEVO', 'Nuevo');                                    // GRIS - recién creada

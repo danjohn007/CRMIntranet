@@ -5,12 +5,15 @@ class AuthController extends BaseController {
     
     public function login() {
         if ($this->isLoggedIn()) {
+            if (($_SESSION['user_role'] ?? '') === ROLE_CLIENTE) {
+                $this->redirect('/mi-tramite');
+            }
             $this->redirect('/dashboard');
         }
         
         $this->view('auth/login');
     }
-    
+
     public function authenticate() {
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             $this->redirect('/login');
@@ -65,6 +68,10 @@ class AuthController extends BaseController {
                 // Log audit trail
                 logAudit('login', 'autenticacion', "Usuario {$user['full_name']} inició sesión");
                 
+                if ($user['role'] === ROLE_CLIENTE) {
+                    $this->redirect('/mi-tramite');
+                }
+
                 $this->redirect('/dashboard');
             } else {
                 // Log failed login attempt

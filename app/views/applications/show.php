@@ -50,6 +50,147 @@ $canadianStatusLabels = [
     STATUS_EN_ESPERA_RESULTADO => 'En espera de resolución',
     STATUS_TRAMITE_CERRADO     => 'Trámite cerrado',
 ];
+$clientFormData = $clientFormData ?? (json_decode($application['data_json'] ?? '{}', true) ?: []);
+$clientFormFields = $clientFormFields ?? [];
+$clientFormPages = $clientFormPages ?? [];
+
+if (!function_exists('adminClientFieldIsInformative')) {
+    function adminClientFieldIsInformative($field) {
+        $type = $field['type'] ?? 'text';
+        return in_array($type, ['label', 'paragraph', 'html', 'heading']);
+    }
+}
+
+if (!function_exists('adminClientFieldIsFillable')) {
+    function adminClientFieldIsFillable($field) {
+        $type = $field['type'] ?? 'text';
+        return !in_array($type, ['label', 'paragraph', 'html', 'heading', 'file']);
+    }
+}
+
+if (!function_exists('adminClientValueIsFilled')) {
+    function adminClientValueIsFilled($value) {
+        if (is_array($value)) {
+            return count(array_filter($value, fn($v) => trim((string)$v) !== '')) > 0;
+        }
+        return trim((string)$value) !== '';
+    }
+}
+
+if (!function_exists('adminClientValueToText')) {
+    function adminClientValueToText($value) {
+        if (is_array($value)) {
+            $value = array_filter(array_map(fn($v) => trim((string)$v), $value), fn($v) => $v !== '');
+            return implode(', ', $value);
+        }
+        return trim((string)$value);
+    }
+}
+
+if (!function_exists('adminBuildClientFormPages')) {
+    function adminBuildClientFormPages($fields, $rawPages, $paginationEnabled) {
+        $fieldMap = [];
+        foreach ($fields as $field) {
+            if (!empty($field['id'])) {
+                $fieldMap[$field['id']] = $field;
+            }
+        }
+
+        $pages = [];
+        $used = [];
+        if (!empty($paginationEnabled) && is_array($rawPages) && !empty($rawPages)) {
+            foreach ($rawPages as $index => $page) {
+                $pageFields = [];
+                foreach (($page['fieldIds'] ?? []) as $fieldId) {
+                    if (isset($fieldMap[$fieldId])) {
+                        $pageFields[] = $fieldMap[$fieldId];
+                        $used[$fieldId] = true;
+                    }
+                }
+                if (!empty($pageFields)) {
+                    $pages[] = [
+                        'name' => $page['name'] ?? ('Página ' . ($index + 1)),
+                        'fields' => $pageFields,
+                    ];
+                }
+            }
+        }
+
+        if (!empty($pages)) {
+            $missing = [];
+            foreach ($fields as $field) {
+                $id = $field['id'] ?? null;
+                if ($id && empty($used[$id])) {
+                    $missing[] = $field;
+                    $used[$id] = true;
+                }
+            }
+            if (!empty($missing)) {
+                $pages[] = ['name' => 'Datos adicionales', 'fields' => $missing];
+            }
+        }
+
+        if (empty($pages) && !empty($fields)) {
+            foreach (array_chunk($fields, 18) as $index => $chunk) {
+                $pages[] = ['name' => 'Sección ' . ($index + 1), 'fields' => $chunk];
+            }
+        }
+
+        return $pages;
+    }
+}
+
+if (!function_exists('adminRenderClientFormValue')) {
+    function adminRenderClientFormValue($field, $data) {
+        $type = $field['type'] ?? 'text';
+        $id = $field['id'] ?? '';
+        $label = $field['label'] ?? $id;
+
+        if (in_array($type, ['label', 'heading'])) {
+            echo '<div class="md:col-span-2 pt-2"><h5 class="text-sm font-bold text-gray-800 border-b border-gray-100 pb-2">' . htmlspecialchars($label) . '</h5></div>';
+            return;
+        }
+
+        if ($type === 'paragraph' || $type === 'html') {
+            echo '<div class="md:col-span-2 text-xs text-gray-500 bg-gray-50 rounded-lg p-3">' . nl2br(htmlspecialchars($label)) . '</div>';
+            return;
+        }
+
+        if ($type === 'file') {
+            echo '<div class="rounded-lg border border-dashed border-gray-200 bg-gray-50 p-3">';
+            echo '<p class="text-xs text-gray-500 mb-1">' . htmlspecialchars($label) . '</p>';
+            echo '<p class="text-sm text-gray-700"><i class="fas fa-paperclip mr-1 text-gray-400"></i>Archivo solicitado; revisar en Documentos.</p>';
+            echo '</div>';
+            return;
+        }
+
+        $value = $data[$id] ?? '';
+        $filled = adminClientValueIsFilled($value);
+        $text = adminClientValueToText($value);
+
+        echo '<div class="rounded-lg border border-gray-100 bg-white p-3">';
+        echo '<p class="text-xs text-gray-500 mb-1">' . htmlspecialchars($label) . (!empty($field['required']) ? ' <span class="text-red-500">*</span>' : '') . '</p>';
+        if ($filled) {
+            echo '<p class="text-sm font-semibold text-gray-800 whitespace-pre-line">' . nl2br(htmlspecialchars($text)) . '</p>';
+        } else {
+            echo '<p class="text-sm text-gray-400 italic">Pendiente</p>';
+        }
+        echo '</div>';
+    }
+}
+
+$clientFormTotalFields = 0;
+$clientFormFilledFields = 0;
+foreach ($clientFormFields as $field) {
+    if (adminClientFieldIsFillable($field) && !empty($field['id'])) {
+        $clientFormTotalFields++;
+        if (adminClientValueIsFilled($clientFormData[$field['id']] ?? '')) {
+            $clientFormFilledFields++;
+        }
+    }
+}
+$clientFormProgress = $clientFormTotalFields > 0 ? round(($clientFormFilledFields / $clientFormTotalFields) * 100) : 0;
+$adminClientFormPages = adminBuildClientFormPages($clientFormFields, $clientFormPages, $application['pagination_enabled'] ?? 0);
 ?>
 
 <div class="mb-6">
@@ -499,6 +640,73 @@ $canadianStatusLabels = [
                 <p class="text-xs text-gray-500 mt-2">Al generar el enlace se marcará como enviado.</p>
                 <?php endif; ?>
             <?php endif; ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- Respuestas capturadas por el cliente desde portal web -->
+        <?php if (($isAdmin || $isAsesor) && !empty($clientFormFields)): ?>
+        <div class="bg-white rounded-lg shadow p-6">
+            <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-4 mb-5">
+                <div>
+                    <h3 class="text-xl font-bold text-gray-800">
+                        <i class="fas fa-clipboard-check text-green-600 mr-2"></i>Formulario capturado por el cliente
+                    </h3>
+                    <p class="text-sm text-gray-500 mt-1">
+                        Se muestran las respuestas que el cliente ha guardado desde su portal. Puede estar incompleto si aún no termina el trámite.
+                    </p>
+                </div>
+                <div class="text-right min-w-[160px]">
+                    <p class="text-2xl font-bold text-blue-600"><?= intval($clientFormProgress) ?>%</p>
+                    <p class="text-xs text-gray-500"><?= intval($clientFormFilledFields) ?> de <?= intval($clientFormTotalFields) ?> campos</p>
+                </div>
+            </div>
+
+            <div class="w-full bg-gray-100 rounded-full h-2 mb-5">
+                <div class="bg-blue-600 h-2 rounded-full" style="width: <?= min(100, max(0, intval($clientFormProgress))) ?>%"></div>
+            </div>
+
+            <?php if (!empty($application['client_last_update_at'])): ?>
+            <div class="bg-blue-50 border border-blue-100 rounded-lg p-3 text-sm text-blue-800 mb-5">
+                <i class="fas fa-clock mr-1"></i>
+                Última actualización del cliente: <strong><?= date('d/m/Y H:i', strtotime($application['client_last_update_at'])) ?></strong>
+                <?php if (!empty($application['client_last_update_comment'])): ?>
+                    — <?= htmlspecialchars($application['client_last_update_comment']) ?>
+                <?php endif; ?>
+            </div>
+            <?php endif; ?>
+
+            <div class="space-y-4">
+                <?php foreach ($adminClientFormPages as $pageIndex => $page): ?>
+                    <?php
+                        $pageFields = $page['fields'] ?? [];
+                        $pageTotal = 0;
+                        $pageFilled = 0;
+                        foreach ($pageFields as $pf) {
+                            if (adminClientFieldIsFillable($pf) && !empty($pf['id'])) {
+                                $pageTotal++;
+                                if (adminClientValueIsFilled($clientFormData[$pf['id']] ?? '')) {
+                                    $pageFilled++;
+                                }
+                            }
+                        }
+                    ?>
+                    <details class="border border-gray-100 rounded-xl overflow-hidden" <?= $pageIndex === 0 ? 'open' : '' ?>>
+                        <summary class="cursor-pointer bg-gray-50 px-4 py-3 flex items-center justify-between gap-3">
+                            <span class="font-semibold text-gray-800">
+                                Sección <?= $pageIndex + 1 ?>: <?= htmlspecialchars($page['name'] ?? ('Página ' . ($pageIndex + 1))) ?>
+                            </span>
+                            <span class="text-xs bg-white border border-gray-200 rounded-full px-3 py-1 text-gray-600">
+                                <?= $pageFilled ?> / <?= $pageTotal ?> respondidos
+                            </span>
+                        </summary>
+                        <div class="p-4 bg-white grid grid-cols-1 md:grid-cols-2 gap-3">
+                            <?php foreach ($pageFields as $field): ?>
+                                <?php adminRenderClientFormValue($field, $clientFormData); ?>
+                            <?php endforeach; ?>
+                        </div>
+                    </details>
+                <?php endforeach; ?>
+            </div>
         </div>
         <?php endif; ?>
 
@@ -1209,6 +1417,9 @@ $canadianStatusLabels = [
                     </div>
                     <p class="text-gray-800 mb-1"><?= nl2br(htmlspecialchars($note['note_text'])) ?></p>
                     <p class="text-sm text-gray-500">Por: <?= htmlspecialchars($note['created_by_name']) ?> (<?= htmlspecialchars($note['created_by_role']) ?>)</p>
+                    <?php if (!empty($note['visible_to_client'])): ?>
+                    <span class="inline-block mt-2 text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded"><i class="fas fa-eye mr-1"></i>Visible para cliente<?= !empty($note['requires_client_response']) ? ' · requiere respuesta' : '' ?></span>
+                    <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
             </div>
@@ -1247,6 +1458,74 @@ $canadianStatusLabels = [
 
     <!-- COLUMNA LATERAL -->
     <div class="space-y-6">
+
+        <?php if ($isAdmin || $isAsesor): ?>
+        <div class="bg-white rounded-lg shadow p-6">
+            <h3 class="text-lg font-bold text-gray-800 mb-4"><i class="fas fa-user-lock text-orange-600 mr-2"></i>Acceso del cliente al portal</h3>
+            <?php if (!empty($application['client_update_pending'])): ?>
+            <div class="bg-yellow-50 border-l-4 border-yellow-500 p-3 rounded mb-4 text-sm text-yellow-800">
+                <p class="font-semibold">Actualización pendiente del cliente</p>
+                <p><?= htmlspecialchars($application['client_last_update_comment'] ?? 'El cliente realizó cambios.') ?></p>
+                <?php if (!empty($application['client_last_update_at'])): ?>
+                    <p class="text-xs mt-1"><?= date('d/m/Y H:i', strtotime($application['client_last_update_at'])) ?></p>
+                <?php endif; ?>
+                <form method="POST" action="<?= BASE_URL ?>/solicitudes/marcar-revision-cliente/<?= $application['id'] ?>" class="mt-2">
+                    <button type="submit" class="bg-yellow-600 text-white px-3 py-1 rounded text-xs hover:bg-yellow-700">Marcar como revisada</button>
+                </form>
+            </div>
+            <?php endif; ?>
+
+            <form method="POST" action="<?= BASE_URL ?>/solicitudes/vincular-cliente/<?= $application['id'] ?>" class="space-y-3">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-1">Usuario cliente</label>
+                    <select name="client_user_id" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
+                        <option value="0">Sin cliente vinculado</option>
+                        <?php foreach (($clients ?? []) as $client): ?>
+                            <option value="<?= $client['id'] ?>" <?= intval($application['client_user_id'] ?? 0) === intval($client['id']) ? 'selected' : '' ?>>
+                                <?= htmlspecialchars($client['full_name']) ?> — <?= htmlspecialchars($client['email']) ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                <button type="submit" class="w-full btn-primary text-white py-2 rounded-lg hover:opacity-90 text-sm"><i class="fas fa-link mr-1"></i>Guardar vínculo</button>
+            </form>
+
+            <div class="mt-5 pt-5 border-t">
+                <h4 class="font-semibold text-gray-800 mb-3">Mensajes con cliente</h4>
+                <div class="space-y-2 max-h-64 overflow-y-auto mb-3">
+                    <?php if (!empty($clientMessages)): ?>
+                        <?php foreach ($clientMessages as $msg): ?>
+                        <div class="p-2 rounded text-sm <?= $msg['sender_role'] === 'Cliente' ? 'bg-blue-50 text-blue-900' : 'bg-gray-100 text-gray-800' ?>">
+                            <p class="text-xs font-semibold"><?= htmlspecialchars($msg['sender_role'] === 'Cliente' ? 'Cliente' : ($msg['sender_name'] ?? 'Equipo')) ?> · <?= date('d/m/Y H:i', strtotime($msg['created_at'])) ?></p>
+                            <p><?= nl2br(htmlspecialchars($msg['message'])) ?></p>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php else: ?>
+                        <p class="text-gray-500 text-sm">Sin mensajes.</p>
+                    <?php endif; ?>
+                </div>
+                <form method="POST" action="<?= BASE_URL ?>/solicitudes/mensajes-cliente/<?= $application['id'] ?>">
+                    <textarea name="message" rows="3" class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm" placeholder="Mensaje para el cliente..."></textarea>
+                    <button type="submit" class="mt-2 w-full bg-green-600 text-white py-2 rounded-lg hover:bg-green-700 text-sm"><i class="fas fa-paper-plane mr-1"></i>Enviar</button>
+                </form>
+            </div>
+
+            <?php if (!empty($clientNoteResponses)): ?>
+            <div class="mt-5 pt-5 border-t">
+                <h4 class="font-semibold text-gray-800 mb-3">Respuestas a observaciones</h4>
+                <div class="space-y-2 max-h-64 overflow-y-auto">
+                    <?php foreach ($clientNoteResponses as $resp): ?>
+                    <div class="bg-orange-50 border border-orange-200 rounded p-2 text-sm">
+                        <p class="text-xs text-orange-700 font-semibold"><?= date('d/m/Y H:i', strtotime($resp['created_at'])) ?></p>
+                        <?php if (!empty($resp['note_text'])): ?><p class="text-xs text-gray-500 mt-1">Obs: <?= htmlspecialchars(strlen($resp['note_text']) > 80 ? substr($resp['note_text'], 0, 80) . '...' : $resp['note_text']) ?></p><?php endif; ?>
+                        <p class="mt-1"><?= nl2br(htmlspecialchars($resp['response_text'])) ?></p>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+        <?php endif; ?>
 
         <!-- Cambiar Estatus manual (Admin/Gerente) -->
         <?php if ($isAdmin && !$isClosedStatus): ?>
@@ -1342,10 +1621,20 @@ $canadianStatusLabels = [
         <form method="POST" action="<?= BASE_URL ?>/solicitudes/agregar-indicacion/<?= $application['id'] ?>">
             <div class="mb-4"><textarea name="note_text" required rows="4"
                       class="w-full border border-gray-300 rounded-lg px-4 py-2" placeholder="Indicacion..."></textarea></div>
-            <div class="mb-4"><label class="flex items-center">
-                <input type="checkbox" name="is_important" class="w-4 h-4">
-                <span class="ml-2 text-sm"><i class="fas fa-exclamation-circle text-yellow-600 mr-1"></i>Importante</span>
-            </label></div>
+            <div class="mb-4 space-y-2">
+                <label class="flex items-center">
+                    <input type="checkbox" name="is_important" class="w-4 h-4">
+                    <span class="ml-2 text-sm"><i class="fas fa-exclamation-circle text-yellow-600 mr-1"></i>Importante</span>
+                </label>
+                <label class="flex items-center">
+                    <input type="checkbox" name="visible_to_client" class="w-4 h-4">
+                    <span class="ml-2 text-sm"><i class="fas fa-eye text-blue-600 mr-1"></i>Visible para el cliente</span>
+                </label>
+                <label class="flex items-center">
+                    <input type="checkbox" name="requires_client_response" class="w-4 h-4">
+                    <span class="ml-2 text-sm"><i class="fas fa-reply text-orange-600 mr-1"></i>Requiere respuesta del cliente</span>
+                </label>
+            </div>
             <div class="flex gap-3">
                 <button type="submit" class="flex-1 btn-primary text-white py-2 rounded-lg hover:opacity-90"><i class="fas fa-save mr-2"></i>Guardar</button>
                 <button type="button" onclick="document.getElementById('noteModal').classList.add('hidden')" class="flex-1 bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600">Cancelar</button>

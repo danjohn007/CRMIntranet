@@ -55,9 +55,10 @@ class UserController extends BaseController {
         $password = $_POST['password'] ?? '';
         $fullName = trim($_POST['full_name'] ?? '');
         $role = $_POST['role'] ?? '';
+        $allowedRoles = [ROLE_ADMIN, ROLE_GERENTE, ROLE_ASESOR, ROLE_CLIENTE];
         $phone = trim($_POST['phone'] ?? '');
         
-        if (empty($username) || empty($email) || empty($password) || empty($fullName) || empty($role)) {
+        if (empty($username) || empty($email) || empty($password) || empty($fullName) || empty($role) || !in_array($role, $allowedRoles)) {
             $_SESSION['error'] = 'Todos los campos obligatorios deben estar completos';
             $this->redirect('/usuarios/crear');
         }
@@ -143,10 +144,11 @@ class UserController extends BaseController {
         $password = $_POST['password'] ?? '';
         $fullName = trim($_POST['full_name'] ?? '');
         $role = $_POST['role'] ?? '';
+        $allowedRoles = [ROLE_ADMIN, ROLE_GERENTE, ROLE_ASESOR, ROLE_CLIENTE];
         $phone = trim($_POST['phone'] ?? '');
         $isActive = isset($_POST['is_active']) ? 1 : 0;
         
-        if (empty($username) || empty($email) || empty($fullName) || empty($role)) {
+        if (empty($username) || empty($email) || empty($fullName) || empty($role) || !in_array($role, $allowedRoles)) {
             $_SESSION['error'] = 'Todos los campos obligatorios deben estar completos';
             $this->redirect('/usuarios/editar/' . $id);
         }
@@ -229,9 +231,15 @@ class UserController extends BaseController {
         
         try {
             // Verificar si el usuario tiene solicitudes
-            $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM applications WHERE created_by = ?");
-            $stmt->execute([$id]);
-            $count = $stmt->fetch()['total'];
+            try {
+                $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM applications WHERE created_by = ? OR client_user_id = ?");
+                $stmt->execute([$id, $id]);
+                $count = $stmt->fetch()['total'];
+            } catch (PDOException $e) {
+                $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM applications WHERE created_by = ?");
+                $stmt->execute([$id]);
+                $count = $stmt->fetch()['total'];
+            }
             
             if ($count > 0) {
                 $_SESSION['error'] = 'No se puede eliminar el usuario porque tiene solicitudes asociadas';

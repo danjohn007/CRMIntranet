@@ -145,7 +145,7 @@
                     <h1 class="text-sm md:text-xl font-bold truncate"><?= htmlspecialchars(getSiteName()) ?></h1>
                 </div>
                 <div class="flex items-center space-x-2 md:space-x-4 flex-shrink-0">
-                    <?php if (isset($_SESSION['user_id'])): ?>
+                    <?php if (isset($_SESSION['user_id']) && (($_SESSION['user_role'] ?? '') !== ROLE_CLIENTE)): ?>
                     <?php
                     $notifications   = getUpcomingNotifications();
                     $unreadCount     = count(array_filter($notifications, fn($n) => !$n['is_read']));
@@ -257,6 +257,12 @@
         <!-- Sidebar -->
         <aside id="sidebar" class="w-64 bg-white shadow-lg min-h-screen">
             <nav class="py-4">
+                <?php if (($_SESSION['user_role'] ?? '') === ROLE_CLIENTE): ?>
+                <a href="<?= BASE_URL ?>/mi-tramite" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
+                    <i class="fas fa-passport w-6"></i>
+                    <span>Mi trámite</span>
+                </a>
+                <?php else: ?>
                 <a href="<?= BASE_URL ?>/dashboard" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
                     <i class="fas fa-home w-6"></i>
                     <span>Dashboard</span>
@@ -266,6 +272,7 @@
                     <i class="fas fa-file-alt w-6"></i>
                     <span>Solicitudes</span>
                 </a>
+                <?php endif; ?>
 
                 <?php if (($_SESSION['user_role'] ?? '') === ROLE_ASESOR): ?>
                 <a href="<?= BASE_URL ?>/ingresos" class="sidebar-link flex items-center px-6 py-3 text-gray-700">

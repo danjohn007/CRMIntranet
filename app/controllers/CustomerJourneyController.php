@@ -48,6 +48,49 @@ class CustomerJourneyController extends BaseController {
             ");
             $stmt->execute([$applicationId]);
             $touchpoints = $stmt->fetchAll();
+
+            // También mostrar mensajes del portal aunque no se haya alcanzado a registrar el touchpoint.
+            // Esto evita que los mensajes del cliente se pierdan en el seguimiento.
+            try {
+                $stmt = $this->db->prepare("
+                    SELECT cm.*, u.full_name as sender_name
+                    FROM client_messages cm
+                    LEFT JOIN users u ON cm.sender_user_id = u.id
+                    WHERE cm.application_id = ?
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM customer_journey cj
+                          WHERE cj.application_id = cm.application_id
+                            AND cj.touchpoint_type = 'message'
+                            AND cj.user_id = cm.sender_user_id
+                            AND cj.touchpoint_description = cm.message
+                            AND ABS(TIMESTAMPDIFF(SECOND, cj.created_at, cm.created_at)) <= 10
+                      )
+                    ORDER BY cm.created_at ASC
+                ");
+                $stmt->execute([$applicationId]);
+                $portalMessages = $stmt->fetchAll();
+                foreach ($portalMessages as $msg) {
+                    $touchpoints[] = [
+                        'id' => 'msg_' . $msg['id'],
+                        'application_id' => $msg['application_id'],
+                        'touchpoint_type' => 'message',
+                        'touchpoint_title' => $msg['sender_role'] === 'Cliente' ? 'Mensaje del cliente' : 'Mensaje enviado al cliente',
+                        'touchpoint_description' => $msg['message'],
+                        'contact_method' => 'portal',
+                        'user_id' => $msg['sender_user_id'],
+                        'metadata_json' => null,
+                        'created_at' => $msg['created_at'],
+                        'user_name' => $msg['sender_role'] === 'Cliente' ? ($msg['sender_name'] ?? 'Cliente') : ($msg['sender_name'] ?? 'Equipo'),
+                    ];
+                }
+
+                usort($touchpoints, function($a, $b) {
+                    return strtotime($a['created_at']) <=> strtotime($b['created_at']);
+                });
+            } catch (PDOException $e) {
+                error_log('No se pudieron fusionar mensajes del portal en seguimiento: ' . $e->getMessage());
+            }
             
             // Get status history for timeline
             $stmt = $this->db->prepare("

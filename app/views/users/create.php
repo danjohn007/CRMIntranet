@@ -60,6 +60,7 @@ ob_start();
                     <option value="<?= ROLE_ADMIN ?>"><?= ROLE_ADMIN ?></option>
                     <option value="<?= ROLE_GERENTE ?>"><?= ROLE_GERENTE ?></option>
                     <option value="<?= ROLE_ASESOR ?>"><?= ROLE_ASESOR ?></option>
+                    <option value="<?= ROLE_CLIENTE ?>"><?= ROLE_CLIENTE ?></option>
                 </select>
             </div>
             

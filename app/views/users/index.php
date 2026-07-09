@@ -42,7 +42,7 @@ ob_start();
                     <td class="px-6 py-4 whitespace-nowrap">
                         <span class="px-2 py-1 text-xs rounded-full font-medium <?= 
                             $user['role'] === ROLE_ADMIN ? 'bg-purple-100 text-purple-800' :
-                            ($user['role'] === ROLE_GERENTE ? 'bg-blue-100 text-blue-800' : 'bg-green-100 text-green-800')
+                            ($user['role'] === ROLE_GERENTE ? 'bg-blue-100 text-blue-800' : ($user['role'] === ROLE_CLIENTE ? 'bg-orange-100 text-orange-800' : 'bg-green-100 text-green-800'))
                         ?>">
                             <?= htmlspecialchars($user['role']) ?>
                         </span>

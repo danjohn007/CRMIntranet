@@ -8,7 +8,9 @@ function getTouchpointColor($type) {
         'payment' => 'bg-green-500 border-green-500',
         'email' => 'bg-purple-500 border-purple-500',
         'call' => 'bg-orange-500 border-orange-500',
-        'meeting' => 'bg-indigo-500 border-indigo-500'
+        'meeting' => 'bg-indigo-500 border-indigo-500',
+        'message' => 'bg-emerald-500 border-emerald-500',
+        'client_portal' => 'bg-blue-500 border-blue-500'
     ];
     return $colors[$type] ?? 'bg-gray-500 border-gray-500';
 }
@@ -21,7 +23,9 @@ function getTouchpointIcon($type) {
         'email' => 'fa-envelope',
         'call' => 'fa-phone',
         'meeting' => 'fa-users',
-        'document_upload' => 'fa-file-upload'
+        'document_upload' => 'fa-file-upload',
+        'message' => 'fa-comments',
+        'client_portal' => 'fa-user-edit'
     ];
     return $icons[$type] ?? 'fa-circle';
 }
@@ -185,7 +189,7 @@ ob_start();
                     
                     <div class="flex flex-wrap gap-2 text-xs">
                         <span class="px-2 py-1 bg-white rounded-full text-gray-600">
-                            <i class="fas fa-tag mr-1"></i><?= ucfirst(str_replace('_', ' ', $touchpoint['touchpoint_type'])) ?>
+                            <i class="fas fa-tag mr-1"></i><?= htmlspecialchars(ucfirst(str_replace('_', ' ', $touchpoint['touchpoint_type']))) ?>
                         </span>
                         
                         <?php if (!empty($touchpoint['contact_method'])): ?>

@@ -73,4 +73,13 @@ class BaseController {
     protected function canManageForms() {
         return $this->getUserRole() === ROLE_ADMIN;
     }
+
+    protected function isClientRole() {
+        return $this->getUserRole() === ROLE_CLIENTE;
+    }
+
+    protected function requireClient() {
+        $this->requireRole([ROLE_CLIENTE]);
+    }
 }
+

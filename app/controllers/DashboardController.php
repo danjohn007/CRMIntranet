@@ -5,6 +5,10 @@ class DashboardController extends BaseController {
     
     public function index() {
         $this->requireLogin();
+
+        if ($this->getUserRole() === ROLE_CLIENTE) {
+            $this->redirect('/mi-tramite');
+        }
         
         $role = $this->getUserRole();
         $userId = $_SESSION['user_id'];

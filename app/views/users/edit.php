@@ -57,6 +57,7 @@ ob_start();
                     <option value="<?= ROLE_ADMIN ?>" <?= $user['role'] === ROLE_ADMIN ? 'selected' : '' ?>><?= ROLE_ADMIN ?></option>
                     <option value="<?= ROLE_GERENTE ?>" <?= $user['role'] === ROLE_GERENTE ? 'selected' : '' ?>><?= ROLE_GERENTE ?></option>
                     <option value="<?= ROLE_ASESOR ?>" <?= $user['role'] === ROLE_ASESOR ? 'selected' : '' ?>><?= ROLE_ASESOR ?></option>
+                    <option value="<?= ROLE_CLIENTE ?>" <?= $user['role'] === ROLE_CLIENTE ? 'selected' : '' ?>><?= ROLE_CLIENTE ?></option>
                 </select>
             </div>
             
