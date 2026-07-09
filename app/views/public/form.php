@@ -243,11 +243,7 @@
         // Configuration
         const AUTOSAVE_DELAY_MS = 3000; // Auto-save after 3 seconds of no input
         const paginationEnabled = <?= json_encode($form['pagination_enabled'] ?? false, JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-        let pages = <?= json_encode($pages ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-        const availableFieldIds = Array.from(document.querySelectorAll('.form-field[data-field-id]'))
-            .map(function(el) { return String(el.getAttribute('data-field-id') || ''); })
-            .filter(function(id) { return id !== ''; });
-        pages = normalizePaginationPages(pages, availableFieldIds);
+        const pages = <?= json_encode($pages ?? [], JSON_HEX_TAG | JSON_HEX_AMP | JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         const totalPages = pages.length || 1;
         const FORM_TOKEN = '<?= $token ?>';
         const LOCALSTORAGE_KEY = `form_draft_${FORM_TOKEN}`;
@@ -271,9 +267,6 @@
         // Auto-save on input change
         form.addEventListener('input', function() {
             applyConditionalVisibility();
-            if (paginationEnabled && pages.length > 0) {
-                calculateProgress();
-            }
             clearTimeout(autosaveTimeout);
             autosaveTimeout = setTimeout(autoSave, AUTOSAVE_DELAY_MS);
         });
@@ -416,64 +409,6 @@
         function initializePagination() {
             // No additional initialization needed for now
         }
-
-        function normalizePaginationPages(rawPages, fieldIds) {
-            const allFieldIds = Array.isArray(fieldIds) ? fieldIds.map(function(id) { return String(id); }) : [];
-
-            if (!Array.isArray(rawPages) || rawPages.length === 0) {
-                return [{ id: 1, name: 'Página 1', fieldIds: allFieldIds }];
-            }
-
-            const validFieldSet = new Set(allFieldIds);
-            const normalizedPages = rawPages.map(function(page, index) {
-                const pageId = Number(page && page.id) || (index + 1);
-                const pageName = String((page && page.name) || ('Página ' + (index + 1)));
-                const sourceFieldIds = Array.isArray(page && page.fieldIds) ? page.fieldIds : [];
-                const cleanedFieldIds = Array.from(new Set(sourceFieldIds.map(function(id) { return String(id); })))
-                    .filter(function(id) { return validFieldSet.has(id); });
-
-                return {
-                    id: pageId,
-                    name: pageName,
-                    fieldIds: cleanedFieldIds
-                };
-            });
-
-            const assigned = new Set();
-            normalizedPages.forEach(function(page) {
-                page.fieldIds.forEach(function(id) {
-                    assigned.add(id);
-                });
-            });
-
-            if (normalizedPages.length === 0) {
-                return [{ id: 1, name: 'Página 1', fieldIds: allFieldIds }];
-            }
-
-            if (assigned.size === 0) {
-                normalizedPages[0].fieldIds = allFieldIds.slice();
-                return normalizedPages;
-            }
-
-            allFieldIds.forEach(function(id) {
-                if (!assigned.has(id)) {
-                    normalizedPages[0].fieldIds.push(id);
-                }
-            });
-
-            normalizedPages[0].fieldIds = Array.from(new Set(normalizedPages[0].fieldIds));
-
-            // Public forms should not expose empty pages produced by stale pages_json.
-            const nonEmptyPages = normalizedPages.filter(function(page) {
-                return Array.isArray(page.fieldIds) && page.fieldIds.length > 0;
-            });
-
-            if (nonEmptyPages.length === 0) {
-                return [{ id: 1, name: 'Página 1', fieldIds: allFieldIds }];
-            }
-
-            return nonEmptyPages;
-        }
         
         function showPage(pageNum) {
             currentPage = pageNum;
@@ -495,8 +430,6 @@
                     }
                 });
             }
-
-            syncRequiredAttributesByVisibility();
             
             applyConditionalVisibility();
             
@@ -514,28 +447,6 @@
             
             // Scroll to top
             window.scrollTo({ top: 0, behavior: 'smooth' });
-        }
-
-        function syncRequiredAttributesByVisibility() {
-            document.querySelectorAll('.form-field').forEach(function(fieldDiv) {
-                const isVisible = fieldDiv.style.display !== 'none';
-                const controls = fieldDiv.querySelectorAll('input, select, textarea');
-
-                controls.forEach(function(control) {
-                    const originallyRequired = control.dataset.originalRequired === '1';
-
-                    if (!isVisible) {
-                        if (control.hasAttribute('required')) {
-                            control.removeAttribute('required');
-                        }
-                        return;
-                    }
-
-                    if (originallyRequired) {
-                        control.setAttribute('required', 'required');
-                    }
-                });
-            });
         }
         
         function updateNavigationButtons() {
@@ -557,75 +468,6 @@
                 saveDraftBtn.classList.remove('hidden');
             }
         }
-
-        function shouldCountFieldInProgress(fieldDiv) {
-            if (!fieldDiv) {
-                return false;
-            }
-
-            const controls = fieldDiv.querySelectorAll('input, select, textarea');
-            if (controls.length === 0) {
-                return false;
-            }
-
-            if (fieldDiv.getAttribute('data-conditional-enabled') !== '1') {
-                return true;
-            }
-
-            const parentFieldId = fieldDiv.getAttribute('data-conditional-parent');
-            const expectedValue = (fieldDiv.getAttribute('data-conditional-value') || '').trim();
-
-            if (!parentFieldId || expectedValue === '') {
-                return true;
-            }
-
-            const parentField = document.getElementById(`field_${parentFieldId}`);
-            if (!parentField) {
-                return false;
-            }
-
-            let parentValue = '';
-            if (parentField.type === 'checkbox') {
-                parentValue = parentField.checked ? String(parentField.value || 'on').trim() : '';
-            } else if (parentField.type === 'radio') {
-                const checkedRadio = Array.from(document.getElementsByName(parentField.name || '')).find(function(radio) {
-                    return radio.checked;
-                });
-                parentValue = checkedRadio ? String(checkedRadio.value || '').trim() : '';
-            } else {
-                parentValue = String(parentField.value || '').trim();
-            }
-
-            return parentValue === expectedValue;
-        }
-
-        function isFieldFilledForProgress(fieldDiv) {
-            if (!fieldDiv) {
-                return false;
-            }
-
-            const radioInputs = fieldDiv.querySelectorAll('input[type="radio"]');
-            if (radioInputs.length > 0) {
-                return Array.from(radioInputs).some(function(radio) {
-                    return radio.checked;
-                });
-            }
-
-            const control = fieldDiv.querySelector('input, select, textarea');
-            if (!control) {
-                return false;
-            }
-
-            if (control.type === 'checkbox') {
-                return control.checked;
-            }
-
-            if (control.type === 'file') {
-                return !!((control.files && control.files.length > 0) || control.value);
-            }
-
-            return String(control.value || '').trim() !== '';
-        }
         
         function calculateProgress() {
             if (!paginationEnabled || pages.length === 0) return;
@@ -636,18 +478,47 @@
                 page.fieldIds.forEach(fieldId => uniqueFieldIds.add(fieldId));
             });
             
+            // Count filled fields and track radio groups
             let filledCount = 0;
             let totalCountableFields = 0;
+            const processedRadioGroups = new Set(); // Track radio groups to count only once
             
             uniqueFieldIds.forEach(fieldId => {
-                const fieldContainer = document.querySelector(`.form-field[data-field-id="${fieldId}"]`);
-                if (!fieldContainer || !shouldCountFieldInProgress(fieldContainer)) {
-                    return;
-                }
+                const field = document.getElementById(`field_${fieldId}`);
+                if (field) {
+                    const fieldContainer = field.closest('.form-field');
+                    if (fieldContainer && fieldContainer.style.display === 'none') {
+                        return;
+                    }
 
-                totalCountableFields++;
-                if (isFieldFilledForProgress(fieldContainer)) {
-                    filledCount++;
+                    let isFilled = false;
+                    let shouldCount = true;
+                    
+                    if (field.type === 'checkbox') {
+                        isFilled = field.checked;
+                    } else if (field.type === 'radio') {
+                        // For radio buttons, check if any in the group is selected
+                        // Only count each radio group once
+                        const radioName = field.name;
+                        if (!processedRadioGroups.has(radioName)) {
+                            processedRadioGroups.add(radioName);
+                            const radioGroup = document.querySelectorAll(`input[name="${radioName}"]`);
+                            isFilled = Array.from(radioGroup).some(radio => radio.checked);
+                        } else {
+                            // Skip this field as we already processed this radio group
+                            shouldCount = false;
+                        }
+                    } else {
+                        // For text inputs, selects, textareas, etc.
+                        isFilled = field.value && field.value.trim() !== '';
+                    }
+                    
+                    if (shouldCount) {
+                        totalCountableFields++;
+                        if (isFilled) {
+                            filledCount++;
+                        }
+                    }
                 }
             });
             

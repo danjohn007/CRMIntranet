@@ -4,30 +4,10 @@ ob_start();
 
 $role          = $_SESSION['user_role'];
 $isAdmin       = in_array($role, [ROLE_ADMIN, ROLE_GERENTE]);
-$isStrictAdmin = $role === ROLE_ADMIN;
 $isAsesor      = $role === ROLE_ASESOR;
 $status        = $application['status'];
-$isPassportService = stripos(trim((string) ($application['type'] ?? '')), 'pasaporte') !== false;
 $isRenovacion  = stripos($application['subtype'] ?? '', 'renov') !== false;
 $isCanadianVisa = !empty($application['is_canadian_visa']);
-$normalizeTextForFlow = function ($value) {
-    $value = (string) $value;
-    $value = strtr($value, [
-        'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
-        'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
-    ]);
-    return strtolower(trim($value));
-};
-$applicationSubtypeNormalized = $normalizeTextForFlow($application['subtype'] ?? '');
-$applicationFormNameNormalized = $normalizeTextForFlow($application['form_name'] ?? '');
-$isAmericanPassportRequest = $isPassportService && (
-    strpos($applicationSubtypeNormalized, 'americano') !== false ||
-    strpos($applicationFormNameNormalized, 'pasaporte americano') !== false
-);
-$isMexicanPassportRequest = $isPassportService && (
-    strpos($applicationSubtypeNormalized, 'mexicano') !== false ||
-    strpos($applicationFormNameNormalized, 'pasaporte mexicano') !== false
-);
 
 // Classify documents by type for quick access
 $pasaporteDoc          = null;
@@ -41,12 +21,8 @@ $visaCanadiensPrevDoc  = null;
 $etaAnteriorDoc        = null;
 $canadianVacConfirmDoc = null;
 $canadianPortalCapDoc  = null;
-$paymentDocuments      = [];
 foreach ($documents as $doc) {
     $dt = $doc['doc_type'] ?? 'adicional';
-    if (in_array($dt, ['comprobante_pago', 'consular_payment_evidence'], true)) {
-        $paymentDocuments[] = $doc;
-    }
     if ($dt === 'pasaporte_vigente'          && !$pasaporteDoc)          $pasaporteDoc          = $doc;
     if ($dt === 'visa_anterior'              && !$visaAnteriorDoc)       $visaAnteriorDoc       = $doc;
     if ($dt === 'ficha_pago_consular'        && !$fichaPagoDoc)          $fichaPagoDoc          = $doc;
@@ -64,8 +40,6 @@ foreach ($documents as $doc) {
 $canadianIsRenovacion = $isCanadianVisa && stripos($application['canadian_modalidad'] ?? '', 'renov') !== false;
 $canadianIsETA        = $isCanadianVisa && stripos($application['canadian_tipo'] ?? '', 'ETA') !== false;
 $isClosedStatus       = $status === STATUS_TRAMITE_CERRADO || $status === STATUS_FINALIZADO;
-$isAdvisorTemporaryClosedAccess = !empty($advisorTemporaryClosedAccess);
-$canViewClosedContent = $isAdmin || !$isClosedStatus || $isAdvisorTemporaryClosedAccess;
 $inlinePreviewImageTypes = ['jpg','jpeg','png','gif','webp'];
 
 // Human-readable labels for each status in the Canadian visa flow
@@ -76,10 +50,6 @@ $canadianStatusLabels = [
     STATUS_EN_ESPERA_RESULTADO => 'En espera de resolución',
     STATUS_TRAMITE_CERRADO     => 'Trámite cerrado',
 ];
-
-$topBasicDataForMail = json_decode($application['data_json'] ?? '{}', true) ?: [];
-$basicApplicantEmail = trim((string) ($topBasicDataForMail['email'] ?? ''));
-$hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplicantEmail, FILTER_VALIDATE_EMAIL);
 ?>
 
 <div class="mb-6">
@@ -89,19 +59,11 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
             <p class="text-gray-600"><?= htmlspecialchars($application['form_name'] ?? '') ?></p>
         </div>
         <div class="flex space-x-3 flex-wrap gap-2">
-            <?php if ((!$infoSheet || $isAdmin) && !$isAdvisorTemporaryClosedAccess): ?>
+            <?php if (!$infoSheet || $isAdmin): ?>
             <button onclick="document.getElementById('infoSheetModal').classList.remove('hidden')"
                     class="bg-indigo-600 text-white px-4 py-3 rounded-lg hover:bg-indigo-700 transition">
                 <i class="fas fa-file-alt mr-2"></i>
                 <?= $infoSheet ? 'Editar hoja de información' : 'Crear hoja de información' ?>
-            </button>
-            <?php endif; ?>
-            <?php if ($isStrictAdmin && !$isAdvisorTemporaryClosedAccess): ?>
-            <button type="button"
-                    onclick="document.getElementById('readyEmailModal').classList.remove('hidden')"
-                    class="bg-emerald-600 text-white px-4 py-3 rounded-lg hover:bg-emerald-700 transition <?= $hasBasicApplicantEmail ? '' : 'opacity-60 cursor-not-allowed' ?>"
-                    <?= $hasBasicApplicantEmail ? '' : 'disabled' ?>>
-                <i class="fas fa-paper-plane mr-2"></i>Enviar trámite listo
             </button>
             <?php endif; ?>
             <a href="<?= BASE_URL ?>/customer-journey/<?= $application['id'] ?>"
@@ -202,45 +164,6 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
     <?php endif; ?>
 </div>
 <?php endif; ?>
-
-<?php if (($isAmericanPassportRequest || $isMexicanPassportRequest) && ($isAsesor || $isAdmin)): ?>
-<?php
-    $basicDataForSre = json_decode($application['data_json'], true) ?: [];
-    $sreAppointmentDateValue = $basicDataForSre['cita_sre_fecha_hora'] ?? '';
-    $sreAppointmentDateInputValue = '';
-    if (!empty($sreAppointmentDateValue)) {
-        $sreAppointmentDateInputValue = date('Y-m-d\TH:i', strtotime($sreAppointmentDateValue));
-    }
-    
-    // Determinar texto según tipo de pasaporte
-    $appointmentLabel = $isAmericanPassportRequest ? 'Cita del consulado de américa' : 'Cita de la SRE';
-    $saveButtonText = $isAmericanPassportRequest ? 'Guardar cita consulado' : 'Guardar cita SRE';
-    $scheduledText = $isAmericanPassportRequest ? 'Cita consulado agendada:' : 'Cita SRE agendada:';
-?>
-<div class="bg-white border border-blue-200 rounded-lg p-5 mb-6 shadow-sm">
-    <h4 class="text-base font-bold text-blue-800 mb-3"><i class="fas fa-landmark text-blue-500 mr-2"></i><?= $appointmentLabel ?></h4>
-    <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-cita-sre/<?= $application['id'] ?>" class="flex flex-wrap gap-4 items-end">
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Día y hora</label>
-            <input type="datetime-local" name="sre_appointment_datetime" required
-                   value="<?= htmlspecialchars($sreAppointmentDateInputValue) ?>"
-                   class="border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
-        </div>
-        <div>
-            <button type="submit" class="bg-blue-600 text-white px-5 py-2 rounded-lg text-sm hover:bg-blue-700 transition">
-                <i class="fas fa-save mr-1"></i><?= $saveButtonText ?>
-            </button>
-        </div>
-    </form>
-    <?php if (!empty($sreAppointmentDateValue)): ?>
-    <div class="mt-3 p-3 bg-blue-50 rounded-lg text-sm text-blue-800">
-        <i class="fas fa-calendar-check mr-1"></i>
-        <strong><?= $scheduledText ?></strong>
-        <?= date('d/m/Y H:i', strtotime($sreAppointmentDateValue)) ?>
-    </div>
-    <?php endif; ?>
-</div>
-<?php endif; ?>
 <?php elseif ($status === STATUS_EN_ESPERA_RESULTADO): ?>
 <div class="bg-purple-50 border-l-4 border-purple-500 rounded-lg p-4 mb-6 flex items-start gap-3">
     <i class="fas fa-clock text-purple-500 text-2xl mt-0.5"></i>
@@ -303,29 +226,10 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
         <!-- Datos basicos del solicitante -->
         <?php
         $basicData = json_decode($application['data_json'], true) ?: [];
-        $normalizeText = function ($value) {
-            $value = (string) $value;
-            $value = strtr($value, [
-                'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
-                'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
-            ]);
-            return strtolower(trim($value));
-        };
-        $formNameNormalized = $normalizeText($application['form_name'] ?? '');
-        $formTypeNormalized = $normalizeText($application['type'] ?? '');
-        $formSubtypeNormalized = $normalizeText($application['subtype'] ?? '');
-        $isAmericanPassportForm =
-            strpos($formNameNormalized, 'pasaporte americano') !== false ||
-            strpos($formSubtypeNormalized, 'americano') !== false;
-
-        $isFirstTimePassportSubtype =
-            (strpos($formSubtypeNormalized, 'unica') !== false && strpos($formSubtypeNormalized, 'vez') !== false) ||
-            (strpos($formSubtypeNormalized, 'primera') !== false && strpos($formSubtypeNormalized, 'vez') !== false);
-
         $isUniqueUsPassportForm =
-            $formTypeNormalized === 'pasaporte' &&
-            $isAmericanPassportForm &&
-            $isFirstTimePassportSubtype;
+            trim($application['form_name'] ?? '') === 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO' &&
+            trim($application['type'] ?? '') === 'Pasaporte' &&
+            trim($application['subtype'] ?? '') === 'Única Vez';
         if ($isUniqueUsPassportForm) {
             $basicFields = ['nombre_cliente' => 'Nombre del cliente', 'pago' => 'El pago', 'fecha_cita' => 'Fecha de la cita'];
             if (empty($basicData['nombre_cliente']) && !empty($application['client_name'])) {
@@ -357,35 +261,7 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
         </div>
 
         <!-- Respuestas del cuestionario del cliente -->
-        <?php
-        $basicKeysForResponsesVisibility = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita', 'documentos_recibidos_pasaporte_americano', 'documentos_recibidos_pasaporte_mexicano', 'observaciones_incidencias_pasaporte', 'cita_sre_fecha_hora'];
-        $hasQuestionnaireResponseData = false;
-        foreach ($basicData as $responseKey => $responseValue) {
-            if (in_array($responseKey, $basicKeysForResponsesVisibility, true)) {
-                continue;
-            }
-
-            if (is_array($responseValue)) {
-                foreach ($responseValue as $itemValue) {
-                    if (trim((string) $itemValue) !== '') {
-                        $hasQuestionnaireResponseData = true;
-                        break 2;
-                    }
-                }
-                continue;
-            }
-
-            if (trim((string) $responseValue) !== '') {
-                $hasQuestionnaireResponseData = true;
-                break;
-            }
-        }
-
-        $showResponsesSection =
-            (($isAsesor || $isAdvisorTemporaryClosedAccess) && $application['form_link_status'] === 'completado') ||
-            ($isAdmin && ($application['form_link_status'] === 'completado' || $hasQuestionnaireResponseData));
-        ?>
-        <?php if ($showResponsesSection): ?>
+        <?php if ($application['form_link_status'] === 'completado'): ?>
         <?php
         $formFieldsJson = json_decode($application['fields_json'] ?? '{}', true);
         $fieldTypes  = [];
@@ -398,7 +274,7 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
                 $fieldOptions[$f['id']] = $f['options'] ?? [];
             }
         }
-        $basicKeys = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita', 'documentos_recibidos_pasaporte_americano', 'documentos_recibidos_pasaporte_mexicano', 'observaciones_incidencias_pasaporte', 'cita_sre_fecha_hora'];
+        $basicKeys = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita'];
         $isValidandoRespuestas = ($status === STATUS_VALIDANDO_RESPUESTAS);
         $canEditResponses = $isValidandoRespuestas && ($isAdmin || $isAsesor);
         ?>
@@ -714,13 +590,12 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
             <?php if ($application['official_application_done'] && $application['consular_fee_sent']): ?>
             <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>"
                   class="mt-4" enctype="multipart/form-data">
-                <input type="hidden" name="status" value="<?= $isPassportService ? STATUS_CITA_PROGRAMADA : STATUS_EN_ESPERA_PAGO ?>">
+                <input type="hidden" name="status" value="<?= STATUS_EN_ESPERA_PAGO ?>">
                 <input type="hidden" name="official_application_done" value="1">
                 <input type="hidden" name="consular_fee_sent" value="1">
                 <textarea name="comment" rows="2" class="w-full border rounded px-3 py-2 text-sm mb-2" placeholder="Comentario opcional"></textarea>
                 <button type="submit" class="w-full bg-yellow-500 text-white py-2 rounded-lg hover:bg-yellow-600 font-semibold">
-                    <i class="fas fa-arrow-right mr-2"></i>
-                    <?= $isPassportService ? 'Pasar a CITA PROGRAMADA (AZUL)' : 'Pasar a EN ESPERA DE PAGO (AMARILLO)' ?>
+                    <i class="fas fa-arrow-right mr-2"></i>Pasar a EN ESPERA DE PAGO (AMARILLO)
                 </button>
             </form>
             <?php endif; ?>
@@ -1132,7 +1007,7 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
         <?php endif; ?>
 
         <!-- Documentos Base (always visible to Admin/Gerente regardless of status; hidden for Asesor in closed state) -->
-        <?php if ($canViewClosedContent): ?>
+        <?php if ($isAdmin || !$isClosedStatus): ?>
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-xl font-bold text-gray-800 mb-4"><i class="fas fa-passport text-blue-600 mr-2"></i>Documentos Base</h3>
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1265,7 +1140,7 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
         <?php endif; /* end Documentos Base */ ?>
 
         <!-- Documentos generales (always visible to Admin/Gerente) -->
-        <?php if ($canViewClosedContent): ?>
+        <?php if ($isAdmin || !$isClosedStatus): ?>
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">Documentos</h3>
@@ -1279,7 +1154,6 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
             <?php if (!empty($documents)): ?>
             <div class="space-y-3">
                 <?php foreach ($documents as $doc): ?>
-                <?php if (in_array(($doc['doc_type'] ?? 'adicional'), ['comprobante_pago', 'consular_payment_evidence'], true)) { continue; } ?>
                 <?php $isImage = in_array(strtolower($doc['file_type']), $inlinePreviewImageTypes); ?>
                 <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
                     <div class="flex items-center justify-between">
@@ -1290,18 +1164,18 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
                                 <p class="text-sm text-gray-500"><?= htmlspecialchars($doc['uploaded_by_name']) ?> · <?= date('d/m/Y H:i', strtotime($doc['created_at'])) ?> · <?= number_format($doc['file_size']/1024, 0) ?> KB</p>
                             </div>
                         </div>
-                        <?php if ($isAdmin || $isAdvisorTemporaryClosedAccess): ?>
+                        <?php if ($isAdmin): ?>
                         <div class="flex items-center space-x-3">
                             <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" target="_blank" class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></a>
                             <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $doc['id'] ?>" class="text-primary hover:underline"><i class="fas fa-download"></i></a>
                         </div>
                         <?php endif; ?>
                     </div>
-                    <?php if (($isAdmin || $isAdvisorTemporaryClosedAccess) && $isImage): ?>
+                    <?php if ($isAdmin && $isImage): ?>
                     <div class="mt-2">
                         <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" alt="<?= htmlspecialchars($doc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:400px;">
                     </div>
-                    <?php elseif (($isAdmin || $isAdvisorTemporaryClosedAccess) && $doc['file_type'] === 'pdf'): ?>
+                    <?php elseif ($isAdmin && $doc['file_type'] === 'pdf'): ?>
                     <div class="mt-2">
                         <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" type="application/pdf" title="<?= htmlspecialchars($doc['name']) ?>" class="w-full rounded border border-gray-200" style="height:400px;">
                     </div>
@@ -1310,113 +1184,11 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
                 <?php endforeach; ?>
             </div>
             <?php else: ?><p class="text-gray-500 text-center py-6">No hay documentos</p><?php endif; ?>
-
-            <?php if ($isAmericanPassportRequest || $isMexicanPassportRequest): ?>
-            <?php
-                $basicDataForChecklist = json_decode($application['data_json'], true) ?: [];
-                $checklistDataKey = $isMexicanPassportRequest ? 'documentos_recibidos_pasaporte_mexicano' : 'documentos_recibidos_pasaporte_americano';
-                $receivedDocsSelected = $basicDataForChecklist[$checklistDataKey] ?? [];
-                if (!is_array($receivedDocsSelected)) {
-                    $receivedDocsSelected = [];
-                }
-                if ($isMexicanPassportRequest) {
-                    $checklistTitle = 'Documentos recibidos (Pasaporte Mexicano)';
-                    $receivedDocsOptions = [
-                        'acta_nacimiento' => 'Acta de nacimiento',
-                        'curp_certificada' => 'CURP certificada',
-                        'ine' => 'INE',
-                        'pasaporte_anterior' => 'Pasaporte anterior',
-                        'pago_sre' => 'Pago SRE',
-                        'carta_consentimiento_menores' => 'Carta consentimiento (menores)',
-                        'identificacion_padres' => 'Identificación de los padres',
-                    ];
-                } else {
-                    $checklistTitle = 'Documentos recibidos (Pasaporte Americano)';
-                    $receivedDocsOptions = [
-                        'acta_nacimiento_americana' => 'Acta de nacimiento americana',
-                        'pasaporte_anterior' => 'Pasaporte anterior',
-                        'identificacion_oficial' => 'Identificación oficial',
-                        'social_security_number' => 'Social Security Number',
-                        'reporte_policial' => 'Reporte policial',
-                    ];
-                }
-            ?>
-            <div class="mt-6 border-t border-gray-200 pt-5">
-                <h4 class="text-lg font-bold text-gray-800 mb-3"><?= htmlspecialchars($checklistTitle) ?></h4>
-                <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-documentos-recibidos/<?= $application['id'] ?>" class="space-y-3">
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                        <?php foreach ($receivedDocsOptions as $docKey => $docLabel): ?>
-                        <label class="flex items-center gap-2 text-sm text-gray-700">
-                            <input type="checkbox" name="received_documents[]" value="<?= htmlspecialchars($docKey) ?>" class="w-4 h-4"
-                                   <?= in_array($docKey, $receivedDocsSelected, true) ? 'checked' : '' ?>
-                                   <?= $isClosedStatus ? 'disabled' : '' ?>>
-                            <span><?= htmlspecialchars($docLabel) ?></span>
-                        </label>
-                        <?php endforeach; ?>
-                    </div>
-                    <?php if (!$isClosedStatus): ?>
-                    <div>
-                        <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
-                            <i class="fas fa-save mr-1"></i>Guardar checklist
-                        </button>
-                    </div>
-                    <?php endif; ?>
-                </form>
-            </div>
-            <?php endif; ?>
         </div>
         <?php endif; /* end isAdmin || !closed */ ?>
 
-        <!-- Pago (always visible to Admin/Gerente) -->
-        <?php if ($canViewClosedContent): ?>
-        <div class="bg-white rounded-lg shadow p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold text-gray-800">Pago</h3>
-                <?php if (!$isClosedStatus): ?>
-                <button onclick="openDocUpload('comprobante_pago')"
-                        class="btn-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition">
-                    <i class="fas fa-upload mr-2"></i>Subir
-                </button>
-                <?php endif; ?>
-            </div>
-            <?php if (!empty($paymentDocuments)): ?>
-            <div class="space-y-3">
-                <?php foreach ($paymentDocuments as $doc): ?>
-                <?php $isImage = in_array(strtolower($doc['file_type']), $inlinePreviewImageTypes); ?>
-                <div class="p-3 bg-gray-50 rounded-lg hover:bg-gray-100">
-                    <div class="flex items-center justify-between">
-                        <div class="flex items-center space-x-3">
-                            <i class="fas fa-file-<?= $doc['file_type'] === 'pdf' ? 'pdf text-red-500' : 'image text-blue-500' ?> text-2xl"></i>
-                            <div>
-                                <p class="font-medium text-gray-800"><?= htmlspecialchars($doc['name']) ?></p>
-                                <p class="text-sm text-gray-500"><?= htmlspecialchars($doc['uploaded_by_name']) ?> · <?= date('d/m/Y H:i', strtotime($doc['created_at'])) ?> · <?= number_format($doc['file_size']/1024, 0) ?> KB</p>
-                            </div>
-                        </div>
-                        <?php if ($isAdmin || $isAdvisorTemporaryClosedAccess): ?>
-                        <div class="flex items-center space-x-3">
-                            <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" target="_blank" class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></a>
-                            <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $doc['id'] ?>" class="text-primary hover:underline"><i class="fas fa-download"></i></a>
-                        </div>
-                        <?php endif; ?>
-                    </div>
-                    <?php if (($isAdmin || $isAdvisorTemporaryClosedAccess) && $isImage): ?>
-                    <div class="mt-2">
-                        <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" alt="<?= htmlspecialchars($doc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:400px;">
-                    </div>
-                    <?php elseif (($isAdmin || $isAdvisorTemporaryClosedAccess) && $doc['file_type'] === 'pdf'): ?>
-                    <div class="mt-2">
-                        <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" type="application/pdf" title="<?= htmlspecialchars($doc['name']) ?>" class="w-full rounded border border-gray-200" style="height:400px;">
-                    </div>
-                    <?php endif; ?>
-                </div>
-                <?php endforeach; ?>
-            </div>
-            <?php else: ?><p class="text-gray-500 text-center py-6">No hay comprobantes de pago</p><?php endif; ?>
-        </div>
-        <?php endif; /* end Pago */ ?>
-
         <!-- Indicaciones (always visible to Admin/Gerente) -->
-        <?php if ($canViewClosedContent): ?>
+        <?php if ($isAdmin || !$isClosedStatus): ?>
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">Indicaciones</h3>
@@ -1443,48 +1215,6 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
             <?php else: ?><p class="text-gray-500 text-center py-6">No hay indicaciones</p><?php endif; ?>
         </div>
         <?php endif; /* end Indicaciones */ ?>
-
-        <!-- Observaciones e incidencias (Pasaporte Americano/Mexicano) -->
-        <?php if ($canViewClosedContent && ($isAmericanPassportRequest || $isMexicanPassportRequest)): ?>
-        <?php
-            $basicDataForIncidences = json_decode($application['data_json'], true) ?: [];
-            $selectedIncidences = $basicDataForIncidences['observaciones_incidencias_pasaporte'] ?? [];
-            if (!is_array($selectedIncidences)) {
-                $selectedIncidences = [];
-            }
-            $incidenceOptions = [
-                'cliente_no_respondio' => 'Cliente no respondió',
-                'documentacion_incompleta' => 'Documentación incompleta',
-                'error_curp' => 'Error de CURP',
-                'pago_pendiente' => 'Pago pendiente',
-                'cita_cancelada' => 'Cita cancelada',
-            ];
-        ?>
-        <div class="bg-white rounded-lg shadow p-6">
-            <div class="flex justify-between items-center mb-4">
-                <h3 class="text-xl font-bold text-gray-800">OBSERVACIONES E INCIDENCIAS</h3>
-            </div>
-            <form method="POST" action="<?= BASE_URL ?>/solicitudes/guardar-observaciones-incidencias/<?= $application['id'] ?>" class="space-y-3">
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
-                    <?php foreach ($incidenceOptions as $incidenceKey => $incidenceLabel): ?>
-                    <label class="flex items-center gap-2 text-sm text-gray-700">
-                        <input type="checkbox" name="observaciones_incidencias[]" value="<?= htmlspecialchars($incidenceKey) ?>" class="w-4 h-4"
-                               <?= in_array($incidenceKey, $selectedIncidences, true) ? 'checked' : '' ?>
-                               <?= $isClosedStatus ? 'disabled' : '' ?>>
-                        <span><?= htmlspecialchars($incidenceLabel) ?></span>
-                    </label>
-                    <?php endforeach; ?>
-                </div>
-                <?php if (!$isClosedStatus): ?>
-                <div>
-                    <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition text-sm">
-                        <i class="fas fa-save mr-1"></i>Guardar observaciones
-                    </button>
-                </div>
-                <?php endif; ?>
-            </form>
-        </div>
-        <?php endif; ?>
 
         <!-- Historial de Estatus -->
         <div class="bg-white rounded-lg shadow p-6">
@@ -1518,8 +1248,8 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
     <!-- COLUMNA LATERAL -->
     <div class="space-y-6">
 
-        <!-- Cambiar Estatus manual (Admin/Gerente/Asesor) -->
-        <?php if (($isAdmin || $isAsesor) && !$isClosedStatus): ?>
+        <!-- Cambiar Estatus manual (Admin/Gerente) -->
+        <?php if ($isAdmin && !$isClosedStatus): ?>
         <div class="bg-white rounded-lg shadow p-6">
             <h3 class="text-lg font-bold text-gray-800 mb-4">Cambiar Estatus</h3>
             <form method="POST" action="<?= BASE_URL ?>/solicitudes/cambiar-estatus/<?= $application['id'] ?>" enctype="multipart/form-data">
@@ -1537,13 +1267,9 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
                         <?php else: ?>
                         <option value="<?= STATUS_VALIDANDO_RESPUESTAS ?>" <?= $status===STATUS_VALIDANDO_RESPUESTAS ? 'selected':'' ?>>Validando respuestas</option>
                         <option value="<?= STATUS_LISTO_SOLICITUD ?>"     <?= $status===STATUS_LISTO_SOLICITUD     ? 'selected':'' ?>>Listo para comenzar</option>
-                        <?php if (!$isPassportService): ?>
                         <option value="<?= STATUS_EN_ESPERA_PAGO ?>"      <?= $status===STATUS_EN_ESPERA_PAGO      ? 'selected':'' ?>>En espera de pago consular</option>
-                        <?php endif; ?>
                         <option value="<?= STATUS_CITA_PROGRAMADA ?>"     <?= $status===STATUS_CITA_PROGRAMADA     ? 'selected':'' ?>>Cita programada</option>
-                        <?php if (!$isPassportService): ?>
                         <option value="<?= STATUS_EN_ESPERA_RESULTADO ?>" <?= $status===STATUS_EN_ESPERA_RESULTADO ? 'selected':'' ?>>En espera de resultado</option>
-                        <?php endif; ?>
                         <option value="<?= STATUS_TRAMITE_CERRADO ?>"     <?= $status===STATUS_TRAMITE_CERRADO     ? 'selected':'' ?>>Trámite cerrado</option>
                         <?php endif; ?>
                     </select>
@@ -1594,8 +1320,8 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
             <input type="hidden" id="docTypeHidden" name="doc_type" value="adicional">
             <div class="mb-4">
                 <label class="block text-sm font-medium text-gray-700 mb-2">Archivo</label>
-                <input type="file" id="uploadDocumentInput" name="document" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
-                <p id="uploadAllowedTypesText" class="text-xs text-gray-500 mt-1">PDF, JPG, PNG, DOC, DOCX (Max. 2MB)</p>
+                <input type="file" name="document" required class="w-full border border-gray-300 rounded-lg px-4 py-2">
+                <p class="text-xs text-gray-500 mt-1">PDF, JPG, PNG, DOC, DOCX (Max. 2MB)</p>
             </div>
             <div class="flex gap-3">
                 <button type="submit" class="flex-1 btn-primary text-white py-2 rounded-lg hover:opacity-90"><i class="fas fa-upload mr-2"></i>Subir</button>
@@ -1759,54 +1485,6 @@ $hasBasicApplicantEmail = $basicApplicantEmail !== '' && filter_var($basicApplic
 </div>
 <?php endif; ?>
 
-<?php if ($isStrictAdmin && !$isAdvisorTemporaryClosedAccess): ?>
-<div id="readyEmailModal" class="hidden fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-    <div class="bg-white rounded-lg p-6 w-full max-w-2xl">
-        <div class="flex justify-between items-center mb-4">
-            <h3 class="text-xl font-bold">Enviar trámite listo</h3>
-            <button type="button" onclick="document.getElementById('readyEmailModal').classList.add('hidden')" class="text-gray-500 hover:text-gray-700"><i class="fas fa-times text-xl"></i></button>
-        </div>
-
-        <?php if (!$hasBasicApplicantEmail): ?>
-        <div class="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
-            <i class="fas fa-exclamation-triangle mr-1"></i>
-            No hay un email válido en los datos básicos del solicitante.
-        </div>
-        <?php endif; ?>
-
-        <form method="POST" action="<?= BASE_URL ?>/solicitudes/enviar-tramite-listo/<?= $application['id'] ?>" enctype="multipart/form-data">
-            <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Destinatario (Datos básicos)</label>
-                <input type="email" value="<?= htmlspecialchars($basicApplicantEmail) ?>" readonly class="w-full border border-gray-300 rounded-lg px-4 py-2 bg-gray-50 text-gray-700">
-            </div>
-
-            <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Asunto</label>
-                <input type="text" name="email_subject" required maxlength="200" class="w-full border border-gray-300 rounded-lg px-4 py-2" placeholder="Ej. Trámite listo para continuar">
-            </div>
-
-            <div class="mb-3">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Contenido del correo</label>
-                <textarea name="email_body" rows="8" required class="w-full border border-gray-300 rounded-lg px-4 py-2" placeholder="Escribe aquí el contenido del correo..."></textarea>
-            </div>
-
-            <div class="mb-4">
-                <label class="block text-sm font-medium text-gray-700 mb-1">Adjuntar archivos</label>
-                <input type="file" name="email_attachments[]" multiple class="w-full border border-gray-300 rounded-lg px-4 py-2" accept=".pdf,.jpg,.jpeg,.png,.doc,.docx,.xls,.xlsx">
-                <p class="text-xs text-gray-500 mt-1">Formatos permitidos: PDF, JPG, PNG, DOC, DOCX, XLS, XLSX (máx 2MB por archivo)</p>
-            </div>
-
-            <div class="flex gap-3">
-                <button type="submit" class="flex-1 bg-emerald-600 text-white py-2 rounded-lg hover:bg-emerald-700 transition" <?= $hasBasicApplicantEmail ? '' : 'disabled' ?>>
-                    <i class="fas fa-paper-plane mr-2"></i>Enviar correo
-                </button>
-                <button type="button" onclick="document.getElementById('readyEmailModal').classList.add('hidden')" class="flex-1 bg-gray-500 text-white py-2 rounded-lg hover:bg-gray-600">Cancelar</button>
-            </div>
-        </form>
-    </div>
-</div>
-<?php endif; ?>
-
 <script>
 function showInfoSheetTab(tab) {
     var indDiv = document.getElementById('tab-individual');
@@ -1868,17 +1546,6 @@ if (window.location.hash === '#familiar-tab') {
 function openDocUpload(docType) {
     var hidden = document.getElementById('docTypeHidden');
     if (hidden) { hidden.value = docType || 'adicional'; }
-    var fileInput = document.getElementById('uploadDocumentInput');
-    var allowedTypesText = document.getElementById('uploadAllowedTypesText');
-    if (fileInput && allowedTypesText) {
-        if (docType === 'comprobante_pago' || docType === 'consular_payment_evidence') {
-            fileInput.setAttribute('accept', '.pdf,.jpg,.jpeg,.png');
-            allowedTypesText.textContent = 'PDF, JPG, PNG (Max. 2MB)';
-        } else {
-            fileInput.setAttribute('accept', '.pdf,.jpg,.jpeg,.png,.doc,.docx');
-            allowedTypesText.textContent = 'PDF, JPG, PNG, DOC, DOCX (Max. 2MB)';
-        }
-    }
     document.getElementById('uploadModal').classList.remove('hidden');
 }
 function showCopySuccess() {

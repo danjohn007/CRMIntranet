@@ -173,43 +173,4 @@ class AdvisorIncomeController extends BaseController
             $this->redirect('/ingresos');
         }
     }
-
-    public function updateCatalog()
-    {
-        $this->requireRole([ROLE_ASESOR]);
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/ingresos');
-        }
-
-        $catalogId = (int) ($_POST['catalog_id'] ?? 0);
-        $incomeType = trim($_POST['income_type'] ?? '');
-        $amount = (float) ($_POST['amount'] ?? 0);
-
-        if ($catalogId <= 0 || $incomeType === '' || $amount <= 0) {
-            $_SESSION['error'] = 'Tipo de ingreso y monto son obligatorios';
-            $this->redirect('/ingresos');
-        }
-
-        try {
-            $stmt = $this->db->prepare("SELECT id FROM advisor_income_catalog WHERE id = ? AND is_active = 1 LIMIT 1");
-            $stmt->execute([$catalogId]);
-            $existing = $stmt->fetch();
-
-            if (!$existing) {
-                $_SESSION['error'] = 'El tipo de ingreso no existe';
-                $this->redirect('/ingresos');
-            }
-
-            $updateStmt = $this->db->prepare("UPDATE advisor_income_catalog SET income_type = ?, amount = ? WHERE id = ?");
-            $updateStmt->execute([$incomeType, $amount, $catalogId]);
-
-            $_SESSION['success'] = 'Tipo de ingreso actualizado correctamente';
-            $this->redirect('/ingresos');
-        } catch (PDOException $e) {
-            error_log('Error al actualizar tipo de ingreso: ' . $e->getMessage());
-            $_SESSION['error'] = 'No se pudo actualizar el tipo de ingreso';
-            $this->redirect('/ingresos');
-        }
-    }
 }

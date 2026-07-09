@@ -2,276 +2,85 @@
 require_once ROOT_PATH . '/app/controllers/BaseController.php';
 
 class ApplicationController extends BaseController {
-    private function decodeApplicationDataJson($rawData) {
-        if (is_array($rawData)) {
-            return $rawData;
-        }
-
-        $decoded = json_decode((string) $rawData, true);
-        if (is_array($decoded)) {
-            return $decoded;
-        }
-
-        return [];
-    }
-
-    private function normalizeMatchingText($value) {
-        $value = (string) $value;
-        $value = strtr($value, [
-            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
-            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
-        ]);
-        return strtolower(trim($value));
-    }
-
-    private function resolveMexicanPassportSubtypeFromAnswer($answer) {
-        $normalized = $this->normalizeMatchingText($answer);
-
-        if ($normalized === 'primera vez' || $normalized === 'primera_vez') {
-            return 'Primera vez';
-        }
-        if (strpos($normalized, 'renov') !== false) {
-            return 'Renovación';
-        }
-        if (strpos($normalized, 'menor') !== false) {
-            return 'Menor de Edad';
-        }
-        if (
-            strpos($normalized, 'robo') !== false ||
-            strpos($normalized, 'extravio') !== false ||
-            strpos($normalized, 'reposicion') !== false
-        ) {
-            return 'Robo/ extravío';
-        }
-        if (
-            strpos($normalized, 'correccion') !== false ||
-            strpos($normalized, 'dato') !== false ||
-            strpos($normalized, 'danado') !== false
-        ) {
-            return 'Corrección de Datos';
-        }
-
-        return null;
-    }
-
-    private function extractTipoTramiteAnswerFromData(array $data, array $fields) {
-        foreach ($fields['fields'] ?? [] as $field) {
-            $labelNormalized = $this->normalizeMatchingText($field['label'] ?? '');
-            if (strpos($labelNormalized, 'tipo de tramite') !== false) {
-                $fieldId = $field['id'] ?? null;
-                if ($fieldId !== null && isset($data[$fieldId]) && !is_array($data[$fieldId])) {
-                    $value = trim((string) $data[$fieldId]);
-                    if ($value !== '') {
-                        return $value;
-                    }
-                }
-            }
-        }
-
-        foreach (['tipo_tramite', 'tipoTramite', 'tipo de tramite', 'tipo de trámite', 'Tipo de Trámite'] as $key) {
-            if (isset($data[$key]) && !is_array($data[$key])) {
-                $value = trim((string) $data[$key]);
-                if ($value !== '') {
-                    return $value;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private function canAdvisorViewClosedApplication(array $application, $advisorId) {
-        if (intval($application['created_by'] ?? 0) !== intval($advisorId)) {
-            return false;
-        }
-
-        if (($application['status'] ?? '') !== STATUS_TRAMITE_CERRADO) {
-            return false;
-        }
-
-        $data = $this->decodeApplicationDataJson($application['data_json'] ?? '{}');
-        $grants = $data['closed_visibility_grants'] ?? [];
-        if (!is_array($grants)) {
-            return false;
-        }
-
-        $nowTs = time();
-        foreach ($grants as $grant) {
-            if (!is_array($grant)) {
-                continue;
-            }
-
-            if (intval($grant['advisor_id'] ?? 0) !== intval($advisorId)) {
-                continue;
-            }
-
-            $startTs = strtotime((string) ($grant['start_at'] ?? ''));
-            $endTs = strtotime((string) ($grant['end_at'] ?? ''));
-            if ($startTs === false || $endTs === false) {
-                continue;
-            }
-
-            if ($nowTs >= $startTs && $nowTs <= $endTs) {
-                return true;
-            }
-        }
-
-        return false;
-    }
-
-    private function isAdvisorReadOnlyClosedAccess(array $application, $advisorId) {
-        return $this->canAdvisorViewClosedApplication($application, $advisorId);
-    }
-
-    private function denyAdvisorReadOnlyClosedMutation($applicationId) {
-        $_SESSION['error'] = 'Este trámite cerrado está en modo solo lectura para asesor durante la reactivación temporal';
-        $this->redirect('/solicitudes/ver/' . $applicationId);
-    }
-
+    
     public function index() {
         $this->requireLogin();
-
+        
         $role = $this->getUserRole();
         $userId = $_SESSION['user_id'];
         $page = isset($_GET['page']) ? max(1, intval($_GET['page'])) : 1;
         $limit = ITEMS_PER_PAGE;
         $offset = ($page - 1) * $limit;
-
+        
         // Filtros
         $status = $_GET['status'] ?? '';
-        $searchTerm = trim((string) ($_GET['q'] ?? ''));
-        $nameSearchTerm = trim((string) ($_GET['qn'] ?? ''));
-
+        $flow = $_GET['flow'] ?? '';  // 'normal', 'canadiense', or '' (todos)
+        
         try {
-            $applications = [];
-            $total = 0;
-            $totalPages = 0;
-
+            // Construir query según rol
+            $where = [];
+            $params = [];
+            
             if ($role === ROLE_ASESOR) {
-                $where = ["a.created_by = ?"];
-                $params = [$userId];
-
-                if (!empty($status)) {
-                    $where[] = "a.status = ?";
-                    $params[] = $status;
-                }
-
-                $whereClause = 'WHERE ' . implode(' AND ', $where);
-
-                $stmt = $this->db->prepare("
-                    SELECT a.*, u.full_name as creator_name,
-                           f.name as form_name,
-                           fs.status as financial_status
-                    FROM applications a
-                    LEFT JOIN users u ON a.created_by = u.id
-                    LEFT JOIN forms f ON a.form_id = f.id
-                    LEFT JOIN financial_status fs ON a.id = fs.application_id
-                    $whereClause
-                    ORDER BY a.created_at DESC
-                ");
-                $stmt->execute($params);
-                $allApplications = $stmt->fetchAll();
-
-                $visibleApplications = [];
-                foreach ($allApplications as $candidate) {
-                    $candidateStatus = $candidate['status'] ?? '';
-
-                    if ($candidateStatus === STATUS_TRAMITE_CERRADO && !$this->canAdvisorViewClosedApplication($candidate, $userId)) {
-                        continue;
-                    }
-
-                    if ($candidateStatus === STATUS_FINALIZADO) {
-                        continue;
-                    }
-
-                    $visibleApplications[] = $candidate;
-                }
-
-                $total = count($visibleApplications);
-                $totalPages = max(1, intval(ceil($total / $limit)));
-                $applications = array_slice($visibleApplications, $offset, $limit);
-            } else {
-                $where = [];
-                $params = [];
-
-                if (!empty($status)) {
-                    $where[] = "a.status = ?";
-                    $params[] = $status;
-                }
-
-                if ($role === ROLE_ADMIN && $searchTerm !== '') {
-                    $where[] = "a.folio LIKE ?";
-                    $likeSearch = '%' . $searchTerm . '%';
-                    $params[] = $likeSearch;
-                }
-
-                if ($role === ROLE_ADMIN && $nameSearchTerm !== '') {
-                    $where[] = "(
-                        a.client_name LIKE ?
-                        OR JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.nombre')) LIKE ?
-                        OR JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.apellidos')) LIKE ?
-                        OR CONCAT(
-                            COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.nombre')), ''),
-                            ' ',
-                            COALESCE(JSON_UNQUOTE(JSON_EXTRACT(a.data_json, '$.apellidos')), '')
-                        ) LIKE ?
-                    )";
-                    $likeNameSearch = '%' . $nameSearchTerm . '%';
-                    $params[] = $likeNameSearch;
-                    $params[] = $likeNameSearch;
-                    $params[] = $likeNameSearch;
-                    $params[] = $likeNameSearch;
-                }
-
-                $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
-
-                $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM applications a $whereClause");
-                $stmt->execute($params);
-                $total = $stmt->fetch()['total'];
-
-                $stmt = $this->db->prepare("
-                    SELECT a.*, u.full_name as creator_name,
-                           f.name as form_name,
-                           fs.status as financial_status
-                    FROM applications a
-                    LEFT JOIN users u ON a.created_by = u.id
-                    LEFT JOIN forms f ON a.form_id = f.id
-                    LEFT JOIN financial_status fs ON a.id = fs.application_id
-                    $whereClause
-                    ORDER BY a.created_at DESC
-                    LIMIT $limit OFFSET $offset
-                ");
-                $stmt->execute($params);
-                $applications = $stmt->fetchAll();
-
-                $totalPages = max(1, intval(ceil($total / $limit)));
+                // REGLA CRÍTICA: Asesor solo puede ver SUS PROPIAS solicitudes y no las cerradas
+                $where[] = "a.created_by = ?";
+                $params[] = $userId;
+                $where[] = "a.status != ?";
+                $params[] = STATUS_TRAMITE_CERRADO;
             }
-
-            $advisors = [];
-            if ($role === ROLE_ADMIN) {
-                $stmt = $this->db->prepare("SELECT id, full_name FROM users WHERE role = ? ORDER BY full_name ASC");
-                $stmt->execute([ROLE_ASESOR]);
-                $advisors = $stmt->fetchAll();
+            
+            if (!empty($status)) {
+                $where[] = "a.status = ?";
+                $params[] = $status;
             }
-
+            
+            if ($flow === 'canadiense') {
+                $where[] = "a.is_canadian_visa = 1";
+            } elseif ($flow === 'normal') {
+                $where[] = "(a.is_canadian_visa = 0 OR a.is_canadian_visa IS NULL)";
+            }
+            
+            $whereClause = !empty($where) ? 'WHERE ' . implode(' AND ', $where) : '';
+            
+            // Contar total
+            $stmt = $this->db->prepare("SELECT COUNT(*) as total FROM applications a $whereClause");
+            $stmt->execute($params);
+            $total = $stmt->fetch()['total'];
+            
+            // Obtener solicitudes
+            $stmt = $this->db->prepare("
+                SELECT a.*, u.full_name as creator_name,
+                       f.name as form_name,
+                       fs.status as financial_status
+                FROM applications a
+                LEFT JOIN users u ON a.created_by = u.id
+                LEFT JOIN forms f ON a.form_id = f.id
+                LEFT JOIN financial_status fs ON a.id = fs.application_id
+                $whereClause
+                ORDER BY a.created_at DESC
+                LIMIT $limit OFFSET $offset
+            ");
+            $stmt->execute($params);
+            $applications = $stmt->fetchAll();
+            
+            $totalPages = ceil($total / $limit);
+            
             $this->view('applications/index', [
                 'applications' => $applications,
                 'page' => $page,
                 'totalPages' => $totalPages,
                 'total' => $total,
                 'status' => $status,
-                'searchTerm' => $searchTerm,
-                'nameSearchTerm' => $nameSearchTerm,
-                'advisors' => $advisors,
+                'flow' => $flow
             ]);
-
+            
         } catch (PDOException $e) {
             error_log("Error en listado de solicitudes: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cargar solicitudes';
             $this->view('applications/index', ['applications' => []]);
         }
     }
-
+    
     public function create() {
         $this->requireLogin();
         
@@ -321,31 +130,10 @@ class ApplicationController extends BaseController {
             $stmtFormType->execute([$formId]);
             $selectedForm = $stmtFormType->fetch();
             if ($selectedForm) {
-                $normalizeText = function ($value) {
-                    $value = (string) $value;
-                    $value = strtr($value, [
-                        'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
-                        'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
-                    ]);
-                    return strtolower(trim($value));
-                };
-
-                $formNameNormalized = $normalizeText($selectedForm['name'] ?? '');
-                $formTypeNormalized = $normalizeText($selectedForm['type'] ?? '');
-                $formSubtypeNormalized = $normalizeText($selectedForm['subtype'] ?? '');
-
-                $isAmericanPassportForm =
-                    strpos($formNameNormalized, 'pasaporte americano') !== false ||
-                    strpos($formSubtypeNormalized, 'americano') !== false;
-
-                $isFirstTimePassportSubtype =
-                    (strpos($formSubtypeNormalized, 'unica') !== false && strpos($formSubtypeNormalized, 'vez') !== false) ||
-                    (strpos($formSubtypeNormalized, 'primera') !== false && strpos($formSubtypeNormalized, 'vez') !== false);
-
                 $isUniqueUsPassportForm =
-                    $formTypeNormalized === 'pasaporte' &&
-                    $isAmericanPassportForm &&
-                    $isFirstTimePassportSubtype;
+                    trim($selectedForm['name']) === 'CUESTIONARIO ÚNICO - PASAPORTE AMERICANO' &&
+                    trim($selectedForm['type']) === 'Pasaporte' &&
+                    trim($selectedForm['subtype'] ?? '') === 'Única Vez';
             }
         }
 
@@ -402,12 +190,12 @@ class ApplicationController extends BaseController {
                 $year = date('Y');
                 $stmt = $this->db->prepare("
                     SELECT MAX(CAST(SUBSTRING(folio, -6) AS UNSIGNED)) as last_number
-                    FROM applications WHERE folio LIKE ? OR folio LIKE ?
+                    FROM applications WHERE folio LIKE ?
                 ");
-                $stmt->execute(["FOLIO-$year-%", "VISA-$year-%"]);
+                $stmt->execute(["VISA-$year-%"]);
                 $result     = $stmt->fetch();
                 $nextNumber = ($result['last_number'] ?? 0) + 1;
-                $folio      = sprintf("FOLIO-%s-%06d", $year, $nextNumber);
+                $folio      = sprintf("VISA-%s-%06d", $year, $nextNumber);
 
                 try {
                     $stmt = $this->db->prepare("
@@ -491,12 +279,12 @@ class ApplicationController extends BaseController {
             $stmt = $this->db->prepare("
                 SELECT MAX(CAST(SUBSTRING(folio, -6) AS UNSIGNED)) as last_number
                 FROM applications
-                WHERE folio LIKE ? OR folio LIKE ?
+                WHERE folio LIKE ?
             ");
-            $stmt->execute(["FOLIO-$year-%", "VISA-$year-%"]);
+            $stmt->execute(["VISA-$year-%"]);
             $result     = $stmt->fetch();
             $nextNumber = ($result['last_number'] ?? 0) + 1;
-            $folio      = sprintf("FOLIO-%s-%06d", $year, $nextNumber);
+            $folio      = sprintf("VISA-%s-%06d", $year, $nextNumber);
 
             // Crear solicitud con datos básicos
             try {
@@ -567,7 +355,6 @@ class ApplicationController extends BaseController {
         
         $role = $this->getUserRole();
         $userId = $_SESSION['user_id'];
-        $advisorTemporaryClosedAccess = false;
         
         try {
             // Obtener solicitud
@@ -589,23 +376,13 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
             
-            // REGLA CRÍTICA: Asesor solo puede ver SUS PROPIAS solicitudes.
-            // Las cerradas solo se visualizan en modo lectura cuando tienen reactivación temporal activa.
+            // REGLA CRÍTICA: Asesor solo puede ver SUS PROPIAS solicitudes y no las cerradas
             if ($role === ROLE_ASESOR) {
-                if (intval($application['created_by']) !== intval($userId)) {
+                if ($application['status'] === STATUS_TRAMITE_CERRADO || $application['status'] === STATUS_FINALIZADO) {
                     $_SESSION['error'] = 'No tiene permisos para ver esta solicitud';
                     $this->redirect('/solicitudes');
                 }
-
-                if ($application['status'] === STATUS_TRAMITE_CERRADO) {
-                    if (!$this->canAdvisorViewClosedApplication($application, $userId)) {
-                        $_SESSION['error'] = 'No tiene permisos para ver esta solicitud';
-                        $this->redirect('/solicitudes');
-                    }
-                    $advisorTemporaryClosedAccess = true;
-                }
-
-                if ($application['status'] === STATUS_FINALIZADO) {
+                if (intval($application['created_by']) !== intval($userId)) {
                     $_SESSION['error'] = 'No tiene permisos para ver esta solicitud';
                     $this->redirect('/solicitudes');
                 }
@@ -731,7 +508,6 @@ class ApplicationController extends BaseController {
                 'familiarMembers' => $familiarMembers,
                 'publishedForms' => $publishedForms,
                 'formLinkToken' => $formLinkToken,
-                'advisorTemporaryClosedAccess' => $advisorTemporaryClosedAccess,
             ]);
             
         } catch (PDOException $e) {
@@ -747,7 +523,13 @@ class ApplicationController extends BaseController {
         $role      = $this->getUserRole();
         $newStatus = $_POST['status'] ?? '';
 
-        if (!in_array($role, [ROLE_ADMIN, ROLE_GERENTE, ROLE_ASESOR])) {
+        // Asesor may only close a trámite (from morado) or confirm biometrics attendance (Canadian: azul → morado)
+        if ($role === ROLE_ASESOR) {
+            if ($newStatus !== STATUS_TRAMITE_CERRADO && $newStatus !== STATUS_EN_ESPERA_RESULTADO) {
+                http_response_code(403);
+                die("Acceso denegado. No tiene permisos para esta acción.");
+            }
+        } elseif (!in_array($role, [ROLE_ADMIN, ROLE_GERENTE])) {
             http_response_code(403);
             die("Acceso denegado. No tiene permisos para acceder a esta sección.");
         }
@@ -785,36 +567,28 @@ class ApplicationController extends BaseController {
 
             $previousStatus = $application['status'];
 
-            // Asesor: can only modify their own requests
+            // Asesor: validate specific allowed transitions
             if ($role === ROLE_ASESOR) {
                 if (intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
                 }
-
-                if ($application['status'] === STATUS_FINALIZADO) {
-                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                    $this->redirect('/solicitudes');
-                }
-
-                if ($application['status'] === STATUS_TRAMITE_CERRADO) {
-                    if ($this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
-                        $this->denyAdvisorReadOnlyClosedMutation($id);
+                if ($newStatus === STATUS_TRAMITE_CERRADO) {
+                    if ($previousStatus !== STATUS_EN_ESPERA_RESULTADO) {
+                        $_SESSION['error'] = 'No puede cerrar un trámite que no está en estado En espera de resultado';
+                        $this->redirect('/solicitudes/ver/' . $id);
                     }
-                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                    $this->redirect('/solicitudes');
+                } elseif ($newStatus === STATUS_EN_ESPERA_RESULTADO) {
+                    // Only allowed for Canadian flow: asesor confirms biometrics attendance (AZUL → MORADO)
+                    if (empty($application['is_canadian_visa']) || $previousStatus !== STATUS_CITA_PROGRAMADA) {
+                        $_SESSION['error'] = 'No tiene permisos para esta acción';
+                        $this->redirect('/solicitudes/ver/' . $id);
+                    }
                 }
             }
 
             // ── Detect Canadian Visa flag ───────────────────────────────────
             $isCanadianVisa = !empty($application['is_canadian_visa']);
-            $isPassportService = stripos(trim((string) ($application['type'] ?? '')), 'pasaporte') !== false;
-
-            // For passport service, these statuses are not used.
-            if (!$isCanadianVisa && $isPassportService && in_array($newStatus, [STATUS_EN_ESPERA_PAGO, STATUS_EN_ESPERA_RESULTADO], true)) {
-                $_SESSION['error'] = 'Para trámites de Pasaporte no se usan los estatus En espera de pago consular ni En espera de resultado.';
-                $this->redirect('/solicitudes/ver/' . $id);
-            }
 
             // ── Validaciones antes de pasar de NUEVO → ROJO ────────────────────
             if ($previousStatus === STATUS_NUEVO && $newStatus === STATUS_LISTO_SOLICITUD) {
@@ -1097,18 +871,11 @@ class ApplicationController extends BaseController {
             
             // REGLA: Asesor solo puede acceder a sus propias solicitudes y no las cerradas
             if ($role === ROLE_ASESOR) {
-                if ($application['status'] === STATUS_FINALIZADO) {
+                if ($application['status'] === STATUS_TRAMITE_CERRADO || $application['status'] === STATUS_FINALIZADO) {
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
                 }
                 if (intval($application['created_by']) !== intval($_SESSION['user_id'])) {
-                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                    $this->redirect('/solicitudes');
-                }
-                if ($application['status'] === STATUS_TRAMITE_CERRADO) {
-                    if ($this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
-                        $this->denyAdvisorReadOnlyClosedMutation($id);
-                    }
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
                 }
@@ -1134,8 +901,6 @@ class ApplicationController extends BaseController {
                 // Canadian visa doc types
                 'visa_canadiense_anterior', 'eta_anterior',
                 'canadian_vac_confirmation', 'canadian_portal_capture',
-                // Payment receipts
-                'comprobante_pago',
             ];
             if (!in_array($docType, $allowedDocTypes)) {
                 $docType = 'adicional';
@@ -1150,14 +915,6 @@ class ApplicationController extends BaseController {
             if (!in_array($fileType, ALLOWED_EXTENSIONS)) {
                 $_SESSION['error'] = 'Tipo de archivo no permitido';
                 $this->redirect('/solicitudes/ver/' . $id);
-            }
-
-            if (in_array($docType, ['comprobante_pago', 'consular_payment_evidence'], true)) {
-                $paymentAllowedExtensions = ['pdf', 'jpg', 'jpeg', 'png'];
-                if (!in_array($fileType, $paymentAllowedExtensions, true)) {
-                    $_SESSION['error'] = 'Para comprobantes de pago solo se permiten archivos PDF, JPG o PNG';
-                    $this->redirect('/solicitudes/ver/' . $id);
-                }
             }
             
             // Solo puede haber una ficha de pago consular
@@ -1484,10 +1241,6 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
 
-            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
-                $this->denyAdvisorReadOnlyClosedMutation($id);
-            }
-
             // Asesor solo puede crear la hoja de información, no editarla
             if ($role === ROLE_ASESOR) {
                 $stmtExisting = $this->db->prepare("SELECT id FROM information_sheets WHERE application_id = ?");
@@ -1693,10 +1446,6 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
 
-            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
-                $this->denyAdvisorReadOnlyClosedMutation($id);
-            }
-
             // Ensure the parent information_sheet exists
             $stmtSheet = $this->db->prepare("SELECT id FROM information_sheets WHERE application_id = ?");
             $stmtSheet->execute([$id]);
@@ -1818,26 +1567,18 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
 
-            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
-                $this->denyAdvisorReadOnlyClosedMutation($id);
-            }
-
             $attended     = isset($_POST['client_attended']) ? 1 : 0;
             $attendedDate = !empty($_POST['client_attended_date']) ? $_POST['client_attended_date'] : null;
 
             $this->db->prepare("UPDATE applications SET client_attended = ?, client_attended_date = ? WHERE id = ?")
                 ->execute([$attended, $attendedDate, $id]);
 
-            $isPassportService = stripos(trim((string) ($application['type'] ?? '')), 'pasaporte') !== false;
-
-            // For visa flow, advance to purple after attendance; for passport keep current status (AZUL).
+            // Advance to STATUS_EN_ESPERA_RESULTADO if attended
             if ($attended && $application['status'] === STATUS_CITA_PROGRAMADA) {
-                if (!$isPassportService) {
-                    $prevStatus = $application['status'];
-                    $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_EN_ESPERA_RESULTADO, $id]);
-                    $this->db->prepare("INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by) VALUES (?, ?, ?, ?, ?)")
-                        ->execute([$id, $prevStatus, STATUS_EN_ESPERA_RESULTADO, 'Cliente marcó asistencia a cita', $_SESSION['user_id']]);
-                }
+                $prevStatus = $application['status'];
+                $this->db->prepare("UPDATE applications SET status = ? WHERE id = ?")->execute([STATUS_EN_ESPERA_RESULTADO, $id]);
+                $this->db->prepare("INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by) VALUES (?, ?, ?, ?, ?)")
+                    ->execute([$id, $prevStatus, STATUS_EN_ESPERA_RESULTADO, 'Cliente marcó asistencia a cita', $_SESSION['user_id']]);
             }
 
             $_SESSION['success'] = 'Asistencia registrada correctamente';
@@ -1866,12 +1607,7 @@ class ApplicationController extends BaseController {
         }
 
         try {
-            $stmt = $this->db->prepare("
-                SELECT a.created_by, a.status, a.type, a.subtype, a.data_json, f.name AS form_name, f.fields_json
-                FROM applications a
-                LEFT JOIN forms f ON a.form_id = f.id
-                WHERE a.id = ?
-            ");
+            $stmt = $this->db->prepare("SELECT created_by FROM applications WHERE id = ?");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
 
@@ -1883,10 +1619,6 @@ class ApplicationController extends BaseController {
             if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                 $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                 $this->redirect('/solicitudes');
-            }
-
-            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
-                $this->denyAdvisorReadOnlyClosedMutation($id);
             }
 
             // Verify the form exists and is published before generating a link
@@ -1927,7 +1659,7 @@ class ApplicationController extends BaseController {
         $role = $this->getUserRole();
 
         try {
-            $stmt = $this->db->prepare("SELECT created_by, status, data_json FROM applications WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT created_by, status FROM applications WHERE id = ?");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
 
@@ -1939,10 +1671,6 @@ class ApplicationController extends BaseController {
             if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                 $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                 $this->redirect('/solicitudes');
-            }
-
-            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
-                $this->denyAdvisorReadOnlyClosedMutation($id);
             }
 
             $officeDate     = !empty($_POST['office_appointment_date']) ? $_POST['office_appointment_date'] : null;
@@ -1958,102 +1686,6 @@ class ApplicationController extends BaseController {
         } catch (PDOException $e) {
             error_log("Error al guardar cita a oficinas: " . $e->getMessage());
             $_SESSION['error'] = 'Error al guardar cita a oficinas';
-            $this->redirect('/solicitudes/ver/' . $id);
-        }
-    }
-
-    /**
-     * Guardar cita de la SRE (fecha y hora) para pasaporte americano/mexicano en estado AZUL.
-     */
-    public function saveSreAppointment($id) {
-        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/solicitudes/ver/' . $id);
-        }
-
-        $role = $this->getUserRole();
-
-        try {
-            $stmt = $this->db->prepare("
-                SELECT a.created_by, a.status, a.type, a.subtype, f.name AS form_name, a.data_json
-                FROM applications a
-                LEFT JOIN forms f ON a.form_id = f.id
-                WHERE a.id = ?
-            ");
-            $stmt->execute([$id]);
-            $application = $stmt->fetch();
-
-            if (!$application) {
-                $_SESSION['error'] = 'Solicitud no encontrada';
-                $this->redirect('/solicitudes');
-            }
-
-            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
-                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                $this->redirect('/solicitudes');
-            }
-
-            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
-                $this->denyAdvisorReadOnlyClosedMutation($id);
-            }
-
-            if ($application['status'] !== STATUS_CITA_PROGRAMADA) {
-                $_SESSION['error'] = 'La cita de la SRE solo se puede configurar en estatus Cita programada';
-                $this->redirect('/solicitudes/ver/' . $id);
-            }
-
-            $normalizeText = function ($value) {
-                $value = (string) $value;
-                $value = strtr($value, [
-                    'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
-                    'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
-                ]);
-                return strtolower(trim($value));
-            };
-
-            $typeNormalized = $normalizeText($application['type'] ?? '');
-            $subtypeNormalized = $normalizeText($application['subtype'] ?? '');
-            $formNameNormalized = $normalizeText($application['form_name'] ?? '');
-
-            $isAmericanPassport =
-                $typeNormalized === 'pasaporte' &&
-                (strpos($subtypeNormalized, 'americano') !== false || strpos($formNameNormalized, 'pasaporte americano') !== false);
-            $isMexicanPassport =
-                $typeNormalized === 'pasaporte' &&
-                (strpos($subtypeNormalized, 'mexicano') !== false || strpos($formNameNormalized, 'pasaporte mexicano') !== false);
-
-            if (!$isAmericanPassport && !$isMexicanPassport) {
-                $_SESSION['error'] = 'La cita de la SRE aplica solo para solicitudes de Pasaporte Americano o Mexicano';
-                $this->redirect('/solicitudes/ver/' . $id);
-            }
-
-            $sreAppointmentRaw = trim($_POST['sre_appointment_datetime'] ?? '');
-            if ($sreAppointmentRaw === '') {
-                $_SESSION['error'] = 'Debe capturar la fecha y hora de la cita de la SRE';
-                $this->redirect('/solicitudes/ver/' . $id);
-            }
-
-            $parsedSreDatetime = DateTime::createFromFormat('Y-m-d\TH:i', $sreAppointmentRaw);
-            if (!$parsedSreDatetime || $parsedSreDatetime->format('Y-m-d\TH:i') !== $sreAppointmentRaw) {
-                $_SESSION['error'] = 'La fecha y hora de la cita de la SRE no es válida';
-                $this->redirect('/solicitudes/ver/' . $id);
-            }
-
-            $existingData = json_decode($application['data_json'], true) ?: [];
-            $existingData['cita_sre_fecha_hora'] = $parsedSreDatetime->format('Y-m-d H:i:s');
-
-            $newJson = json_encode($existingData, JSON_UNESCAPED_UNICODE);
-            $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
-                ->execute([$newJson, $id]);
-
-            logAudit('update', 'solicitudes', 'Cita SRE configurada para solicitud #' . $id);
-
-            $_SESSION['success'] = 'Cita de la SRE guardada correctamente';
-            $this->redirect('/solicitudes/ver/' . $id);
-        } catch (PDOException $e) {
-            error_log('Error al guardar cita SRE: ' . $e->getMessage());
-            $_SESSION['error'] = 'Error al guardar cita de la SRE';
             $this->redirect('/solicitudes/ver/' . $id);
         }
     }
@@ -2086,10 +1718,6 @@ class ApplicationController extends BaseController {
                 $this->redirect('/solicitudes');
             }
 
-            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
-                $this->denyAdvisorReadOnlyClosedMutation($id);
-            }
-
             if ($application['status'] !== STATUS_VALIDANDO_RESPUESTAS) {
                 $_SESSION['error'] = 'Solo se pueden editar respuestas cuando el estatus es "Validando respuestas"';
                 $this->redirect('/solicitudes/ver/' . $id);
@@ -2109,39 +1737,8 @@ class ApplicationController extends BaseController {
             }
 
             $newJson = json_encode($existingData, JSON_UNESCAPED_UNICODE);
-
-            $typeNormalized = $this->normalizeMatchingText($application['type'] ?? '');
-            $subtypeNormalized = $this->normalizeMatchingText($application['subtype'] ?? '');
-            $formNameNormalized = $this->normalizeMatchingText($application['form_name'] ?? '');
-            $decodedFields = json_decode($application['fields_json'] ?? '[]', true);
-            if (!is_array($decodedFields)) {
-                $decodedFields = [];
-            }
-            $fieldsPayload = isset($decodedFields['fields']) && is_array($decodedFields['fields'])
-                ? $decodedFields
-                : ['fields' => $decodedFields];
-            $tipoTramiteAnswer = $this->extractTipoTramiteAnswerFromData($existingData, $fieldsPayload);
-
-            $isMexicanPassportApplication =
-                $typeNormalized === 'pasaporte' &&
-                (
-                    strpos($subtypeNormalized, 'mexicano') !== false ||
-                    strpos($formNameNormalized, 'pasaporte mexicano') !== false
-                );
-
-            if ($isMexicanPassportApplication && $tipoTramiteAnswer !== null) {
-                $resolvedSubtype = $this->resolveMexicanPassportSubtypeFromAnswer($tipoTramiteAnswer);
-                if ($resolvedSubtype !== null) {
-                    $this->db->prepare("UPDATE applications SET data_json = ?, subtype = ? WHERE id = ?")
-                        ->execute([$newJson, $resolvedSubtype, $id]);
-                } else {
-                    $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
-                        ->execute([$newJson, $id]);
-                }
-            } else {
-                $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
-                    ->execute([$newJson, $id]);
-            }
+            $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
+                ->execute([$newJson, $id]);
 
             logAudit(
                 'update',
@@ -2155,214 +1752,6 @@ class ApplicationController extends BaseController {
         } catch (PDOException $e) {
             error_log("Error al guardar respuestas: " . $e->getMessage());
             $_SESSION['error'] = 'Error al guardar respuestas';
-            $this->redirect('/solicitudes/ver/' . $id);
-        }
-    }
-
-    public function saveReceivedDocumentsChecklist($id) {
-        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/solicitudes/ver/' . $id);
-        }
-
-        $role = $this->getUserRole();
-
-        try {
-            $stmt = $this->db->prepare("
-                SELECT a.created_by, a.status, a.type, a.subtype, f.name AS form_name, a.data_json
-                FROM applications a
-                LEFT JOIN forms f ON a.form_id = f.id
-                WHERE a.id = ?
-            ");
-            $stmt->execute([$id]);
-            $application = $stmt->fetch();
-
-            if (!$application) {
-                $_SESSION['error'] = 'Solicitud no encontrada';
-                $this->redirect('/solicitudes');
-            }
-
-            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
-                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                $this->redirect('/solicitudes');
-            }
-
-            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
-                $this->denyAdvisorReadOnlyClosedMutation($id);
-            }
-
-            $normalizeText = function ($value) {
-                $value = (string) $value;
-                $value = strtr($value, [
-                    'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
-                    'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
-                ]);
-                return strtolower(trim($value));
-            };
-
-            $typeNormalized = $normalizeText($application['type'] ?? '');
-            $subtypeNormalized = $normalizeText($application['subtype'] ?? '');
-            $formNameNormalized = $normalizeText($application['form_name'] ?? '');
-
-            $isAmericanPassport =
-                $typeNormalized === 'pasaporte' &&
-                (strpos($subtypeNormalized, 'americano') !== false || strpos($formNameNormalized, 'pasaporte americano') !== false);
-            $isMexicanPassport =
-                $typeNormalized === 'pasaporte' &&
-                (strpos($subtypeNormalized, 'mexicano') !== false || strpos($formNameNormalized, 'pasaporte mexicano') !== false);
-
-            if (!$isAmericanPassport && !$isMexicanPassport) {
-                $_SESSION['error'] = 'Este checklist aplica solo para solicitudes de Pasaporte Americano o Mexicano';
-                $this->redirect('/solicitudes/ver/' . $id);
-            }
-
-            if ($isMexicanPassport) {
-                $dataKey = 'documentos_recibidos_pasaporte_mexicano';
-                $allowedDocKeys = [
-                    'acta_nacimiento',
-                    'curp_certificada',
-                    'ine',
-                    'pasaporte_anterior',
-                    'pago_sre',
-                    'carta_consentimiento_menores',
-                    'identificacion_padres',
-                ];
-            } else {
-                $dataKey = 'documentos_recibidos_pasaporte_americano';
-                $allowedDocKeys = [
-                    'acta_nacimiento_americana',
-                    'pasaporte_anterior',
-                    'identificacion_oficial',
-                    'social_security_number',
-                    'reporte_policial',
-                ];
-            }
-
-            $selected = $_POST['received_documents'] ?? [];
-            if (!is_array($selected)) {
-                $selected = [];
-            }
-
-            $selectedNormalized = [];
-            foreach ($selected as $docKey) {
-                $docKey = trim((string) $docKey);
-                if (in_array($docKey, $allowedDocKeys, true) && !in_array($docKey, $selectedNormalized, true)) {
-                    $selectedNormalized[] = $docKey;
-                }
-            }
-
-            $existingData = json_decode($application['data_json'], true) ?: [];
-            $existingData[$dataKey] = $selectedNormalized;
-
-            $newJson = json_encode($existingData, JSON_UNESCAPED_UNICODE);
-            $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
-                ->execute([$newJson, $id]);
-
-            logAudit('update', 'solicitudes', 'Checklist de documentos recibidos actualizado para solicitud #' . $id);
-
-            $_SESSION['success'] = 'Checklist de documentos recibidos guardado correctamente';
-            $this->redirect('/solicitudes/ver/' . $id);
-        } catch (PDOException $e) {
-            error_log('Error al guardar checklist de documentos recibidos: ' . $e->getMessage());
-            $_SESSION['error'] = 'Error al guardar checklist de documentos recibidos';
-            $this->redirect('/solicitudes/ver/' . $id);
-        }
-    }
-
-    public function saveObservationsIncidencesChecklist($id) {
-        $this->requireRole([ROLE_ASESOR, ROLE_ADMIN, ROLE_GERENTE]);
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/solicitudes/ver/' . $id);
-        }
-
-        $role = $this->getUserRole();
-
-        try {
-            $stmt = $this->db->prepare("
-                SELECT a.created_by, a.status, a.type, a.subtype, f.name AS form_name, a.data_json
-                FROM applications a
-                LEFT JOIN forms f ON a.form_id = f.id
-                WHERE a.id = ?
-            ");
-            $stmt->execute([$id]);
-            $application = $stmt->fetch();
-
-            if (!$application) {
-                $_SESSION['error'] = 'Solicitud no encontrada';
-                $this->redirect('/solicitudes');
-            }
-
-            if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
-                $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                $this->redirect('/solicitudes');
-            }
-
-            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
-                $this->denyAdvisorReadOnlyClosedMutation($id);
-            }
-
-            $normalizeText = function ($value) {
-                $value = (string) $value;
-                $value = strtr($value, [
-                    'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
-                    'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
-                ]);
-                return strtolower(trim($value));
-            };
-
-            $typeNormalized = $normalizeText($application['type'] ?? '');
-            $subtypeNormalized = $normalizeText($application['subtype'] ?? '');
-            $formNameNormalized = $normalizeText($application['form_name'] ?? '');
-
-            $isAmericanPassport =
-                $typeNormalized === 'pasaporte' &&
-                (strpos($subtypeNormalized, 'americano') !== false || strpos($formNameNormalized, 'pasaporte americano') !== false);
-            $isMexicanPassport =
-                $typeNormalized === 'pasaporte' &&
-                (strpos($subtypeNormalized, 'mexicano') !== false || strpos($formNameNormalized, 'pasaporte mexicano') !== false);
-
-            if (!$isAmericanPassport && !$isMexicanPassport) {
-                $_SESSION['error'] = 'Este checklist aplica solo para solicitudes de Pasaporte Americano o Mexicano';
-                $this->redirect('/solicitudes/ver/' . $id);
-            }
-
-            $allowedKeys = [
-                'cliente_no_respondio',
-                'documentacion_incompleta',
-                'error_curp',
-                'pago_pendiente',
-                'cita_cancelada',
-            ];
-
-            $selected = $_POST['observaciones_incidencias'] ?? [];
-            if (!is_array($selected)) {
-                $selected = [];
-            }
-
-            $selectedNormalized = [];
-            foreach ($selected as $itemKey) {
-                $itemKey = trim((string) $itemKey);
-                if (in_array($itemKey, $allowedKeys, true) && !in_array($itemKey, $selectedNormalized, true)) {
-                    $selectedNormalized[] = $itemKey;
-                }
-            }
-
-            $existingData = json_decode($application['data_json'], true) ?: [];
-            $existingData['observaciones_incidencias_pasaporte'] = $selectedNormalized;
-
-            $newJson = json_encode($existingData, JSON_UNESCAPED_UNICODE);
-            $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
-                ->execute([$newJson, $id]);
-
-            logAudit('update', 'solicitudes', 'Checklist de observaciones e incidencias actualizado para solicitud #' . $id);
-
-            $_SESSION['success'] = 'Observaciones e incidencias guardadas correctamente';
-            $this->redirect('/solicitudes/ver/' . $id);
-        } catch (PDOException $e) {
-            error_log('Error al guardar observaciones e incidencias: ' . $e->getMessage());
-            $_SESSION['error'] = 'Error al guardar observaciones e incidencias';
             $this->redirect('/solicitudes/ver/' . $id);
         }
     }
@@ -2381,7 +1770,7 @@ class ApplicationController extends BaseController {
         $role = $this->getUserRole();
 
         try {
-            $stmt = $this->db->prepare("SELECT created_by, status, data_json FROM applications WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT created_by, status FROM applications WHERE id = ?");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
 
@@ -2393,10 +1782,6 @@ class ApplicationController extends BaseController {
             if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                 $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                 $this->redirect('/solicitudes');
-            }
-
-            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
-                $this->denyAdvisorReadOnlyClosedMutation($id);
             }
 
             if ($application['status'] !== STATUS_VALIDANDO_RESPUESTAS) {
@@ -2485,7 +1870,7 @@ class ApplicationController extends BaseController {
         $role = $this->getUserRole();
 
         try {
-            $stmt = $this->db->prepare("SELECT created_by, status, data_json FROM applications WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT created_by FROM applications WHERE id = ?");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
 
@@ -2496,11 +1881,6 @@ class ApplicationController extends BaseController {
 
             if ($role === ROLE_ASESOR && intval($application['created_by']) !== intval($_SESSION['user_id'])) {
                 $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                $this->redirect('/public/solicitudes');
-            }
-
-            if ($role === ROLE_ASESOR && $this->isAdvisorReadOnlyClosedAccess($application, $_SESSION['user_id'])) {
-                $_SESSION['error'] = 'Este trámite cerrado está en modo solo lectura para asesor durante la reactivación temporal';
                 $this->redirect('/public/solicitudes');
             }
 
@@ -2520,263 +1900,6 @@ class ApplicationController extends BaseController {
     /**
      * Eliminar solicitud (solo Admin).
      */
-    public function reactivateTemporary($id) {
-        $this->requireRole([ROLE_ADMIN]);
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/solicitudes');
-        }
-
-        $advisorId = intval($_POST['advisor_id'] ?? 0);
-        $startRaw = trim($_POST['start_at'] ?? '');
-        $endRaw = trim($_POST['end_at'] ?? '');
-
-        if ($advisorId <= 0 || $startRaw === '' || $endRaw === '') {
-            $_SESSION['error'] = 'Debe seleccionar asesor y periodo de reactivación';
-            $this->redirect('/solicitudes');
-        }
-
-        $startAt = str_replace('T', ' ', $startRaw) . ':00';
-        $endAt = str_replace('T', ' ', $endRaw) . ':00';
-        $startTs = strtotime($startAt);
-        $endTs = strtotime($endAt);
-
-        if ($startTs === false || $endTs === false || $endTs <= $startTs) {
-            $_SESSION['error'] = 'El periodo de reactivación no es válido';
-            $this->redirect('/solicitudes');
-        }
-
-        try {
-            $stmt = $this->db->prepare("SELECT id, status, data_json FROM applications WHERE id = ?");
-            $stmt->execute([$id]);
-            $application = $stmt->fetch();
-
-            if (!$application) {
-                $_SESSION['error'] = 'Solicitud no encontrada';
-                $this->redirect('/solicitudes');
-            }
-
-            if (($application['status'] ?? '') !== STATUS_TRAMITE_CERRADO) {
-                $_SESSION['error'] = 'Solo se puede reactivar temporalmente un trámite cerrado';
-                $this->redirect('/solicitudes');
-            }
-
-            $stmtAdvisor = $this->db->prepare("SELECT id FROM users WHERE id = ? AND role = ? LIMIT 1");
-            $stmtAdvisor->execute([$advisorId, ROLE_ASESOR]);
-            if (!$stmtAdvisor->fetch()) {
-                $_SESSION['error'] = 'El asesor seleccionado no es válido';
-                $this->redirect('/solicitudes');
-            }
-
-            $data = $this->decodeApplicationDataJson($application['data_json'] ?? '{}');
-            $grants = $data['closed_visibility_grants'] ?? [];
-            if (!is_array($grants)) {
-                $grants = [];
-            }
-
-            $cleanedGrants = [];
-            $nowTs = time();
-            foreach ($grants as $grant) {
-                if (!is_array($grant)) {
-                    continue;
-                }
-
-                $grantAdvisorId = intval($grant['advisor_id'] ?? 0);
-                if ($grantAdvisorId === $advisorId) {
-                    continue;
-                }
-
-                $grantEndTs = strtotime((string) ($grant['end_at'] ?? ''));
-                if ($grantEndTs !== false && $grantEndTs >= $nowTs) {
-                    $cleanedGrants[] = $grant;
-                }
-            }
-
-            $cleanedGrants[] = [
-                'advisor_id' => $advisorId,
-                'start_at' => date('Y-m-d H:i:s', $startTs),
-                'end_at' => date('Y-m-d H:i:s', $endTs),
-                'granted_by' => intval($_SESSION['user_id']),
-                'granted_at' => date('Y-m-d H:i:s'),
-            ];
-
-            $data['closed_visibility_grants'] = $cleanedGrants;
-
-            $this->db->prepare("UPDATE applications SET data_json = ? WHERE id = ?")
-                ->execute([json_encode($data, JSON_UNESCAPED_UNICODE), $id]);
-
-            logAudit('update', 'solicitudes', "Reactivación temporal para solicitud #$id asignada a asesor #$advisorId");
-
-            $_SESSION['success'] = 'Reactivación temporal guardada correctamente';
-            $this->redirect('/solicitudes');
-        } catch (PDOException $e) {
-            error_log("Error al guardar reactivación temporal: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al guardar la reactivación temporal';
-            $this->redirect('/solicitudes');
-        }
-    }
-
-    /**
-     * Enviar correo personalizado de "trámite listo" al email de datos básicos del solicitante.
-     * Solo Administrador.
-     */
-    public function sendReadyProcedureEmail($id) {
-        $this->requireRole([ROLE_ADMIN]);
-
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/solicitudes/ver/' . $id);
-        }
-
-        $subject = trim((string) ($_POST['email_subject'] ?? ''));
-        $bodyText = trim((string) ($_POST['email_body'] ?? ''));
-
-        if ($subject === '' || $bodyText === '') {
-            $_SESSION['error'] = 'El asunto y el contenido del correo son obligatorios';
-            $this->redirect('/solicitudes/ver/' . $id);
-        }
-
-        try {
-            $stmt = $this->db->prepare("SELECT id, folio, type, subtype, data_json, client_name, created_by FROM applications WHERE id = ?");
-            $stmt->execute([$id]);
-            $application = $stmt->fetch();
-
-            if (!$application) {
-                $_SESSION['error'] = 'Solicitud no encontrada';
-                $this->redirect('/solicitudes');
-            }
-
-            $basicData = $this->decodeApplicationDataJson($application['data_json'] ?? '{}');
-            $recipient = trim((string) ($basicData['email'] ?? ''));
-
-            if ($recipient === '' || !filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
-                $_SESSION['error'] = 'No se encontró un email válido en los datos básicos del solicitante';
-                $this->redirect('/solicitudes/ver/' . $id);
-            }
-
-            $stmtCfg = $this->db->query("SELECT config_key, config_value FROM global_config WHERE config_key IN ('smtp_user','smtp_password','smtp_host','smtp_port','site_name')");
-            $config = $stmtCfg->fetchAll(PDO::FETCH_KEY_PAIR);
-
-            $smtpHost = $config['smtp_host'] ?? '';
-            $smtpUser = $config['smtp_user'] ?? '';
-            $smtpPassword = $config['smtp_password'] ?? '';
-            $smtpPort = intval($config['smtp_port'] ?? 465);
-            $siteName = $config['site_name'] ?? (function_exists('getSiteName') ? getSiteName() : 'CRM Visas');
-
-            if ($smtpHost === '' || $smtpUser === '' || $smtpPassword === '') {
-                $_SESSION['error'] = 'La configuración SMTP está incompleta. Verifique Configuración del Sistema.';
-                $this->redirect('/solicitudes/ver/' . $id);
-            }
-
-            require_once ROOT_PATH . '/vendor/autoload.php';
-
-            $safeBody = nl2br(htmlspecialchars($bodyText, ENT_QUOTES, 'UTF-8'));
-
-            $attachmentFiles = [];
-            $allowedExtensions = ['pdf', 'jpg', 'jpeg', 'png', 'doc', 'docx', 'xls', 'xlsx'];
-            if (!empty($_FILES['email_attachments']) && is_array($_FILES['email_attachments']['name'] ?? null)) {
-                $totalFiles = count($_FILES['email_attachments']['name']);
-                for ($i = 0; $i < $totalFiles; $i++) {
-                    $error = $_FILES['email_attachments']['error'][$i] ?? UPLOAD_ERR_NO_FILE;
-                    if ($error === UPLOAD_ERR_NO_FILE || $error !== UPLOAD_ERR_OK) {
-                        continue;
-                    }
-
-                    $tmpName = $_FILES['email_attachments']['tmp_name'][$i] ?? '';
-                    $originalName = $_FILES['email_attachments']['name'][$i] ?? 'adjunto';
-                    $size = intval($_FILES['email_attachments']['size'][$i] ?? 0);
-                    $extension = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-
-                    if (!in_array($extension, $allowedExtensions, true)) {
-                        continue;
-                    }
-                    if ($size <= 0 || $size > MAX_FILE_SIZE) {
-                        continue;
-                    }
-                    if ($tmpName === '' || !is_uploaded_file($tmpName)) {
-                        continue;
-                    }
-
-                    $attachmentFiles[] = ['tmp' => $tmpName, 'name' => $originalName];
-                }
-            }
-
-            $sendAttempt = function () use (
-                $smtpHost,
-                $smtpUser,
-                $smtpPassword,
-                $smtpPort,
-                $siteName,
-                $recipient,
-                $subject,
-                $safeBody,
-                $bodyText,
-                $attachmentFiles
-            ) {
-                $mail = new \PHPMailer\PHPMailer\PHPMailer(true);
-                $mail->isSMTP();
-                $mail->Host = $smtpHost;
-                $mail->SMTPAuth = true;
-                $mail->Username = $smtpUser;
-                $mail->Password = $smtpPassword;
-                $mail->Port = $smtpPort;
-                $mail->SMTPSecure = ($smtpPort === 465)
-                    ? \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_SMTPS
-                    : \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS;
-                $mail->SMTPOptions = [
-                    'ssl' => [
-                        'verify_peer' => false,
-                        'verify_peer_name' => false,
-                        'allow_self_signed' => true,
-                    ],
-                ];
-                $mail->Timeout = 25;
-                $mail->CharSet = 'UTF-8';
-                $mail->setFrom($smtpUser, $siteName);
-                $mail->addAddress($recipient);
-
-                foreach ($attachmentFiles as $attachmentFile) {
-                    $mail->addAttachment($attachmentFile['tmp'], $attachmentFile['name']);
-                }
-
-                $mail->isHTML(true);
-                $mail->Subject = $subject;
-                $mail->Body = '<div style="font-family:Arial,sans-serif;max-width:700px;line-height:1.5;">' . $safeBody . '</div>';
-                $mail->AltBody = $bodyText;
-
-                $mail->send();
-            };
-
-            try {
-                $sendAttempt();
-            } catch (\PHPMailer\PHPMailer\Exception $firstTryError) {
-                error_log("Primer intento fallido (trámite listo #$id): " . $firstTryError->getMessage());
-                // Reintento inmediato para errores transitorios del SMTP.
-                $sendAttempt();
-            }
-
-            $clientName = trim((string) ($application['client_name'] ?? ''));
-            logAudit('email', 'solicitudes', "Correo 'trámite listo' enviado a $recipient para solicitud #$id");
-            logCustomerJourney(
-                $id,
-                'email',
-                'Correo de trámite listo enviado',
-                "Asunto: $subject" . ($clientName !== '' ? " | Cliente: $clientName" : ''),
-                'email'
-            );
-
-            $_SESSION['success'] = 'Correo enviado correctamente a ' . $recipient . '. Si su proveedor lo retrasa, puede tardar unos minutos en recibirse.';
-            $this->redirect('/solicitudes/ver/' . $id);
-        } catch (\PHPMailer\PHPMailer\Exception $e) {
-            error_log("Error PHPMailer al enviar trámite listo: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al enviar correo: ' . $e->getMessage();
-            $this->redirect('/solicitudes/ver/' . $id);
-        } catch (PDOException $e) {
-            error_log("Error al enviar correo de trámite listo: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al enviar correo';
-            $this->redirect('/solicitudes/ver/' . $id);
-        }
-    }
-
     public function delete($id) {
         $this->requireRole([ROLE_ADMIN]);
 
@@ -2846,7 +1969,7 @@ class ApplicationController extends BaseController {
 
         try {
             $stmt = $this->db->prepare("
-                SELECT d.*, a.id as app_id, a.created_by as app_created_by, a.status, a.data_json
+                SELECT d.*, a.id as app_id, a.created_by as app_created_by, a.status
                 FROM documents d
                 LEFT JOIN applications a ON d.application_id = a.id
                 WHERE d.id = ?
@@ -2863,21 +1986,11 @@ class ApplicationController extends BaseController {
             $docCreatorId = intval($doc['app_created_by'] ?? 0);
 
             if ($role === ROLE_ASESOR) {
+                if ($docStatus === STATUS_TRAMITE_CERRADO || $docStatus === STATUS_FINALIZADO) {
+                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
+                    $this->redirect('/solicitudes');
+                }
                 if ($docCreatorId !== intval($_SESSION['user_id'])) {
-                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                    $this->redirect('/solicitudes');
-                }
-
-                if ($docStatus === STATUS_FINALIZADO) {
-                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                    $this->redirect('/solicitudes');
-                }
-
-                if ($docStatus === STATUS_TRAMITE_CERRADO && !$this->canAdvisorViewClosedApplication([
-                    'created_by' => $docCreatorId,
-                    'status' => $docStatus,
-                    'data_json' => $doc['data_json'] ?? '{}',
-                ], $_SESSION['user_id'])) {
                     $_SESSION['error'] = 'No tiene permisos para esta solicitud';
                     $this->redirect('/solicitudes');
                 }

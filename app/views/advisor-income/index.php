@@ -71,7 +71,6 @@ ob_start();
                     <tr>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Tipo</th>
                         <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Monto</th>
-                        <th class="px-3 py-2 text-left text-xs font-medium text-gray-500 uppercase">Acciones</th>
                     </tr>
                 </thead>
                 <tbody class="divide-y divide-gray-200">
@@ -79,22 +78,11 @@ ob_start();
                     <tr>
                         <td class="px-3 py-2 text-sm text-gray-700"><?= htmlspecialchars($type['income_type']) ?></td>
                         <td class="px-3 py-2 text-sm font-semibold text-green-600">$<?= number_format((float) $type['amount'], 2) ?></td>
-                        <td class="px-3 py-2 text-sm text-gray-600">
-                            <button
-                                type="button"
-                                class="editCatalogBtn inline-flex items-center px-3 py-1.5 text-xs font-semibold bg-yellow-500 text-white rounded-lg hover:bg-yellow-600"
-                                data-id="<?= (int) $type['id'] ?>"
-                                data-income_type="<?= htmlspecialchars($type['income_type'], ENT_QUOTES, 'UTF-8') ?>"
-                                data-amount="<?= number_format((float) $type['amount'], 2, '.', '') ?>"
-                            >
-                                <i class="fas fa-edit mr-1"></i>Editar
-                            </button>
-                        </td>
                     </tr>
                     <?php endforeach; ?>
                     <?php if (empty($incomeCatalog)): ?>
                     <tr>
-                        <td colspan="3" class="px-3 py-6 text-center text-gray-500">No hay tipos de ingreso registrados.</td>
+                        <td colspan="2" class="px-3 py-6 text-center text-gray-500">No hay tipos de ingreso registrados.</td>
                     </tr>
                     <?php endif; ?>
                 </tbody>
@@ -209,46 +197,6 @@ ob_start();
     </div>
 </div>
 
-<div id="editCatalogModal" class="fixed inset-0 z-50 hidden">
-    <div id="editCatalogModalBackdrop" class="absolute inset-0 bg-black bg-opacity-40"></div>
-    <div class="relative min-h-screen flex items-center justify-center p-4">
-        <div class="bg-white rounded-xl shadow-xl w-full max-w-lg p-5 md:p-6">
-            <div class="flex items-start justify-between gap-3 mb-4">
-                <div>
-                    <h3 class="text-lg md:text-xl font-bold text-gray-800">Editar tipo de ingreso</h3>
-                    <p class="text-xs md:text-sm text-gray-500">Actualiza nombre y monto del catálogo.</p>
-                </div>
-                <button type="button" id="closeEditCatalogModalBtn" class="text-gray-500 hover:text-gray-700">
-                    <i class="fas fa-times text-lg"></i>
-                </button>
-            </div>
-
-            <form action="<?= BASE_URL ?>/ingresos/catalogo/actualizar" method="POST" class="grid grid-cols-1 gap-4">
-                <input type="hidden" id="editCatalogId" name="catalog_id">
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Tipo de ingreso *</label>
-                    <input type="text" id="editCatalogIncomeType" name="income_type" required maxlength="200"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                           placeholder="Ejemplo: Venta de copias">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Monto *</label>
-                    <input type="number" id="editCatalogAmount" name="amount" required min="0.01" step="0.01"
-                           class="w-full px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-primary focus:border-transparent"
-                           placeholder="Ejemplo: 10.00">
-                </div>
-
-                <div class="flex flex-wrap justify-end gap-2 pt-2">
-                    <button type="button" id="cancelEditCatalogBtn" class="px-4 py-2 border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50">Cancelar</button>
-                    <button type="submit" class="px-4 py-2 bg-yellow-500 text-white rounded-lg hover:bg-yellow-600">Guardar cambios</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const toggleCatalogBtn = document.getElementById('toggleCatalogForm');
@@ -266,51 +214,6 @@ document.addEventListener('DOMContentLoaded', function () {
         toggleIncomeBtn.addEventListener('click', function () {
             incomeForm.classList.toggle('hidden');
         });
-    }
-
-    const editCatalogModal = document.getElementById('editCatalogModal');
-    const editCatalogModalBackdrop = document.getElementById('editCatalogModalBackdrop');
-    const closeEditCatalogModalBtn = document.getElementById('closeEditCatalogModalBtn');
-    const cancelEditCatalogBtn = document.getElementById('cancelEditCatalogBtn');
-    const editCatalogButtons = document.querySelectorAll('.editCatalogBtn');
-
-    function openEditCatalogModal(data) {
-        if (!editCatalogModal) {
-            return;
-        }
-
-        document.getElementById('editCatalogId').value = data.id || '';
-        document.getElementById('editCatalogIncomeType').value = data.income_type || '';
-        document.getElementById('editCatalogAmount').value = data.amount || '';
-
-        editCatalogModal.classList.remove('hidden');
-    }
-
-    function closeEditCatalogModal() {
-        if (!editCatalogModal) {
-            return;
-        }
-        editCatalogModal.classList.add('hidden');
-    }
-
-    editCatalogButtons.forEach(function (button) {
-        button.addEventListener('click', function () {
-            openEditCatalogModal({
-                id: button.getAttribute('data-id'),
-                income_type: button.getAttribute('data-income_type'),
-                amount: button.getAttribute('data-amount')
-            });
-        });
-    });
-
-    if (editCatalogModalBackdrop) {
-        editCatalogModalBackdrop.addEventListener('click', closeEditCatalogModal);
-    }
-    if (closeEditCatalogModalBtn) {
-        closeEditCatalogModalBtn.addEventListener('click', closeEditCatalogModal);
-    }
-    if (cancelEditCatalogBtn) {
-        cancelEditCatalogBtn.addEventListener('click', closeEditCatalogModal);
     }
 
     const incomeDatetimeField = document.getElementById('incomeDatetimeField');

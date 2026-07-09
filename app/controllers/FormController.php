@@ -3,17 +3,6 @@ require_once ROOT_PATH . '/app/controllers/BaseController.php';
 
 class FormController extends BaseController {
     private function normalizeFieldsPayload($decodedFields) {
-        // Legacy compatibility: some records store JSON payload as a JSON string.
-        $safety = 0;
-        while (is_string($decodedFields) && $safety < 3) {
-            $decoded = json_decode($decodedFields, true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                break;
-            }
-            $decodedFields = $decoded;
-            $safety++;
-        }
-
         if (isset($decodedFields['fields']) && is_array($decodedFields['fields'])) {
             return ['fields' => $decodedFields['fields']];
         }
@@ -407,102 +396,6 @@ class FormController extends BaseController {
         } catch (PDOException $e) {
             error_log("Error al cambiar estado: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cambiar estado de publicación';
-            $this->redirect('/formularios');
-        }
-    }
-    
-    public function duplicate($id) {
-        $this->requireRole([ROLE_ADMIN]);
-        
-        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
-            $this->redirect('/formularios');
-        }
-        
-        try {
-            // Obtener formulario original
-            $stmt = $this->db->prepare("SELECT * FROM forms WHERE id = ?");
-            $stmt->execute([$id]);
-            $original = $stmt->fetch();
-            
-            if (!$original) {
-                $_SESSION['error'] = 'Formulario no encontrado';
-                $this->redirect('/formularios');
-                return;
-            }
-            
-            // Generar nombre único para la copia
-            $baseName = $original['name'] . ' - Copia';
-            $copyName = $baseName;
-            $counter = 1;
-            
-            // Verificar si ya existe un formulario con ese nombre
-            while (true) {
-                $checkStmt = $this->db->prepare("SELECT COUNT(*) as count FROM forms WHERE name = ?");
-                $checkStmt->execute([$copyName]);
-                $result = $checkStmt->fetch();
-                
-                if ($result['count'] == 0) {
-                    break;
-                }
-                
-                $counter++;
-                $copyName = $baseName . " ($counter)";
-            }
-            
-            // Generar nuevo public_token único
-            $maxRetries = 5;
-            $publicToken = null;
-            
-            for ($i = 0; $i < $maxRetries; $i++) {
-                $publicToken = bin2hex(random_bytes(32));
-                
-                $checkStmt = $this->db->prepare("SELECT id FROM forms WHERE public_token = ?");
-                $checkStmt->execute([$publicToken]);
-                
-                if (!$checkStmt->fetch()) {
-                    break;
-                }
-                
-                if ($i === $maxRetries - 1) {
-                    error_log("Failed to generate unique public_token after $maxRetries attempts");
-                    $_SESSION['error'] = 'Error al generar token único. Por favor, intente nuevamente.';
-                    $this->redirect('/formularios');
-                    return;
-                }
-            }
-            
-            // Insertar copia del formulario
-            $stmt = $this->db->prepare("
-                INSERT INTO forms (name, description, type, subtype, fields_json, cost, paypal_enabled, 
-                                   pagination_enabled, pages_json, public_token, public_enabled, 
-                                   is_published, version, created_by)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, 0, 1, ?)
-            ");
-            $stmt->execute([
-                $copyName,
-                $original['description'],
-                $original['type'],
-                $original['subtype'],
-                $original['fields_json'],
-                $original['cost'],
-                $original['paypal_enabled'],
-                $original['pagination_enabled'],
-                $original['pages_json'],
-                $publicToken,
-                $_SESSION['user_id']
-            ]);
-            
-            $newFormId = $this->db->lastInsertId();
-            
-            // Log audit trail
-            logAudit('create', 'formularios', "Formulario duplicado: $copyName (ID: $newFormId) desde '{$original['name']}' (ID: $id)");
-            
-            $_SESSION['success'] = "Formulario duplicado exitosamente como '$copyName'";
-            $this->redirect('/formularios');
-            
-        } catch (PDOException $e) {
-            error_log("Error al duplicar formulario: " . $e->getMessage());
-            $_SESSION['error'] = 'Error al duplicar formulario';
             $this->redirect('/formularios');
         }
     }

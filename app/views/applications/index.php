@@ -1,11 +1,8 @@
 <?php 
 $title = 'Solicitudes';
 ob_start(); 
+$flow = $flow ?? '';
 $isAsesorRole = $_SESSION['user_role'] === ROLE_ASESOR;
-$isAdminRole = $_SESSION['user_role'] === ROLE_ADMIN;
-$searchTerm = $searchTerm ?? '';
-$nameSearchTerm = $nameSearchTerm ?? '';
-$advisors = $advisors ?? [];
 ?>
 
 <div class="mb-4 md:mb-6 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
@@ -20,46 +17,21 @@ $advisors = $advisors ?? [];
 
 <!-- Filtros -->
 <div class="bg-white rounded-lg shadow p-4 mb-4 md:mb-6">
-    <form method="GET" action="<?= BASE_URL ?>/solicitudes" class="grid grid-cols-1 md:grid-cols-<?= $isAdminRole ? '4' : '2' ?> gap-4" id="filterForm">
+    <form method="GET" action="<?= BASE_URL ?>/solicitudes" class="grid grid-cols-1 md:grid-cols-3 gap-4" id="filterForm">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Flujo</label>
+            <select name="flow" id="flowSelect" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base" onchange="updateStatusOptions()">
+                <option value="" <?= $flow === '' ? 'selected' : '' ?>>Todos los flujos</option>
+                <option value="normal" <?= $flow === 'normal' ? 'selected' : '' ?>>Flujo normal</option>
+                <option value="canadiense" <?= $flow === 'canadiense' ? 'selected' : '' ?>>Flujo canadiense 🍁</option>
+            </select>
+        </div>
         <div>
             <label class="block text-sm font-medium text-gray-700 mb-2">Estatus</label>
             <select name="status" id="statusSelect" class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base">
-                <option value="" <?= $status === '' ? 'selected' : '' ?>>Todos los estatus</option>
-                <option value="<?= htmlspecialchars(STATUS_NUEVO) ?>" <?= $status === STATUS_NUEVO ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_NUEVO . ' (Nuevo)') ?></option>
-                <option value="<?= htmlspecialchars(STATUS_VALIDANDO_RESPUESTAS) ?>" <?= $status === STATUS_VALIDANDO_RESPUESTAS ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_VALIDANDO_RESPUESTAS) ?></option>
-                <option value="<?= htmlspecialchars(STATUS_LISTO_SOLICITUD) ?>" <?= $status === STATUS_LISTO_SOLICITUD ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_LISTO_SOLICITUD) ?></option>
-                <option value="<?= htmlspecialchars(STATUS_EN_ESPERA_PAGO) ?>" <?= $status === STATUS_EN_ESPERA_PAGO ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_EN_ESPERA_PAGO) ?></option>
-                <option value="<?= htmlspecialchars(STATUS_CITA_PROGRAMADA) ?>" <?= $status === STATUS_CITA_PROGRAMADA ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_CITA_PROGRAMADA) ?></option>
-                <option value="<?= htmlspecialchars(STATUS_EN_ESPERA_RESULTADO) ?>" <?= $status === STATUS_EN_ESPERA_RESULTADO ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_EN_ESPERA_RESULTADO) ?></option>
-                <?php if (!$isAsesorRole): ?>
-                <option value="<?= htmlspecialchars(STATUS_TRAMITE_CERRADO) ?>" <?= $status === STATUS_TRAMITE_CERRADO ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_TRAMITE_CERRADO) ?></option>
-                <option value="<?= htmlspecialchars(STATUS_FINALIZADO) ?>" <?= $status === STATUS_FINALIZADO ? 'selected' : '' ?>><?= htmlspecialchars(STATUS_FINALIZADO . ' (legacy)') ?></option>
-                <?php endif; ?>
+                <!-- Options populated by JS based on selected flow -->
             </select>
         </div>
-
-        <?php if ($isAdminRole): ?>
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Folio</label>
-            <input
-                type="text"
-                name="q"
-                value="<?= htmlspecialchars($searchTerm) ?>"
-                placeholder="Ej. VISA-2026-000021"
-                class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base"
-            >
-        </div>
-        <div>
-            <label class="block text-sm font-medium text-gray-700 mb-2">Nombre / Apellido</label>
-            <input
-                type="text"
-                name="qn"
-                value="<?= htmlspecialchars($nameSearchTerm) ?>"
-                placeholder="Ej. Francisco o Montes"
-                class="w-full border border-gray-300 rounded-lg px-3 md:px-4 py-2 text-sm md:text-base"
-            >
-        </div>
-        <?php endif; ?>
         
         <div class="flex items-end">
             <button type="submit" class="w-full bg-gray-600 text-white px-4 md:px-6 py-2 rounded-lg hover:bg-gray-700 transition text-sm md:text-base">
@@ -68,6 +40,55 @@ $advisors = $advisors ?? [];
         </div>
     </form>
 </div>
+
+<script>
+// Status options per flow (PHP-injected current values)
+var currentStatus = <?= json_encode($status) ?>;
+var isAsesor = <?= json_encode($isAsesorRole) ?>;
+
+var normalStatuses = [
+    { value: '', label: 'Todos los estatus' },
+    { value: <?= json_encode(STATUS_NUEVO) ?>, label: <?= json_encode(STATUS_NUEVO . ' (Nuevo)') ?> },
+    { value: <?= json_encode(STATUS_VALIDANDO_RESPUESTAS) ?>, label: <?= json_encode(STATUS_VALIDANDO_RESPUESTAS) ?> },
+    { value: <?= json_encode(STATUS_LISTO_SOLICITUD) ?>, label: <?= json_encode(STATUS_LISTO_SOLICITUD) ?> },
+    { value: <?= json_encode(STATUS_EN_ESPERA_PAGO) ?>, label: <?= json_encode(STATUS_EN_ESPERA_PAGO) ?> },
+    { value: <?= json_encode(STATUS_CITA_PROGRAMADA) ?>, label: <?= json_encode(STATUS_CITA_PROGRAMADA) ?> },
+    { value: <?= json_encode(STATUS_EN_ESPERA_RESULTADO) ?>, label: <?= json_encode(STATUS_EN_ESPERA_RESULTADO) ?> },
+    <?php if (!$isAsesorRole): ?>
+    { value: <?= json_encode(STATUS_TRAMITE_CERRADO) ?>, label: <?= json_encode(STATUS_TRAMITE_CERRADO) ?> },
+    { value: <?= json_encode(STATUS_FINALIZADO) ?>, label: <?= json_encode(STATUS_FINALIZADO . ' (legacy)') ?> },
+    <?php endif; ?>
+];
+
+var canadianStatuses = [
+    { value: '', label: 'Todos los estatus' },
+    { value: <?= json_encode(STATUS_NUEVO) ?>, label: <?= json_encode(STATUS_NUEVO . ' (Nuevo)') ?> },
+    { value: <?= json_encode(STATUS_LISTO_SOLICITUD) ?>, label: 'Listo para carga en portal' },
+    { value: <?= json_encode(STATUS_EN_ESPERA_PAGO) ?>, label: 'En espera de cita biométrica' },
+    { value: <?= json_encode(STATUS_CITA_PROGRAMADA) ?>, label: 'Biométricos programados' },
+    { value: <?= json_encode(STATUS_EN_ESPERA_RESULTADO) ?>, label: 'En espera de resolución' },
+    <?php if (!$isAsesorRole): ?>
+    { value: <?= json_encode(STATUS_TRAMITE_CERRADO) ?>, label: <?= json_encode(STATUS_TRAMITE_CERRADO) ?> },
+    <?php endif; ?>
+];
+
+function updateStatusOptions() {
+    var flow = document.getElementById('flowSelect').value;
+    var select = document.getElementById('statusSelect');
+    var options = (flow === 'canadiense') ? canadianStatuses : normalStatuses;
+    select.innerHTML = '';
+    options.forEach(function(opt) {
+        var el = document.createElement('option');
+        el.value = opt.value;
+        el.textContent = opt.label;
+        if (opt.value === currentStatus) el.selected = true;
+        select.appendChild(el);
+    });
+}
+
+// Initialize on page load
+document.addEventListener('DOMContentLoaded', updateStatusOptions);
+</script>
 
 <!-- Tabla de Solicitudes -->
 <div class="bg-white rounded-lg shadow overflow-hidden">
@@ -102,32 +123,6 @@ $advisors = $advisors ?? [];
                     // Is Canadian visa flow?
                     $appIsCanadian = !empty($app['is_canadian_visa']);
 
-                    // Principal service subtype shown in list (Americano/Mexicano/Canadiense)
-                    $servicePrimarySubtype = '';
-                    $typeLower = strtolower((string) ($app['type'] ?? ''));
-                    $subtypeLower = strtolower((string) $subtype);
-                    $formNameLower = strtolower((string) ($app['form_name'] ?? ''));
-
-                    if (
-                        $appIsCanadian
-                        || strpos($subtypeLower, 'canad') !== false
-                        || strpos($formNameLower, 'canad') !== false
-                    ) {
-                        $servicePrimarySubtype = 'Canadiense';
-                    } elseif (
-                        strpos($subtypeLower, 'americ') !== false
-                        || strpos($formNameLower, 'americ') !== false
-                        || strpos($typeLower, 'americano') !== false
-                    ) {
-                        $servicePrimarySubtype = 'Americano';
-                    } elseif (
-                        strpos($subtypeLower, 'mexic') !== false
-                        || strpos($formNameLower, 'mexic') !== false
-                        || strpos($typeLower, 'mexicano') !== false
-                    ) {
-                        $servicePrimarySubtype = 'Mexicano';
-                    }
-
                     // Status color class
                     $sc = 'bg-gray-100 text-gray-800';
                     if (in_array($app['status'], [STATUS_TRAMITE_CERRADO, STATUS_FINALIZADO])) $sc = 'bg-green-100 text-green-800';
@@ -155,9 +150,6 @@ $advisors = $advisors ?? [];
                         <?php if ($appIsCanadian): ?>
                         <span class="ml-1 text-base" title="Visa Canadiense">🍁</span>
                         <?php endif; ?>
-                        <?php if (!empty($servicePrimarySubtype)): ?>
-                        <p class="text-xs text-gray-500 mt-0.5">Subtipo: <?= htmlspecialchars($servicePrimarySubtype) ?></p>
-                        <?php endif; ?>
                     </td>
                     <td class="px-3 md:px-6 py-4 whitespace-nowrap hidden md:table-cell">
                         <span class="text-sm <?= $esRenovación ? 'text-orange-600' : 'text-blue-600' ?>">
@@ -182,17 +174,6 @@ $advisors = $advisors ?? [];
                             <i class="fas fa-folder-open mr-1"></i>Abrir expediente
                         </a>
                         <?php if ($_SESSION['user_role'] === ROLE_ADMIN): ?>
-                        <?php if (($app['status'] ?? '') === STATUS_TRAMITE_CERRADO): ?>
-                        <button
-                            type="button"
-                            class="text-blue-600 hover:text-blue-800"
-                            title="Reactivar temporal"
-                            data-reactivate-button="1"
-                            data-app-id="<?= intval($app['id']) ?>"
-                            data-folio="<?= htmlspecialchars($app['folio']) ?>">
-                            <i class="fas fa-user-clock"></i>
-                        </button>
-                        <?php endif; ?>
                         <form method="POST" action="<?= BASE_URL ?>/solicitudes/eliminar/<?= $app['id'] ?>"
                               class="inline" onsubmit="return confirm('Esta accion no se puede deshacer.')">
                             <button type="submit" class="text-red-600 hover:text-red-800" title="Eliminar">
@@ -226,14 +207,14 @@ $advisors = $advisors ?? [];
         </div>
         <div class="flex gap-2">
             <?php if ($page > 1): ?>
-            <a href="?page=<?= $page - 1 ?>&status=<?= urlencode($status) ?><?= $isAdminRole && $searchTerm !== '' ? '&q=' . urlencode($searchTerm) : '' ?><?= $isAdminRole && $nameSearchTerm !== '' ? '&qn=' . urlencode($nameSearchTerm) : '' ?>" 
+            <a href="?page=<?= $page - 1 ?>&status=<?= urlencode($status) ?>&type=<?= urlencode($type) ?>&flow=<?= urlencode($flow) ?>" 
                class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-100">
                 <i class="fas fa-chevron-left"></i> Anterior
             </a>
             <?php endif; ?>
             
             <?php if ($page < $totalPages): ?>
-            <a href="?page=<?= $page + 1 ?>&status=<?= urlencode($status) ?><?= $isAdminRole && $searchTerm !== '' ? '&q=' . urlencode($searchTerm) : '' ?><?= $isAdminRole && $nameSearchTerm !== '' ? '&qn=' . urlencode($nameSearchTerm) : '' ?>" 
+            <a href="?page=<?= $page + 1 ?>&status=<?= urlencode($status) ?>&type=<?= urlencode($type) ?>&flow=<?= urlencode($flow) ?>" 
                class="px-4 py-2 btn-primary text-white rounded-lg hover:opacity-90">
                 Siguiente <i class="fas fa-chevron-right"></i>
             </a>
@@ -242,95 +223,6 @@ $advisors = $advisors ?? [];
     </div>
     <?php endif; ?>
 </div>
-
-<?php if ($isAdminRole): ?>
-<div id="reactivateModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 items-center justify-center p-4">
-    <div class="bg-white rounded-lg shadow-xl w-full max-w-lg">
-        <div class="flex items-center justify-between px-6 py-4 border-b">
-            <h3 class="text-lg font-bold text-gray-800">Reactivar trámite cerrado</h3>
-            <button type="button" id="reactivateClose" class="text-gray-400 hover:text-gray-700">
-                <i class="fas fa-times"></i>
-            </button>
-        </div>
-
-        <form id="reactivateForm" method="POST" action="">
-            <div class="px-6 py-4 space-y-4">
-                <p class="text-sm text-gray-600">Expediente: <span id="reactivateFolio" class="font-semibold text-gray-800"></span></p>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Asesor</label>
-                    <select name="advisor_id" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                        <option value="">Selecciona asesor</option>
-                        <?php foreach ($advisors as $advisor): ?>
-                        <option value="<?= intval($advisor['id']) ?>"><?= htmlspecialchars($advisor['full_name']) ?></option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Inicio</label>
-                    <input type="datetime-local" name="start_at" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                </div>
-
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-1">Fin</label>
-                    <input type="datetime-local" name="end_at" required class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm">
-                </div>
-            </div>
-
-            <div class="px-6 py-4 border-t flex justify-end gap-3">
-                <button type="button" id="reactivateCancel" class="px-4 py-2 border border-gray-300 rounded-lg hover:bg-gray-50">Cancelar</button>
-                <button type="submit" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">Guardar reactivación</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    var modal = document.getElementById('reactivateModal');
-    var form = document.getElementById('reactivateForm');
-    var folioLabel = document.getElementById('reactivateFolio');
-    var closeBtn = document.getElementById('reactivateClose');
-    var cancelBtn = document.getElementById('reactivateCancel');
-    var triggerButtons = document.querySelectorAll('[data-reactivate-button="1"]');
-
-    if (!modal || !form || !folioLabel) {
-        return;
-    }
-
-    function closeModal() {
-        modal.classList.add('hidden');
-        modal.classList.remove('flex');
-    }
-
-    triggerButtons.forEach(function (button) {
-        button.addEventListener('click', function () {
-            var appId = button.getAttribute('data-app-id');
-            var folio = button.getAttribute('data-folio') || '';
-            form.action = '<?= BASE_URL ?>/solicitudes/reactivar-temporal/' + appId;
-            folioLabel.textContent = folio;
-            modal.classList.remove('hidden');
-            modal.classList.add('flex');
-        });
-    });
-
-    if (closeBtn) {
-        closeBtn.addEventListener('click', closeModal);
-    }
-
-    if (cancelBtn) {
-        cancelBtn.addEventListener('click', closeModal);
-    }
-
-    modal.addEventListener('click', function (event) {
-        if (event.target === modal) {
-            closeModal();
-        }
-    });
-});
-</script>
-<?php endif; ?>
 
 <?php 
 $content = ob_get_clean();

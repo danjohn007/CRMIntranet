@@ -3,17 +3,6 @@ require_once ROOT_PATH . '/app/controllers/BaseController.php';
 
 class PublicFormController extends BaseController {
     private function normalizeFieldsPayload($decodedFields) {
-        // Legacy compatibility: some records store JSON payload as a JSON string.
-        $safety = 0;
-        while (is_string($decodedFields) && $safety < 3) {
-            $decoded = json_decode($decodedFields, true);
-            if (json_last_error() !== JSON_ERROR_NONE) {
-                break;
-            }
-            $decodedFields = $decoded;
-            $safety++;
-        }
-
         if (isset($decodedFields['fields']) && is_array($decodedFields['fields'])) {
             return ['fields' => $decodedFields['fields']];
         }
@@ -23,147 +12,6 @@ class PublicFormController extends BaseController {
         }
         
         return ['fields' => []];
-    }
-
-    private function normalizeText($value) {
-        $value = (string) $value;
-        $value = strtr($value, [
-            'Á' => 'A', 'É' => 'E', 'Í' => 'I', 'Ó' => 'O', 'Ú' => 'U', 'Ü' => 'U', 'Ñ' => 'N',
-            'á' => 'a', 'é' => 'e', 'í' => 'i', 'ó' => 'o', 'ú' => 'u', 'ü' => 'u', 'ñ' => 'n',
-        ]);
-        return strtolower(trim($value));
-    }
-
-    private function resolveMexicanPassportSubtypeFromAnswer($answer) {
-        $normalized = $this->normalizeText($answer);
-
-        if ($normalized === 'primera vez' || $normalized === 'primera_vez') {
-            return 'Primera vez';
-        }
-        if (strpos($normalized, 'renov') !== false) {
-            return 'Renovación';
-        }
-        if (strpos($normalized, 'menor') !== false) {
-            return 'Menor de Edad';
-        }
-        if (
-            strpos($normalized, 'robo') !== false ||
-            strpos($normalized, 'extravio') !== false ||
-            strpos($normalized, 'reposicion') !== false
-        ) {
-            return 'Robo/ extravío';
-        }
-        if (
-            strpos($normalized, 'correccion') !== false ||
-            strpos($normalized, 'dato') !== false ||
-            strpos($normalized, 'danado') !== false
-        ) {
-            return 'Corrección de Datos';
-        }
-
-        return null;
-    }
-
-    private function extractTipoTramiteAnswer(array $data, array $fields) {
-        $tipoTramiteValue = null;
-
-        foreach ($fields['fields'] ?? [] as $field) {
-            $labelNormalized = $this->normalizeText($field['label'] ?? '');
-            if (strpos($labelNormalized, 'tipo de tramite') !== false) {
-                $fieldId = $field['id'] ?? null;
-                if ($fieldId !== null && isset($data[$fieldId]) && !is_array($data[$fieldId])) {
-                    $tipoTramiteValue = trim((string) $data[$fieldId]);
-                    if ($tipoTramiteValue !== '') {
-                        return $tipoTramiteValue;
-                    }
-                }
-            }
-        }
-
-        // Fallback for legacy payloads that might store semantic keys.
-        foreach (['tipo_tramite', 'tipoTramite', 'tipo de tramite', 'tipo de trámite', 'Tipo de Trámite'] as $key) {
-            if (isset($data[$key]) && !is_array($data[$key])) {
-                $tipoTramiteValue = trim((string) $data[$key]);
-                if ($tipoTramiteValue !== '') {
-                    return $tipoTramiteValue;
-                }
-            }
-        }
-
-        return null;
-    }
-
-    private function shouldCountFieldForProgress(array $field, array $data) {
-        $fieldType = strtolower((string) ($field['type'] ?? ''));
-        $fieldId = (string) ($field['id'] ?? '');
-
-        if ($fieldType === 'label' || $fieldId === '') {
-            return false;
-        }
-
-        $conditional = $field['conditional'] ?? [];
-        $conditionalEnabled = !empty($conditional['enabled']);
-        if (!$conditionalEnabled) {
-            return true;
-        }
-
-        $parentFieldId = (string) ($conditional['parentFieldId'] ?? '');
-        $expectedValue = trim((string) ($conditional['value'] ?? ''));
-
-        if ($parentFieldId === '' || $expectedValue === '') {
-            return true;
-        }
-
-        if (!array_key_exists($parentFieldId, $data)) {
-            return false;
-        }
-
-        $parentValue = $data[$parentFieldId];
-
-        if (is_array($parentValue)) {
-            foreach ($parentValue as $value) {
-                if (trim((string) $value) === $expectedValue) {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        if (is_bool($parentValue)) {
-            $parentValue = $parentValue ? 'on' : '';
-        }
-
-        return trim((string) $parentValue) === $expectedValue;
-    }
-
-    private function isFieldFilledForProgress(array $field, array $data) {
-        $fieldId = (string) ($field['id'] ?? '');
-        if ($fieldId === '' || !array_key_exists($fieldId, $data)) {
-            return false;
-        }
-
-        $value = $data[$fieldId];
-        $fieldType = strtolower((string) ($field['type'] ?? ''));
-
-        if (is_array($value)) {
-            foreach ($value as $item) {
-                if (trim((string) $item) !== '') {
-                    return true;
-                }
-            }
-            return false;
-        }
-
-        if ($fieldType === 'checkbox') {
-            if (is_bool($value)) {
-                return $value;
-            }
-
-            $normalized = strtolower(trim((string) $value));
-            return in_array($normalized, ['1', 'true', 'on', 'si', 'sí'], true);
-        }
-
-        return trim((string) $value) !== '';
     }
     
     /**
@@ -233,18 +81,6 @@ class PublicFormController extends BaseController {
             $pages = null;
             if ($form['pagination_enabled'] && !empty($form['pages_json'])) {
                 $pages = json_decode($form['pages_json'], true);
-                $safety = 0;
-                while (is_string($pages) && $safety < 3) {
-                    $decodedPages = json_decode($pages, true);
-                    if (json_last_error() !== JSON_ERROR_NONE) {
-                        break;
-                    }
-                    $pages = $decodedPages;
-                    $safety++;
-                }
-                if (!is_array($pages)) {
-                    $pages = null;
-                }
             }
 
             $this->viewPublic('public/form', [
@@ -325,17 +161,11 @@ class PublicFormController extends BaseController {
             
             // Calculate progress
             $fields = $this->normalizeFieldsPayload(json_decode($form['fields_json'], true));
-            $totalFields = 0;
+            $totalFields = count($fields['fields'] ?? []);
             $filledFields = 0;
             
             foreach ($fields['fields'] ?? [] as $field) {
-                if (!$this->shouldCountFieldForProgress($field, $data)) {
-                    continue;
-                }
-
-                $totalFields++;
-
-                if ($this->isFieldFilledForProgress($field, $data)) {
+                if (isset($data[$field['id']]) && !empty($data[$field['id']])) {
                     $filledFields++;
                 }
             }
@@ -465,7 +295,7 @@ class PublicFormController extends BaseController {
                     $stmtBasicData->execute([$applicationId]);
                     $existingAppRow = $stmtBasicData->fetch();
                     $existingBasic  = json_decode($existingAppRow['data_json'] ?? '{}', true) ?: [];
-                    $basicKeys      = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita', 'documentos_recibidos_pasaporte_americano', 'documentos_recibidos_pasaporte_mexicano', 'observaciones_incidencias_pasaporte', 'cita_sre_fecha_hora', 'closed_visibility_grants'];
+                    $basicKeys      = ['nombre', 'apellidos', 'email', 'telefono', 'nombre_cliente', 'pago', 'fecha_cita'];
                     foreach ($basicKeys as $bk) {
                         if (!empty($existingBasic[$bk])) {
                             $data[$bk] = $existingBasic[$bk];
@@ -478,36 +308,6 @@ class PublicFormController extends BaseController {
                         SET form_link_status = 'completado', data_json = ?, progress_percentage = 100
                         WHERE id = ?
                     ")->execute([$submissionData, $applicationId]);
-
-                    // For Mexican passport forms, sync application subtype from client's
-                    // "Tipo de Trámite" answer when available.
-                    $tipoTramiteAnswer = $this->extractTipoTramiteAnswer($data, $fields);
-                    if ($tipoTramiteAnswer !== null) {
-                        $stmtSubtypeContext = $this->db->prepare("
-                            SELECT a.type, a.subtype, f.name AS form_name
-                            FROM applications a
-                            LEFT JOIN forms f ON a.form_id = f.id
-                            WHERE a.id = ?
-                        ");
-                        $stmtSubtypeContext->execute([$applicationId]);
-                        $appSubtypeContext = $stmtSubtypeContext->fetch();
-
-                        $isMexicanPassportApplication =
-                            $appSubtypeContext &&
-                            $this->normalizeText($appSubtypeContext['type'] ?? '') === 'pasaporte' &&
-                            (
-                                strpos($this->normalizeText($appSubtypeContext['subtype'] ?? ''), 'mexicano') !== false ||
-                                strpos($this->normalizeText($appSubtypeContext['form_name'] ?? ''), 'pasaporte mexicano') !== false
-                            );
-
-                        if ($isMexicanPassportApplication) {
-                            $resolvedSubtype = $this->resolveMexicanPassportSubtypeFromAnswer($tipoTramiteAnswer);
-                            if ($resolvedSubtype !== null) {
-                                $this->db->prepare("UPDATE applications SET subtype = ? WHERE id = ?")
-                                    ->execute([$resolvedSubtype, $applicationId]);
-                            }
-                        }
-                    }
 
                     // Link submission to application
                     $this->db->prepare("
@@ -589,12 +389,12 @@ class PublicFormController extends BaseController {
                 $year = date('Y');
                 $stmt = $this->db->prepare("
                     SELECT MAX(CAST(SUBSTRING(folio, -6) AS UNSIGNED)) as max_num 
-                    FROM applications WHERE folio LIKE ? OR folio LIKE ?
+                    FROM applications WHERE folio LIKE ?
                 ");
-                $stmt->execute(["FOLIO-$year-%", "VISA-$year-%"]);
+                $stmt->execute(["VISA-$year-%"]);
                 $result = $stmt->fetch();
                 $nextNum = ($result['max_num'] ?? 0) + 1;
-                $folio = sprintf('FOLIO-%s-%06d', $year, $nextNum);
+                $folio = sprintf('VISA-%s-%06d', $year, $nextNum);
                 
                 // Create application
                 $stmt = $this->db->prepare("

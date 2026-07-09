@@ -32,7 +32,6 @@ class Router {
         $this->routes['POST']['/formularios/actualizar/{id}'] = ['FormController', 'update'];
         $this->routes['POST']['/formularios/eliminar/{id}'] = ['FormController', 'delete'];
         $this->routes['POST']['/formularios/publicar/{id}'] = ['FormController', 'publish'];
-        $this->routes['POST']['/formularios/duplicar/{id}'] = ['FormController', 'duplicate'];
         
         $this->routes['POST']['/solicitudes/guardar-hoja-info/{id}'] = ['ApplicationController', 'saveInfoSheet'];
         $this->routes['POST']['/solicitudes/guardar-familiar/{id}'] = ['ApplicationController', 'saveFamiliar'];
@@ -40,12 +39,8 @@ class Router {
         $this->routes['POST']['/solicitudes/marcar-asistencia/{id}'] = ['ApplicationController', 'markClientAttended'];
         $this->routes['POST']['/solicitudes/vincular-formulario/{id}'] = ['ApplicationController', 'linkForm'];
         $this->routes['POST']['/solicitudes/guardar-cita-oficina/{id}'] = ['ApplicationController', 'saveOfficeAppointment'];
-        $this->routes['POST']['/solicitudes/guardar-cita-sre/{id}'] = ['ApplicationController', 'saveSreAppointment'];
         $this->routes['POST']['/solicitudes/guardar-respuestas/{id}'] = ['ApplicationController', 'saveFormResponses'];
-        $this->routes['POST']['/solicitudes/guardar-documentos-recibidos/{id}'] = ['ApplicationController', 'saveReceivedDocumentsChecklist'];
-        $this->routes['POST']['/solicitudes/guardar-observaciones-incidencias/{id}'] = ['ApplicationController', 'saveObservationsIncidencesChecklist'];
         $this->routes['POST']['/solicitudes/confirmar-respuestas/{id}'] = ['ApplicationController', 'confirmFormResponses'];
-        $this->routes['POST']['/solicitudes/enviar-tramite-listo/{id}'] = ['ApplicationController', 'sendReadyProcedureEmail'];
         
         // Solicitudes
         $this->routes['GET']['/solicitudes'] = ['ApplicationController', 'index'];
@@ -58,7 +53,6 @@ class Router {
         $this->routes['GET']['/solicitudes/descargar-archivo/{id}/{fieldId}'] = ['ApplicationController', 'downloadFormFile'];
         $this->routes['GET']['/solicitudes/descargar-documento/{docId}'] = ['ApplicationController', 'downloadDocument'];
         $this->routes['GET']['/solicitudes/ver-documento/{docId}'] = ['ApplicationController', 'viewDocument'];
-        $this->routes['POST']['/solicitudes/reactivar-temporal/{id}'] = ['ApplicationController', 'reactivateTemporary'];
         $this->routes['POST']['/solicitudes/eliminar/{id}'] = ['ApplicationController', 'delete'];
         
         // Módulo Financiero
@@ -74,7 +68,6 @@ class Router {
         // Ingresos adicionales (Asesor)
         $this->routes['GET']['/ingresos'] = ['AdvisorIncomeController', 'index'];
         $this->routes['POST']['/ingresos/catalogo'] = ['AdvisorIncomeController', 'storeCatalog'];
-        $this->routes['POST']['/ingresos/catalogo/actualizar'] = ['AdvisorIncomeController', 'updateCatalog'];
         $this->routes['POST']['/ingresos/registrar'] = ['AdvisorIncomeController', 'storeIncome'];
         
         // Reportes
