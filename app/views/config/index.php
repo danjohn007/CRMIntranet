@@ -496,6 +496,7 @@ ob_start();
 let geoMap = null;
 let geoMarker = null;
 let addressSearchTimer = null;
+let reverseGeocodeTimer = null;
 
 function showSection(sectionId) {
     const el = document.getElementById('section-' + sectionId);
@@ -590,6 +591,7 @@ function useCurrentLocation() {
     navigator.geolocation.getCurrentPosition(
         function(position) {
             setLatLngInputs(position.coords.latitude, position.coords.longitude, true);
+            reverseGeocodeLatLng(position.coords.latitude, position.coords.longitude);
             status.textContent = 'Ubicacion capturada.';
             status.className = 'text-sm text-green-600';
         },
@@ -644,10 +646,12 @@ function ensureGeoMap() {
         geoMarker.on('dragend', function(event) {
             const position = event.target.getLatLng();
             setLatLngInputs(position.lat, position.lng, false);
+            reverseGeocodeLatLng(position.lat, position.lng);
         });
 
         geoMap.on('click', function(event) {
             setLatLngInputs(event.latlng.lat, event.latlng.lng, true);
+            reverseGeocodeLatLng(event.latlng.lat, event.latlng.lng);
         });
     } else {
         geoMap.invalidateSize();
@@ -805,6 +809,63 @@ function selectAddressSuggestion(result) {
     }
 
     hideAddressSuggestions();
+}
+
+function reverseGeocodeLatLng(lat, lng) {
+    const addressInput = document.getElementById('geo_login_address');
+    const status = document.getElementById('location_status');
+    const parsedLat = Number(lat);
+    const parsedLng = Number(lng);
+
+    if (!addressInput || !Number.isFinite(parsedLat) || !Number.isFinite(parsedLng)) {
+        return;
+    }
+
+    clearTimeout(reverseGeocodeTimer);
+
+    reverseGeocodeTimer = setTimeout(function() {
+        if (status) {
+            status.textContent = 'Buscando direccion del punto seleccionado...';
+            status.className = 'text-sm text-gray-500';
+        }
+
+        const url = 'https://nominatim.openstreetmap.org/reverse?format=jsonv2&lat='
+            + encodeURIComponent(parsedLat.toFixed(8))
+            + '&lon='
+            + encodeURIComponent(parsedLng.toFixed(8))
+            + '&zoom=18&addressdetails=1';
+
+        fetch(url, {
+            headers: {
+                'Accept': 'application/json',
+                'Accept-Language': 'es'
+            }
+        })
+            .then(function(response) {
+                if (!response.ok) {
+                    throw new Error('Direccion no disponible');
+                }
+                return response.json();
+            })
+            .then(function(result) {
+                if (result && result.display_name) {
+                    addressInput.value = result.display_name;
+                    if (status) {
+                        status.textContent = 'Direccion actualizada desde el mapa.';
+                        status.className = 'text-sm text-green-600';
+                    }
+                } else if (status) {
+                    status.textContent = 'Coordenadas actualizadas. No se encontro una direccion exacta.';
+                    status.className = 'text-sm text-yellow-700';
+                }
+            })
+            .catch(function() {
+                if (status) {
+                    status.textContent = 'Coordenadas actualizadas. No se pudo consultar la direccion.';
+                    status.className = 'text-sm text-yellow-700';
+                }
+            });
+    }, 300);
 }
 
 function hideAddressSuggestions() {
