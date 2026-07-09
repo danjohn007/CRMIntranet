@@ -1,6 +1,6 @@
 <?php
 $title = 'Configuracion Global';
-$geoEnabled = ($configs['geo_login_enabled']['config_value'] ?? '0') === '1';
+$geoEnabled = trim((string)($configs['geo_login_enabled']['config_value'] ?? '0')) === '1';
 ob_start();
 ?>
 
@@ -337,39 +337,53 @@ ob_start();
         <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="md:col-span-2">
                 <input type="hidden" name="config_geo_login_enabled" value="0">
-                <label class="inline-flex items-center cursor-pointer">
+                <label class="inline-flex items-center cursor-pointer select-none">
                     <input type="checkbox" name="geo_login_enabled_toggle" value="1"
-                           class="h-5 w-5 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+                           id="geo_login_toggle"
+                           class="sr-only peer"
                            <?= $geoEnabled ? 'checked' : '' ?>>
-                    <span class="ml-3 text-sm font-medium text-gray-700">Activar login geolocalizado para asesores</span>
+                    <span id="geo_login_switch_track" class="relative inline-flex h-8 w-16 items-center rounded-full <?= $geoEnabled ? 'bg-green-600' : 'bg-gray-300' ?> transition peer-focus:ring-2 peer-focus:ring-blue-500 peer-focus:ring-offset-2">
+                        <span id="geo_login_switch_thumb" class="absolute left-1 h-6 w-6 rounded-full bg-white shadow transition <?= $geoEnabled ? 'translate-x-8' : '' ?>"></span>
+                    </span>
+                    <span class="ml-3 text-sm font-medium text-gray-700">
+                        Login geolocalizado para asesores:
+                        <span id="geo_login_toggle_label" class="<?= $geoEnabled ? 'text-green-700' : 'text-gray-500' ?>">
+                            <?= $geoEnabled ? 'Encendido' : 'Apagado' ?>
+                        </span>
+                    </span>
                 </label>
             </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Latitud permitida</label>
-                <input type="text" name="config_geo_login_latitude" id="geo_login_latitude"
-                       value="<?= htmlspecialchars($configs['geo_login_latitude']['config_value'] ?? '') ?>"
-                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
-                       placeholder="20.5888">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Longitud permitida</label>
-                <input type="text" name="config_geo_login_longitude" id="geo_login_longitude"
-                       value="<?= htmlspecialchars($configs['geo_login_longitude']['config_value'] ?? '') ?>"
-                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
-                       placeholder="-100.3899">
-            </div>
-            <div>
-                <label class="block text-sm font-medium text-gray-700 mb-2">Radio permitido (metros)</label>
-                <input type="number" name="config_geo_login_radius_meters"
-                       value="<?= htmlspecialchars($configs['geo_login_radius_meters']['config_value'] ?? '100') ?>"
-                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
-                       min="1" max="100000">
-            </div>
-            <div class="flex items-end">
-                <button type="button" onclick="useCurrentLocation()"
-                        class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition text-sm">
-                    <i class="fas fa-location-crosshairs mr-2"></i>Usar mi ubicacion actual
-                </button>
+            <div id="geo_login_fields" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 <?= $geoEnabled ? '' : 'hidden' ?>">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Latitud permitida</label>
+                    <input type="text" name="config_geo_login_latitude" id="geo_login_latitude"
+                           value="<?= htmlspecialchars($configs['geo_login_latitude']['config_value'] ?? '') ?>"
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                           placeholder="20.5888">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Longitud permitida</label>
+                    <input type="text" name="config_geo_login_longitude" id="geo_login_longitude"
+                           value="<?= htmlspecialchars($configs['geo_login_longitude']['config_value'] ?? '') ?>"
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                           placeholder="-100.3899">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">Radio permitido (metros)</label>
+                    <input type="number" name="config_geo_login_radius_meters"
+                           value="<?= htmlspecialchars($configs['geo_login_radius_meters']['config_value'] ?? '100') ?>"
+                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                           min="1" max="100000">
+                </div>
+                <div class="flex items-end">
+                    <button type="button" onclick="useCurrentLocation()"
+                            class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition text-sm">
+                        <i class="fas fa-location-crosshairs mr-2"></i>Usar mi ubicacion actual
+                    </button>
+                </div>
+                <div class="md:col-span-2">
+                    <p id="location_status" class="text-sm text-gray-500"></p>
+                </div>
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Intentos maximos</label>
@@ -391,9 +405,6 @@ ob_start();
                        value="<?= htmlspecialchars($configs['session_idle_timeout_minutes']['config_value'] ?? '30') ?>"
                        class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
                        min="5" max="1440">
-            </div>
-            <div class="md:col-span-2">
-                <p id="location_status" class="text-sm text-gray-500"></p>
             </div>
         </div>
         <div class="mt-4 flex justify-end">
@@ -482,6 +493,44 @@ function toggleSmtpPassword() {
         icon.classList.replace('fa-eye-slash', 'fa-eye');
     }
 }
+
+function updateGeoLoginFields() {
+    const toggle = document.getElementById('geo_login_toggle');
+    const fields = document.getElementById('geo_login_fields');
+    const label = document.getElementById('geo_login_toggle_label');
+    const track = document.getElementById('geo_login_switch_track');
+    const thumb = document.getElementById('geo_login_switch_thumb');
+
+    if (!toggle || !fields || !label || !track || !thumb) {
+        return;
+    }
+
+    if (toggle.checked) {
+        fields.classList.remove('hidden');
+        label.textContent = 'Encendido';
+        label.classList.remove('text-gray-500');
+        label.classList.add('text-green-700');
+        track.classList.remove('bg-gray-300');
+        track.classList.add('bg-green-600');
+        thumb.classList.add('translate-x-8');
+    } else {
+        fields.classList.add('hidden');
+        label.textContent = 'Apagado';
+        label.classList.remove('text-green-700');
+        label.classList.add('text-gray-500');
+        track.classList.remove('bg-green-600');
+        track.classList.add('bg-gray-300');
+        thumb.classList.remove('translate-x-8');
+    }
+}
+
+document.addEventListener('DOMContentLoaded', function() {
+    const toggle = document.getElementById('geo_login_toggle');
+    if (toggle) {
+        toggle.addEventListener('change', updateGeoLoginFields);
+        updateGeoLoginFields();
+    }
+});
 
 function useCurrentLocation() {
     const status = document.getElementById('location_status');

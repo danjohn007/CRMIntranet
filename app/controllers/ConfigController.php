@@ -8,11 +8,9 @@ class ConfigController extends BaseController {
 
         try {
             $stmt = $this->db->query("SELECT * FROM global_config ORDER BY config_key ASC");
-            $configs = $stmt->fetchAll(PDO::FETCH_GROUP | PDO::FETCH_ASSOC);
-
             $configArray = [];
-            foreach ($configs as $key => $value) {
-                $configArray[$key] = $value[0];
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $config) {
+                $configArray[$config['config_key']] = $config;
             }
 
             $this->view('config/index', ['configs' => $configArray]);
