@@ -8,7 +8,8 @@ class Router {
     
     private function defineRoutes() {
         // Rutas de Autenticación
-        $this->routes['GET']['/'] = ['AuthController', 'login'];
+        $this->routes['GET']['/'] = ['LandingController', 'index'];
+        $this->routes['GET']['/inicio'] = ['LandingController', 'index'];
         $this->routes['GET']['/login'] = ['AuthController', 'login'];
         $this->routes['POST']['/login'] = ['AuthController', 'authenticate'];
         $this->routes['GET']['/logout'] = ['AuthController', 'logout'];

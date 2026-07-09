@@ -1,0 +1,7 @@
+RewriteEngine On
+
+# Landing principal del dominio
+RewriteRule ^$ intranet/crm/public/ [L]
+
+# Ruta alternativa opcional
+RewriteRule ^inicio/?$ intranet/crm/public/inicio [L]
