@@ -196,6 +196,23 @@ class AuthController extends BaseController {
             ]);
         } catch (PDOException $e) {
             error_log("Error registering failed login: " . $e->getMessage());
+            $this->registerFailedLoginLegacy($username, $ipAddress);
+        }
+    }
+
+    private function registerFailedLoginLegacy(string $username, string $ipAddress): void {
+        try {
+            $stmt = $this->db->prepare("
+                INSERT INTO login_attempts (username, ip_address, user_agent)
+                VALUES (?, ?, ?)
+            ");
+            $stmt->execute([
+                $this->normalizeLoginIdentifier($username),
+                $ipAddress,
+                $_SERVER['HTTP_USER_AGENT'] ?? null
+            ]);
+        } catch (PDOException $e) {
+            error_log("Error registering failed login legacy fallback: " . $e->getMessage());
         }
     }
 
