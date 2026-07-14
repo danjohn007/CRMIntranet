@@ -15,6 +15,11 @@ class Router {
         
         // Dashboard
         $this->routes['GET']['/dashboard'] = ['DashboardController', 'index'];
+
+        // Centro de Control interno
+        $this->routes['GET']['/centro-control'] = ['AdminControlController', 'index'];
+        $this->routes['POST']['/centro-control/marcar-leido'] = ['AdminControlController', 'markRead'];
+        $this->routes['POST']['/centro-control/marcar-todo-leido'] = ['AdminControlController', 'markAllRead'];
         
         // Usuarios
         $this->routes['GET']['/usuarios'] = ['UserController', 'index'];

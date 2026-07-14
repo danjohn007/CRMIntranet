@@ -190,6 +190,22 @@ class FormController extends BaseController {
             
             // Log audit trail
             logAudit('create', 'formularios', "Formulario creado: $name (ID: $formId)");
+
+            logAdminControlEvent(
+                'formularios',
+                'crear',
+                "Formulario creado: $name",
+                [
+                    'entity_type' => 'formulario',
+                    'entity_id' => $formId,
+                    'priority' => 'normal',
+                    'metadata' => [
+                        'tipo' => $type,
+                        'subtipo' => $subtype,
+                        'paginacion' => (bool)$paginationEnabled
+                    ]
+                ]
+            );
             
             $_SESSION['success'] = 'Formulario creado exitosamente';
             $this->redirect('/formularios');
@@ -326,6 +342,22 @@ class FormController extends BaseController {
                 $id
             ]);
             
+            logAdminControlEvent(
+                'formularios',
+                'actualizar',
+                "Formulario actualizado: $name",
+                [
+                    'entity_type' => 'formulario',
+                    'entity_id' => $id,
+                    'priority' => 'normal',
+                    'metadata' => [
+                        'tipo' => $type,
+                        'subtipo' => $subtype,
+                        'paginacion' => (bool)$paginationEnabled
+                    ]
+                ]
+            );
+
             $_SESSION['success'] = 'Formulario actualizado exitosamente';
             $this->redirect('/formularios');
             
@@ -350,8 +382,23 @@ class FormController extends BaseController {
                 $this->redirect('/formularios');
             }
             
+            $stmtName = $this->db->prepare("SELECT name FROM forms WHERE id = ?");
+            $stmtName->execute([$id]);
+            $formName = $stmtName->fetchColumn() ?: ('ID ' . $id);
+
             $stmt = $this->db->prepare("DELETE FROM forms WHERE id = ?");
             $stmt->execute([$id]);
+
+            logAdminControlEvent(
+                'formularios',
+                'eliminar',
+                "Formulario eliminado: $formName",
+                [
+                    'entity_type' => 'formulario',
+                    'entity_id' => $id,
+                    'priority' => 'critica'
+                ]
+            );
             
             $_SESSION['success'] = 'Formulario eliminado exitosamente';
             $this->redirect('/formularios');
@@ -389,6 +436,17 @@ class FormController extends BaseController {
             // Log audit
             $action = $newStatus ? 'publicado' : 'despublicado';
             logAudit('update', 'formularios', "Formulario '{$form['name']}' $action");
+
+            logAdminControlEvent(
+                'formularios',
+                $newStatus ? 'publicar' : 'despublicar',
+                "Formulario '{$form['name']}' $action",
+                [
+                    'entity_type' => 'formulario',
+                    'entity_id' => $id,
+                    'priority' => 'alta'
+                ]
+            );
             
             $_SESSION['success'] = $newStatus ? 'Formulario publicado' : 'Formulario despublicado';
             $this->redirect('/formularios');

@@ -83,6 +83,21 @@ class AdvisorIncomeController extends BaseController
             ");
             $stmt->execute([$incomeType, $amount, $_SESSION['user_id']]);
 
+            logAdminControlEvent(
+                'ingresos',
+                'catalogo_crear',
+                "Tipo de ingreso registrado: $incomeType",
+                [
+                    'entity_type' => 'catalogo_ingreso',
+                    'entity_id' => (int)$this->db->lastInsertId(),
+                    'priority' => 'normal',
+                    'metadata' => [
+                        'tipo' => $incomeType,
+                        'monto' => $amount
+                    ]
+                ]
+            );
+
             $_SESSION['success'] = 'Tipo de ingreso registrado correctamente';
             $this->redirect('/ingresos');
         } catch (PDOException $e) {
@@ -164,6 +179,24 @@ class AdvisorIncomeController extends BaseController
                     throw $folioException;
                 }
             }
+
+            logAdminControlEvent(
+                'ingresos',
+                'ingreso_registrado',
+                "Ingreso registrado por asesor: $folio",
+                [
+                    'entity_type' => 'ingreso_asesor',
+                    'entity_id' => $recordId,
+                    'priority' => 'alta',
+                    'metadata' => [
+                        'folio' => $folio,
+                        'tipo_id' => $incomeTypeId,
+                        'monto' => (float)$incomeType['amount'],
+                        'fecha_hora' => $incomeDatetime,
+                        'nota' => $note
+                    ]
+                ]
+            );
 
             $_SESSION['success'] = 'Ingreso registrado correctamente';
             $this->redirect('/ingresos');

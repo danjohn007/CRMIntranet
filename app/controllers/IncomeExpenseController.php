@@ -303,6 +303,23 @@ class IncomeExpenseController extends BaseController
             ");
             $stmt->execute([$concept, $amount, $notes, $expenseDate, $_SESSION['user_id']]);
 
+            logAdminControlEvent(
+                'egresos',
+                'egreso_registrado',
+                "Egreso registrado: $concept por $" . number_format($amount, 2),
+                [
+                    'entity_type' => 'egreso',
+                    'entity_id' => (int)$this->db->lastInsertId(),
+                    'priority' => 'alta',
+                    'metadata' => [
+                        'concepto' => $concept,
+                        'monto' => $amount,
+                        'fecha' => $expenseDate,
+                        'notas' => $notes
+                    ]
+                ]
+            );
+
             $_SESSION['success'] = 'Egreso registrado correctamente';
             $this->redirect('/ingresos-egresos');
         } catch (PDOException $e) {

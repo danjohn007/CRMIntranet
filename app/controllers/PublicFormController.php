@@ -384,6 +384,22 @@ class PublicFormController extends BaseController {
                         "Formulario '$formName' completado por el cliente vía enlace",
                         'online'
                     );
+                    logAdminControlEvent(
+                        'formularios',
+                        'publico_completado',
+                        "Cuestionario del cliente completado para solicitud #$applicationId",
+                        [
+                            'application_id' => $applicationId,
+                            'entity_type' => 'formulario',
+                            'entity_id' => $form['id'],
+                            'priority' => 'alta',
+                            'metadata' => [
+                                'formulario' => $form['name'],
+                                'submission_id' => $submissionId,
+                                'archivos_subidos' => array_keys($uploadedFiles)
+                            ]
+                        ]
+                    );
                 } else {
                 // Generate folio
                 $year = date('Y');
@@ -482,6 +498,23 @@ class PublicFormController extends BaseController {
                     'Formulario público completado',
                     "Formulario '$formName' completado vía enlace público",
                     'online'
+                );
+                logAdminControlEvent(
+                    'formularios',
+                    'publico_solicitud_creada',
+                    "Formulario publico completado y convertido en solicitud $folio",
+                    [
+                        'application_id' => $applicationId,
+                        'folio' => $folio,
+                        'entity_type' => 'formulario',
+                        'entity_id' => $form['id'],
+                        'priority' => 'alta',
+                        'metadata' => [
+                            'formulario' => $form['name'],
+                            'submission_id' => $submissionId,
+                            'archivos_subidos' => array_keys($uploadedFiles)
+                        ]
+                    ]
                 );
                 } // end else (new application)
             }

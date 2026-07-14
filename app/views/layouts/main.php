@@ -299,6 +299,17 @@
                 <?php endif; ?>
                 
                 <?php if (in_array($_SESSION['user_role'] ?? '', [ROLE_ADMIN])): ?>
+                <?php $adminControlUnread = getAdminControlUnreadCount(); ?>
+                <a href="<?= BASE_URL ?>/centro-control" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
+                    <i class="fas fa-tower-broadcast w-6"></i>
+                    <span class="flex-1">Centro de Control</span>
+                    <?php if ($adminControlUnread > 0): ?>
+                    <span class="ml-2 bg-red-500 text-white text-xs font-bold rounded-full min-w-[1.25rem] h-5 px-1 flex items-center justify-center">
+                        <?= $adminControlUnread > 99 ? '99+' : $adminControlUnread ?>
+                    </span>
+                    <?php endif; ?>
+                </a>
+
                 <a href="<?= BASE_URL ?>/usuarios" class="sidebar-link flex items-center px-6 py-3 text-gray-700">
                     <i class="fas fa-users w-6"></i>
                     <span>Usuarios</span>
