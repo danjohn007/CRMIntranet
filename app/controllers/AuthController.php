@@ -2,7 +2,7 @@
 require_once ROOT_PATH . '/app/controllers/BaseController.php';
 
 class AuthController extends BaseController {
-    private const GEO_DENIED_MESSAGE = 'No se encuentra en la ubicacion permitida. Active su ubicacion e intente nuevamente.';
+    private const GEO_DENIED_MESSAGE = 'Error al iniciar sesión: Por favor, contacte al administrador del sistema.';
 
     public function login() {
         if ($this->isLoggedIn()) {
@@ -34,18 +34,20 @@ class AuthController extends BaseController {
         }
 
         if (empty($captcha) || !isset($_SESSION['captcha_answer'])) {
-            $this->registerFailedLogin($username, $ipAddress);
-            $_SESSION['error'] = $this->buildFailedLoginMessage('Por favor, complete la verificacion humana.', $username, $ipAddress);
-            unset($_SESSION['captcha_answer'], $_SESSION['captcha_num1'], $_SESSION['captcha_num2']);
-            $this->redirect('/login');
+            $this->failLoginAttempt(
+                'Por favor, complete la verificacion humana.',
+                $username,
+                $ipAddress
+            );
         }
 
         if ((int) $captcha !== (int) $_SESSION['captcha_answer']) {
-            $this->registerFailedLogin($username, $ipAddress);
-            logAudit('login_failed', 'autenticacion', "Verificacion humana incorrecta para: $username");
-            $_SESSION['error'] = $this->buildFailedLoginMessage('Verificacion humana incorrecta. Por favor, intente nuevamente.', $username, $ipAddress);
-            unset($_SESSION['captcha_answer'], $_SESSION['captcha_num1'], $_SESSION['captcha_num2']);
-            $this->redirect('/login');
+            $this->failLoginAttempt(
+                'Verificacion humana incorrecta. Por favor, intente nuevamente.',
+                $username,
+                $ipAddress,
+                "Verificacion humana incorrecta para: $username"
+            );
         }
 
         unset($_SESSION['captcha_answer'], $_SESSION['captcha_num1'], $_SESSION['captcha_num2']);
@@ -62,7 +64,7 @@ class AuthController extends BaseController {
             if ($user && password_verify($password, $user['password'])) {
                 if (!$this->validateGeoLogin($user)) {
                     $this->registerFailedLogin($username, $ipAddress);
-                    logAudit('login_geo_denied', 'autenticacion', "Login denegado por ubicacion para asesor: {$user['username']}");
+                    logAudit('login_geo_denied', 'autenticacion', $this->buildGeoDeniedAuditMessage($user));
                     $_SESSION['error'] = self::GEO_DENIED_MESSAGE;
                     $this->redirect('/login');
                 }
@@ -85,11 +87,12 @@ class AuthController extends BaseController {
                 $this->redirect('/dashboard');
             }
 
-            $this->registerFailedLogin($username, $ipAddress);
-            logAudit('login_failed', 'autenticacion', "Intento de inicio de sesion fallido para: $username");
-
-            $_SESSION['error'] = $this->buildFailedLoginMessage('Usuario o contrasena incorrectos.', $username, $ipAddress);
-            $this->redirect('/login');
+            $this->failLoginAttempt(
+                'Usuario o contrasena incorrectos.',
+                $username,
+                $ipAddress,
+                "Intento de inicio de sesion fallido para: $username"
+            );
         } catch (PDOException $e) {
             error_log("Error en autenticacion: " . $e->getMessage());
             $_SESSION['error'] = 'Error al iniciar sesion. Por favor, intente nuevamente.';
@@ -165,6 +168,18 @@ class AuthController extends BaseController {
         return $baseMessage . ' Intentos restantes: ' . $remainingAttempts . '.';
     }
 
+    private function failLoginAttempt(string $baseMessage, string $username, string $ipAddress, ?string $auditMessage = null): void {
+        $this->registerFailedLogin($username, $ipAddress);
+
+        if ($auditMessage !== null) {
+            logAudit('login_failed', 'autenticacion', $auditMessage);
+        }
+
+        $_SESSION['error'] = $this->buildFailedLoginMessage($baseMessage, $username, $ipAddress);
+        unset($_SESSION['captcha_answer'], $_SESSION['captcha_num1'], $_SESSION['captcha_num2']);
+        $this->redirect('/login');
+    }
+
     private function registerFailedLogin(string $username, string $ipAddress): void {
         $locationData = $this->getLoginLocationAttemptData();
 
@@ -223,6 +238,39 @@ class AuthController extends BaseController {
         } catch (PDOException $e) {
             error_log("Error clearing failed logins: " . $e->getMessage());
         }
+    }
+
+    private function buildGeoDeniedAuditMessage(array $user): string {
+        $username = $user['username'] ?? 'desconocido';
+        $locationData = $this->getLoginLocationAttemptData();
+        $parts = ["Login denegado por ubicacion para asesor: $username"];
+
+        if ($locationData['latitude'] !== null && $locationData['longitude'] !== null) {
+            $lat = number_format((float) $locationData['latitude'], 8, '.', '');
+            $lng = number_format((float) $locationData['longitude'], 8, '.', '');
+            $parts[] = "Ubicacion detectada: $lat, $lng";
+            $parts[] = "Mapa: https://www.google.com/maps?q=$lat,$lng";
+        } elseif ($locationData['location_status'] === 'missing') {
+            $parts[] = 'Ubicacion detectada: no recibida por el navegador';
+        } elseif ($locationData['location_status'] === 'invalid') {
+            $parts[] = 'Ubicacion detectada: coordenadas invalidas';
+        }
+
+        if ($locationData['distance_meters'] !== null) {
+            $distance = (float) $locationData['distance_meters'];
+            $distanceLabel = $distance >= 1000
+                ? number_format($distance / 1000, 2, '.', '') . ' km'
+                : number_format($distance, 0, '.', '') . ' m';
+            $parts[] = "Distancia del area permitida: $distanceLabel";
+        }
+
+        if ($locationData['allowed_latitude'] !== null && $locationData['allowed_longitude'] !== null) {
+            $allowedLat = number_format((float) $locationData['allowed_latitude'], 8, '.', '');
+            $allowedLng = number_format((float) $locationData['allowed_longitude'], 8, '.', '');
+            $parts[] = "Ubicacion permitida registrada: $allowedLat, $allowedLng";
+        }
+
+        return implode(' | ', $parts);
     }
 
     private function getLoginLocationAttemptData(): array {

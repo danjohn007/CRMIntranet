@@ -29,6 +29,7 @@ temp/
 # Ignorar archivos subidos por usuarios
 public/uploads/*
 !public/uploads/.gitkeep
+!public/uploads/.htaccess
 
 # Ignorar caché y archivos de sesión
 cache/

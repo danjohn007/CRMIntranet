@@ -77,7 +77,7 @@
 
         <!-- Form Card -->
         <div class="bg-white rounded-lg shadow-lg p-6 md:p-8">
-            <form id="public-form" class="space-y-6">
+            <form id="public-form" class="space-y-6" novalidate>
                 <input type="hidden" id="submission-id" name="submissionId" value="">
                 <input type="hidden" id="current-page" name="currentPage" value="1">
                 
@@ -672,7 +672,7 @@
             const processedRadioNames = new Set();
 
             document.querySelectorAll('.form-field').forEach(function(fieldDiv) {
-                if (fieldDiv.style.display === 'none') {
+                if (!shouldValidateField(fieldDiv)) {
                     return;
                 }
 
@@ -761,6 +761,25 @@
                     }
                 });
             });
+        }
+        function shouldValidateField(fieldDiv) {
+            if (fieldDiv.getAttribute('data-conditional-enabled') !== '1') {
+                return true;
+            }
+
+            const parentFieldId = fieldDiv.getAttribute('data-conditional-parent');
+            const expectedValue = (fieldDiv.getAttribute('data-conditional-value') || '').trim();
+
+            if (!parentFieldId || !expectedValue) {
+                return false;
+            }
+
+            const parentField = document.getElementById(`field_${parentFieldId}`);
+            if (!parentField) {
+                return false;
+            }
+
+            return String(parentField.value || '').trim() === expectedValue;
         }
     </script>
 </body>

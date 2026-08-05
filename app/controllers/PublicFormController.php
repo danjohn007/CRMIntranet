@@ -103,6 +103,8 @@ class PublicFormController extends BaseController {
      * Submit public form data
      */
     public function submit($token) {
+        header('Content-Type: application/json; charset=utf-8');
+
         if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
             http_response_code(405);
             echo json_encode(['error' => 'Método no permitido']);
@@ -303,11 +305,19 @@ class PublicFormController extends BaseController {
                     }
                     $submissionData = json_encode($data, JSON_UNESCAPED_UNICODE);
 
-                    $this->db->prepare("
-                        UPDATE applications
-                        SET form_link_status = 'completado', data_json = ?, progress_percentage = 100
-                        WHERE id = ?
-                    ")->execute([$submissionData, $applicationId]);
+                    if ($this->columnExists('applications', 'progress_percentage')) {
+                        $this->db->prepare("
+                            UPDATE applications
+                            SET form_link_status = 'completado', data_json = ?, progress_percentage = 100
+                            WHERE id = ?
+                        ")->execute([$submissionData, $applicationId]);
+                    } else {
+                        $this->db->prepare("
+                            UPDATE applications
+                            SET form_link_status = 'completado', data_json = ?
+                            WHERE id = ?
+                        ")->execute([$submissionData, $applicationId]);
+                    }
 
                     // Link submission to application
                     $this->db->prepare("
@@ -323,9 +333,7 @@ class PublicFormController extends BaseController {
                     $hasInfoSheet = $stmtSheet->fetch();
 
                     if ($hasInfoSheet && $currentApp && $currentApp['status'] === STATUS_NUEVO) {
-                        $stmtDoc = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'pasaporte_vigente'");
-                        $stmtDoc->execute([$applicationId]);
-                        $hasPasaporte = (bool) $stmtDoc->fetch();
+                        $hasPasaporte = $this->hasDocumentOfType($applicationId, 'pasaporte_vigente');
 
                         $isCanadianVisa = !empty($currentApp['is_canadian_visa']);
 
@@ -336,16 +344,12 @@ class PublicFormController extends BaseController {
 
                             $hasVisaCanadiensPrev = true;
                             if ($isRenovacion) {
-                                $stmtVC = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_canadiense_anterior'");
-                                $stmtVC->execute([$applicationId]);
-                                $hasVisaCanadiensPrev = (bool) $stmtVC->fetch();
+                                $hasVisaCanadiensPrev = $this->hasDocumentOfType($applicationId, 'visa_canadiense_anterior');
                             }
 
                             $hasEtaAnterior = true;
                             if ($isETA && $isRenovacion) {
-                                $stmtEta = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'eta_anterior'");
-                                $stmtEta->execute([$applicationId]);
-                                $hasEtaAnterior = (bool) $stmtEta->fetch();
+                                $hasEtaAnterior = $this->hasDocumentOfType($applicationId, 'eta_anterior');
                             }
 
                             if ($hasPasaporte && $hasVisaCanadiensPrev && $hasEtaAnterior) {
@@ -360,9 +364,7 @@ class PublicFormController extends BaseController {
                             $isRenovacion = stripos($currentApp['subtype'] ?? '', 'renov') !== false;
                             $hasVisaAnterior = true;
                             if ($isRenovacion) {
-                                $stmtVisa = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = 'visa_anterior'");
-                                $stmtVisa->execute([$applicationId]);
-                                $hasVisaAnterior = (bool) $stmtVisa->fetch();
+                                $hasVisaAnterior = $this->hasDocumentOfType($applicationId, 'visa_anterior');
                             }
 
                             if ($hasPasaporte && $hasVisaAnterior) {
@@ -497,7 +499,47 @@ class PublicFormController extends BaseController {
             error_log("Error al guardar formulario público: " . $e->getMessage());
             http_response_code(500);
             echo json_encode(['error' => 'Error al guardar el formulario']);
+        } catch (Throwable $e) {
+            error_log("Error inesperado al guardar formulario público: " . $e->getMessage());
+            http_response_code(500);
+            echo json_encode(['error' => 'Error inesperado al guardar el formulario']);
         }
+    }
+
+    private function columnExists(string $table, string $column): bool {
+        static $cache = [];
+        $key = $table . '.' . $column;
+
+        if (array_key_exists($key, $cache)) {
+            return $cache[$key];
+        }
+
+        try {
+            $stmt = $this->db->prepare("
+                SELECT COUNT(*)
+                FROM INFORMATION_SCHEMA.COLUMNS
+                WHERE TABLE_SCHEMA = DATABASE()
+                  AND TABLE_NAME = ?
+                  AND COLUMN_NAME = ?
+            ");
+            $stmt->execute([$table, $column]);
+            $cache[$key] = (int) $stmt->fetchColumn() > 0;
+        } catch (PDOException $e) {
+            error_log("Error verificando columna $table.$column: " . $e->getMessage());
+            $cache[$key] = false;
+        }
+
+        return $cache[$key];
+    }
+
+    private function hasDocumentOfType(int $applicationId, string $docType): bool {
+        if (!$this->columnExists('documents', 'doc_type')) {
+            return false;
+        }
+
+        $stmt = $this->db->prepare("SELECT id FROM documents WHERE application_id = ? AND doc_type = ?");
+        $stmt->execute([$applicationId, $docType]);
+        return (bool) $stmt->fetch();
     }
     
     /**
