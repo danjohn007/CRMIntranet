@@ -246,6 +246,24 @@ class ApplicationController extends BaseController {
                     VALUES (?, 0, 0, 0, ?)
                 ")->execute([$applicationId, FINANCIAL_PENDIENTE]);
 
+                logAdminControlEvent(
+                    'solicitudes',
+                    'crear',
+                    "Solicitud Visa Canadiense creada: $folio",
+                    [
+                        'application_id' => $applicationId,
+                        'folio' => $folio,
+                        'entity_type' => 'solicitud',
+                        'entity_id' => $applicationId,
+                        'priority' => 'alta',
+                        'metadata' => [
+                            'cliente' => $clientName,
+                            'tipo' => $canadianTipo,
+                            'modalidad' => $canadianModalidad
+                        ]
+                    ]
+                );
+
                 $_SESSION['success'] = "Solicitud Visa Canadiense creada: $folio";
                 $this->redirect('/solicitudes/ver/' . $applicationId);
 
@@ -339,6 +357,25 @@ class ApplicationController extends BaseController {
                 VALUES (?, 0, 0, 0, ?)
             ");
             $stmt->execute([$applicationId, FINANCIAL_PENDIENTE]);
+
+            logAdminControlEvent(
+                'solicitudes',
+                'crear',
+                "Solicitud creada: $folio",
+                [
+                    'application_id' => $applicationId,
+                    'folio' => $folio,
+                    'entity_type' => 'solicitud',
+                    'entity_id' => $applicationId,
+                    'priority' => 'alta',
+                    'metadata' => [
+                        'cliente' => $clientName,
+                        'tipo' => $form['type'] ?? null,
+                        'subtipo' => $form['subtype'] ?? null,
+                        'formulario' => $form['name'] ?? null
+                    ]
+                ]
+            );
 
             $_SESSION['success'] = "Solicitud creada exitosamente: $folio";
             $this->redirect('/solicitudes/ver/' . $applicationId);
@@ -827,6 +864,26 @@ class ApplicationController extends BaseController {
                 'online'
             );
 
+            logAdminControlEvent(
+                'solicitudes',
+                'cambio_estatus',
+                "Solicitud {$application['folio']} cambio de estatus: $previousStatus -> $newStatus",
+                [
+                    'application_id' => $id,
+                    'folio' => $application['folio'] ?? null,
+                    'entity_type' => 'solicitud',
+                    'entity_id' => $id,
+                    'priority' => in_array($newStatus, [STATUS_CITA_PROGRAMADA, STATUS_TRAMITE_CERRADO, STATUS_RECHAZADO], true) ? 'alta' : 'normal',
+                    'metadata' => [
+                        'estatus_anterior' => $previousStatus,
+                        'estatus_nuevo' => $newStatus,
+                        'comentario' => $comment,
+                        'cita_tipo' => $notifyAppointmentType,
+                        'cita_fecha' => $notifyAppointmentDate
+                    ]
+                ]
+            );
+
             // Send appointment notification email when a new/changed appointment date is saved
             if ($notifyAppointmentType !== null && $notifyAppointmentDate !== null) {
                 try {
@@ -974,6 +1031,24 @@ class ApplicationController extends BaseController {
                     $_SESSION['user_id']
                 ]);
             }
+
+            logAdminControlEvent(
+                'documentos',
+                'subir',
+                "Documento subido a solicitud {$application['folio']}: $fileName",
+                [
+                    'application_id' => $id,
+                    'folio' => $application['folio'] ?? null,
+                    'entity_type' => 'documento',
+                    'priority' => in_array($docType, ['pasaporte_vigente', 'visa_anterior', 'visa_canadiense_anterior', 'eta_anterior'], true) ? 'alta' : 'normal',
+                    'metadata' => [
+                        'documento' => $fileName,
+                        'tipo_documento' => $docType,
+                        'extension' => $fileType,
+                        'tamano' => $fileSize
+                    ]
+                ]
+            );
             
             // Auto-advance to ROJO when a base doc is uploaded and all conditions are met
             $canadianBaseDocTypes = ['pasaporte_vigente', 'visa_canadiense_anterior', 'eta_anterior'];
@@ -1107,6 +1182,21 @@ class ApplicationController extends BaseController {
             logAudit('create', 'solicitudes', 
                 "Indicación agregada a solicitud #$id" . ($isImportant ? ' (Importante)' : ''));
             
+            logAdminControlEvent(
+                'solicitudes',
+                'indicacion',
+                "Indicacion agregada a solicitud #$id" . ($isImportant ? ' (importante)' : ''),
+                [
+                    'application_id' => $id,
+                    'entity_type' => 'indicacion',
+                    'priority' => $isImportant ? 'alta' : 'normal',
+                    'metadata' => [
+                        'importante' => (bool)$isImportant,
+                        'texto' => function_exists('mb_substr') ? mb_substr($noteText, 0, 500) : substr($noteText, 0, 500)
+                    ]
+                ]
+            );
+
             $_SESSION['success'] = 'Indicación agregada correctamente';
             $this->redirect('/solicitudes/ver/' . $id);
             
@@ -1412,6 +1502,23 @@ class ApplicationController extends BaseController {
                 }
             }
 
+            logAdminControlEvent(
+                'solicitudes',
+                'hoja_info',
+                "Hoja de informacion guardada para solicitud #$id",
+                [
+                    'application_id' => $id,
+                    'entity_type' => 'hoja_informacion',
+                    'priority' => 'alta',
+                    'metadata' => [
+                        'fecha_entrada' => $entryDate,
+                        'email_cliente' => $clientEmail,
+                        'monto_pagado' => $amountPaid,
+                        'dhl' => $dhl
+                    ]
+                ]
+            );
+
             $_SESSION['success'] = 'Hoja de información guardada correctamente';
             $this->redirect('/solicitudes/ver/' . $id);
 
@@ -1504,6 +1611,24 @@ class ApplicationController extends BaseController {
 
             logAudit($familiarId > 0 ? 'update' : 'create', 'solicitudes', "Familiar guardado para solicitud #$id");
 
+            logAdminControlEvent(
+                'solicitudes',
+                $familiarId > 0 ? 'familiar_actualizar' : 'familiar_crear',
+                "Familiar guardado para solicitud #$id",
+                [
+                    'application_id' => $id,
+                    'entity_type' => 'familiar',
+                    'entity_id' => $familiarId > 0 ? $familiarId : null,
+                    'priority' => 'normal',
+                    'metadata' => [
+                        'nombre' => $nombreCompleto,
+                        'parentesco' => $parentesco,
+                        'email_cliente' => $clientEmail,
+                        'monto_pagado' => $amountPaid
+                    ]
+                ]
+            );
+
             $_SESSION['success'] = 'Familiar guardado correctamente';
             $this->redirect('/solicitudes/ver/' . $id . '#familiar-tab');
 
@@ -1532,6 +1657,18 @@ class ApplicationController extends BaseController {
             }
 
             logAudit('delete', 'solicitudes', "Familiar #$familiarId eliminado para solicitud #$id");
+
+            logAdminControlEvent(
+                'solicitudes',
+                'familiar_eliminar',
+                "Familiar #$familiarId eliminado para solicitud #$id",
+                [
+                    'application_id' => $id,
+                    'entity_type' => 'familiar',
+                    'entity_id' => $familiarId,
+                    'priority' => 'alta'
+                ]
+            );
 
             $_SESSION['success'] = 'Familiar eliminado';
             $this->redirect('/solicitudes/ver/' . $id . '#familiar-tab');
@@ -1580,6 +1717,21 @@ class ApplicationController extends BaseController {
                 $this->db->prepare("INSERT INTO status_history (application_id, previous_status, new_status, comment, changed_by) VALUES (?, ?, ?, ?, ?)")
                     ->execute([$id, $prevStatus, STATUS_EN_ESPERA_RESULTADO, 'Cliente marcó asistencia a cita', $_SESSION['user_id']]);
             }
+
+            logAdminControlEvent(
+                'solicitudes',
+                'asistencia_cita',
+                "Asistencia registrada para solicitud #$id",
+                [
+                    'application_id' => $id,
+                    'entity_type' => 'cita',
+                    'priority' => 'alta',
+                    'metadata' => [
+                        'asistio' => (bool)$attended,
+                        'fecha_asistencia' => $attendedDate
+                    ]
+                ]
+            );
 
             $_SESSION['success'] = 'Asistencia registrada correctamente';
             $this->redirect('/solicitudes/ver/' . $id);
@@ -1636,6 +1788,18 @@ class ApplicationController extends BaseController {
             $this->db->prepare("UPDATE forms SET public_enabled = 1 WHERE id = ?")
                 ->execute([$formLinkId]);
 
+            logAdminControlEvent(
+                'solicitudes',
+                'formulario_vinculado',
+                "Formulario vinculado a solicitud #$id",
+                [
+                    'application_id' => $id,
+                    'entity_type' => 'formulario',
+                    'entity_id' => $formLinkId,
+                    'priority' => 'normal'
+                ]
+            );
+
             $_SESSION['success'] = 'Formulario vinculado. Copia el enlace y compártelo con el cliente.';
             $this->redirect('/solicitudes/ver/' . $id . '?copiar_enlace=1');
 
@@ -1679,6 +1843,21 @@ class ApplicationController extends BaseController {
 
             $this->db->prepare("UPDATE applications SET office_appointment_date = ?, office_appointment_modality = ? WHERE id = ?")
                 ->execute([$officeDate, $officeModality, $id]);
+
+            logAdminControlEvent(
+                'solicitudes',
+                'cita_oficina',
+                "Cita a oficinas guardada para solicitud #$id",
+                [
+                    'application_id' => $id,
+                    'entity_type' => 'cita',
+                    'priority' => 'alta',
+                    'metadata' => [
+                        'fecha' => $officeDate,
+                        'modalidad' => $officeModality
+                    ]
+                ]
+            );
 
             $_SESSION['success'] = 'Cita a oficinas guardada correctamente';
             $this->redirect('/solicitudes/ver/' . $id);
@@ -1746,6 +1925,17 @@ class ApplicationController extends BaseController {
                 'Respuestas del cuestionario editadas (estatus Validando respuestas) para solicitud #' . $id
             );
 
+            logAdminControlEvent(
+                'solicitudes',
+                'respuestas_guardadas',
+                "Respuestas del cuestionario editadas para solicitud #$id",
+                [
+                    'application_id' => $id,
+                    'entity_type' => 'respuestas',
+                    'priority' => 'normal'
+                ]
+            );
+
             $_SESSION['success'] = 'Respuestas guardadas correctamente';
             $this->redirect('/solicitudes/ver/' . $id);
 
@@ -1801,6 +1991,21 @@ class ApplicationController extends BaseController {
                 'status_change',
                 'solicitudes',
                 'Respuestas confirmadas: ' . STATUS_VALIDANDO_RESPUESTAS . ' → ' . STATUS_LISTO_SOLICITUD . ' para solicitud #' . $id
+            );
+
+            logAdminControlEvent(
+                'solicitudes',
+                'respuestas_confirmadas',
+                "Respuestas confirmadas para solicitud #$id",
+                [
+                    'application_id' => $id,
+                    'entity_type' => 'respuestas',
+                    'priority' => 'alta',
+                    'metadata' => [
+                        'estatus_anterior' => STATUS_VALIDANDO_RESPUESTAS,
+                        'estatus_nuevo' => STATUS_LISTO_SOLICITUD
+                    ]
+                ]
             );
 
             $_SESSION['success'] = 'Respuestas confirmadas. Estatus actualizado a "Listo para comenzar"';
@@ -1887,6 +2092,17 @@ class ApplicationController extends BaseController {
             $this->db->prepare("UPDATE applications SET appointment_confirmed_day_before = 1 WHERE id = ?")
                 ->execute([$id]);
 
+            logAdminControlEvent(
+                'solicitudes',
+                'cita_confirmada',
+                "Cita confirmada un dia antes para solicitud #$id",
+                [
+                    'application_id' => $id,
+                    'entity_type' => 'cita',
+                    'priority' => 'alta'
+                ]
+            );
+
             $_SESSION['success'] = 'Cita confirmada correctamente';
             $this->redirect('/public/solicitudes');
 
@@ -1909,9 +2125,10 @@ class ApplicationController extends BaseController {
 
         try {
             // Obtener solicitud y sus documentos para borrar archivos físicos
-            $stmt = $this->db->prepare("SELECT id FROM applications WHERE id = ?");
+            $stmt = $this->db->prepare("SELECT id, folio FROM applications WHERE id = ?");
             $stmt->execute([$id]);
-            if (!$stmt->fetch()) {
+            $applicationToDelete = $stmt->fetch();
+            if (!$applicationToDelete) {
                 $_SESSION['error'] = 'Solicitud no encontrada';
                 $this->redirect('/solicitudes');
             }
@@ -1950,6 +2167,18 @@ class ApplicationController extends BaseController {
 
             logAudit('delete', 'solicitudes', "Solicitud #$id eliminada por administrador");
 
+            logAdminControlEvent(
+                'solicitudes',
+                'eliminar',
+                "Solicitud {$applicationToDelete['folio']} eliminada por administrador",
+                [
+                    'folio' => $applicationToDelete['folio'] ?? null,
+                    'entity_type' => 'solicitud',
+                    'entity_id' => $id,
+                    'priority' => 'critica'
+                ]
+            );
+
             $_SESSION['success'] = 'Solicitud eliminada correctamente';
             $this->redirect('/solicitudes');
 
@@ -1969,7 +2198,7 @@ class ApplicationController extends BaseController {
 
         try {
             $stmt = $this->db->prepare("
-                SELECT d.*, a.id as app_id, a.created_by as app_created_by, a.status
+                SELECT d.*, a.id as app_id, a.folio, a.created_by as app_created_by, a.status
                 FROM documents d
                 LEFT JOIN applications a ON d.application_id = a.id
                 WHERE d.id = ?
@@ -2007,6 +2236,19 @@ class ApplicationController extends BaseController {
 
             logAudit('view', 'documentos', "Visualización de documento #$docId ({$doc['name']})");
 
+            logAdminControlEvent(
+                'documentos',
+                'visualizar',
+                "Documento visualizado: {$doc['name']}",
+                [
+                    'application_id' => $doc['app_id'] ?? null,
+                    'folio' => $doc['folio'] ?? null,
+                    'entity_type' => 'documento',
+                    'entity_id' => $docId,
+                    'priority' => 'normal'
+                ]
+            );
+
             $mimeType = mime_content_type($filePath) ?: 'application/octet-stream';
             header('Content-Type: ' . $mimeType);
             header('Content-Disposition: inline; filename="' . basename($doc['name']) . '"');
@@ -2027,7 +2269,7 @@ class ApplicationController extends BaseController {
 
         try {
             $stmt = $this->db->prepare("
-                SELECT d.*, a.id as app_id
+                SELECT d.*, a.id as app_id, a.folio
                 FROM documents d
                 LEFT JOIN applications a ON d.application_id = a.id
                 WHERE d.id = ?
@@ -2047,6 +2289,19 @@ class ApplicationController extends BaseController {
             }
 
             logAudit('download', 'documentos', "Descarga de documento #$docId ({$doc['name']})");
+
+            logAdminControlEvent(
+                'documentos',
+                'descargar',
+                "Documento descargado: {$doc['name']}",
+                [
+                    'application_id' => $doc['app_id'] ?? null,
+                    'folio' => $doc['folio'] ?? null,
+                    'entity_type' => 'documento',
+                    'entity_id' => $docId,
+                    'priority' => 'alta'
+                ]
+            );
 
             header('Content-Description: File Transfer');
             header('Content-Type: application/octet-stream');
@@ -2109,6 +2364,23 @@ class ApplicationController extends BaseController {
             error_log("saveApplicationFile PDO error: " . $e->getMessage());
             return false;
         }
+
+        logAdminControlEvent(
+            'documentos',
+            'subir',
+            "Documento interno subido a solicitud #$appId: $fileName",
+            [
+                'application_id' => $appId,
+                'entity_type' => 'documento',
+                'priority' => 'normal',
+                'metadata' => [
+                    'documento' => $fileName,
+                    'tipo_documento' => $docType,
+                    'extension' => $fileExt,
+                    'tamano' => $fileSize
+                ]
+            ]
+        );
 
         return true;
     }

@@ -151,6 +151,21 @@ class FinancialController extends BaseController {
             
             // Actualizar totales
             $this->updateFinancialStatus($id);
+
+            logAdminControlEvent(
+                'financiero',
+                'costo_agregado',
+                "Costo agregado a solicitud #$id: $concept",
+                [
+                    'application_id' => $id,
+                    'entity_type' => 'costo',
+                    'priority' => 'alta',
+                    'metadata' => [
+                        'concepto' => $concept,
+                        'monto' => $amount
+                    ]
+                ]
+            );
             
             $_SESSION['success'] = 'Costo agregado correctamente';
             $this->redirect('/financiero/solicitud/' . $id);
@@ -190,6 +205,24 @@ class FinancialController extends BaseController {
             
             // Actualizar totales
             $this->updateFinancialStatus($id);
+
+            logAdminControlEvent(
+                'financiero',
+                'pago_registrado',
+                "Pago registrado en solicitud #$id por $" . number_format($amount, 2),
+                [
+                    'application_id' => $id,
+                    'entity_type' => 'pago',
+                    'priority' => 'alta',
+                    'metadata' => [
+                        'monto' => $amount,
+                        'metodo' => $method,
+                        'referencia' => $reference,
+                        'fecha' => $date,
+                        'notas' => $notes
+                    ]
+                ]
+            );
             
             $_SESSION['success'] = 'Pago registrado correctamente';
             $this->redirect('/financiero/solicitud/' . $id);

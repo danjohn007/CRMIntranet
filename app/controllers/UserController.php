@@ -98,6 +98,23 @@ class UserController extends BaseController {
                 $role,
                 $phone
             ]);
+
+            $userId = (int) $this->db->lastInsertId();
+            logAdminControlEvent(
+                'usuarios',
+                'crear',
+                "Usuario creado: $fullName",
+                [
+                    'entity_type' => 'usuario',
+                    'entity_id' => $userId,
+                    'priority' => 'alta',
+                    'metadata' => [
+                        'usuario' => $username,
+                        'email' => $email,
+                        'rol' => $role
+                    ]
+                ]
+            );
             
             $_SESSION['success'] = 'Usuario creado exitosamente';
             $this->redirect('/usuarios');
@@ -208,6 +225,24 @@ class UserController extends BaseController {
                 ]);
             }
             
+            logAdminControlEvent(
+                'usuarios',
+                $isActive ? 'actualizar' : 'desactivar',
+                ($isActive ? 'Usuario actualizado: ' : 'Usuario desactivado: ') . $fullName,
+                [
+                    'entity_type' => 'usuario',
+                    'entity_id' => $id,
+                    'priority' => $isActive ? 'normal' : 'alta',
+                    'metadata' => [
+                        'usuario' => $username,
+                        'email' => $email,
+                        'rol' => $role,
+                        'activo' => (bool)$isActive,
+                        'password_actualizado' => !empty($password)
+                    ]
+                ]
+            );
+
             $_SESSION['success'] = 'Usuario actualizado exitosamente';
             $this->redirect('/usuarios');
             
@@ -238,8 +273,28 @@ class UserController extends BaseController {
                 $this->redirect('/usuarios');
             }
             
+            $stmtUser = $this->db->prepare("SELECT username, full_name, email, role FROM users WHERE id = ?");
+            $stmtUser->execute([$id]);
+            $userToDelete = $stmtUser->fetch();
+
             $stmt = $this->db->prepare("DELETE FROM users WHERE id = ?");
             $stmt->execute([$id]);
+
+            logAdminControlEvent(
+                'usuarios',
+                'eliminar',
+                'Usuario eliminado: ' . ($userToDelete['full_name'] ?? ('ID ' . $id)),
+                [
+                    'entity_type' => 'usuario',
+                    'entity_id' => $id,
+                    'priority' => 'critica',
+                    'metadata' => [
+                        'usuario' => $userToDelete['username'] ?? null,
+                        'email' => $userToDelete['email'] ?? null,
+                        'rol' => $userToDelete['role'] ?? null
+                    ]
+                ]
+            );
             
             $_SESSION['success'] = 'Usuario eliminado exitosamente';
             $this->redirect('/usuarios');

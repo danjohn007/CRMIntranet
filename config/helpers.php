@@ -47,6 +47,123 @@ function getSiteName() {
 }
 
 /**
+ * Check whether the admin control table is available.
+ * This helper is intentionally defensive so operational actions never fail
+ * just because the intranet control migration has not been applied yet.
+ *
+ * @param PDO|null $db
+ * @return bool
+ */
+function adminControlTableExists($db = null) {
+    static $exists = null;
+
+    if ($exists !== null) {
+        return $exists;
+    }
+
+    try {
+        if ($db === null) {
+            $db = Database::getInstance()->getConnection();
+        }
+        $stmt = $db->query("SHOW TABLES LIKE 'admin_control_events'");
+        $exists = $stmt && $stmt->fetch() !== false;
+    } catch (Exception $e) {
+        $exists = false;
+    }
+
+    return $exists;
+}
+
+/**
+ * Register an internal intranet event for the administrator control center.
+ *
+ * @param string $module
+ * @param string $action
+ * @param string $description
+ * @param array $options
+ * @return bool
+ */
+function logAdminControlEvent($module, $action, $description, $options = []) {
+    try {
+        $db = Database::getInstance()->getConnection();
+
+        if (!adminControlTableExists($db)) {
+            return false;
+        }
+
+        $priority = $options['priority'] ?? 'normal';
+        if (!in_array($priority, ['baja', 'normal', 'alta', 'critica'], true)) {
+            $priority = 'normal';
+        }
+
+        $applicationId = $options['application_id'] ?? null;
+        $folio = $options['folio'] ?? null;
+
+        if ($applicationId && empty($folio)) {
+            try {
+                $stmtApp = $db->prepare("SELECT folio FROM applications WHERE id = ?");
+                $stmtApp->execute([$applicationId]);
+                $app = $stmtApp->fetch(PDO::FETCH_ASSOC);
+                if ($app && !empty($app['folio'])) {
+                    $folio = $app['folio'];
+                }
+            } catch (PDOException $e) {
+                // Non-fatal; the event can still be stored without a folio.
+            }
+        }
+
+        $metadata = $options['metadata'] ?? [];
+        $metadataJson = !empty($metadata) ? json_encode($metadata, JSON_UNESCAPED_UNICODE) : null;
+
+        $userId = array_key_exists('user_id', $options) ? $options['user_id'] : ($_SESSION['user_id'] ?? null);
+        $userName = $options['user_name'] ?? ($_SESSION['user_name'] ?? null);
+
+        $stmt = $db->prepare("
+            INSERT INTO admin_control_events
+                (module, action, entity_type, entity_id, application_id, folio,
+                 user_id, user_name, description, metadata_json, priority)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ");
+
+        $stmt->execute([
+            $module,
+            $action,
+            $options['entity_type'] ?? null,
+            $options['entity_id'] ?? null,
+            $applicationId,
+            $folio,
+            $userId,
+            $userName,
+            $description,
+            $metadataJson,
+            $priority
+        ]);
+
+        return true;
+    } catch (PDOException $e) {
+        error_log("Error logging admin control event: " . $e->getMessage());
+        return false;
+    }
+}
+
+/**
+ * Get unread events count for the administrator menu badge.
+ *
+ * @return int
+ */
+function getAdminControlUnreadCount() {
+    try {
+        $db = Database::getInstance()->getConnection();
+        if (!adminControlTableExists($db)) {
+            return 0;
+        }
+        return (int) $db->query("SELECT COUNT(*) FROM admin_control_events WHERE is_read = 0")->fetchColumn();
+    } catch (PDOException $e) {
+        return 0;
+    }
+}
+
+/**
  * Log audit trail event
  * @param string $action Action performed (login, logout, create, update, delete, etc)
  * @param string $module Module name (usuarios, solicitudes, formularios, etc)
