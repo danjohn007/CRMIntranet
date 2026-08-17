@@ -64,7 +64,8 @@ class AuthController extends BaseController {
             if ($user && password_verify($password, $user['password'])) {
                 if (!$this->validateGeoLogin($user)) {
                     $this->registerFailedLogin($username, $ipAddress);
-                    logAudit('login_geo_denied', 'autenticacion', $this->buildGeoDeniedAuditMessage($user));
+                    $geoDeniedAudit = $this->buildGeoDeniedAuditContext($user);
+                    logAudit('login_geo_denied', 'autenticacion', $geoDeniedAudit['description'], $geoDeniedAudit['metadata']);
                     $_SESSION['error'] = self::GEO_DENIED_MESSAGE;
                     $this->redirect('/login');
                 }
@@ -240,20 +241,50 @@ class AuthController extends BaseController {
         }
     }
 
-    private function buildGeoDeniedAuditMessage(array $user): string {
+    private function buildGeoDeniedAuditContext(array $user): array {
         $username = $user['username'] ?? 'desconocido';
         $locationData = $this->getLoginLocationAttemptData();
         $parts = ["Login denegado por ubicacion para asesor: $username"];
 
+        $metadata = [
+            'event_type' => 'login_geo_denied',
+            'is_security_event' => true,
+            'affected_user' => $username,
+            'affected_user_id' => $user['id'] ?? null,
+            'affected_user_name' => $user['full_name'] ?? null,
+            'location_status' => $locationData['location_status'],
+            'detected_location' => null,
+            'allowed_location' => null,
+            'distance_meters' => $locationData['distance_meters'],
+            'distance_label' => null,
+            'map_url' => null,
+        ];
+
         if ($locationData['latitude'] !== null && $locationData['longitude'] !== null) {
             $lat = number_format((float) $locationData['latitude'], 8, '.', '');
             $lng = number_format((float) $locationData['longitude'], 8, '.', '');
+            $mapUrl = "https://www.google.com/maps?q=$lat,$lng";
+
             $parts[] = "Ubicacion detectada: $lat, $lng";
-            $parts[] = "Mapa: https://www.google.com/maps?q=$lat,$lng";
+            $parts[] = "Mapa: $mapUrl";
+            $metadata['detected_location'] = [
+                'latitude' => (float) $lat,
+                'longitude' => (float) $lng,
+                'label' => "$lat, $lng",
+            ];
+            $metadata['map_url'] = $mapUrl;
         } elseif ($locationData['location_status'] === 'missing') {
             $parts[] = 'Ubicacion detectada: no recibida por el navegador';
+            $metadata['detected_location'] = [
+                'status' => 'missing',
+                'label' => 'No recibida por el navegador',
+            ];
         } elseif ($locationData['location_status'] === 'invalid') {
             $parts[] = 'Ubicacion detectada: coordenadas invalidas';
+            $metadata['detected_location'] = [
+                'status' => 'invalid',
+                'label' => 'Coordenadas invalidas',
+            ];
         }
 
         if ($locationData['distance_meters'] !== null) {
@@ -262,15 +293,24 @@ class AuthController extends BaseController {
                 ? number_format($distance / 1000, 2, '.', '') . ' km'
                 : number_format($distance, 0, '.', '') . ' m';
             $parts[] = "Distancia del area permitida: $distanceLabel";
+            $metadata['distance_label'] = $distanceLabel;
         }
 
         if ($locationData['allowed_latitude'] !== null && $locationData['allowed_longitude'] !== null) {
             $allowedLat = number_format((float) $locationData['allowed_latitude'], 8, '.', '');
             $allowedLng = number_format((float) $locationData['allowed_longitude'], 8, '.', '');
             $parts[] = "Ubicacion permitida registrada: $allowedLat, $allowedLng";
+            $metadata['allowed_location'] = [
+                'latitude' => (float) $allowedLat,
+                'longitude' => (float) $allowedLng,
+                'label' => "$allowedLat, $allowedLng",
+            ];
         }
 
-        return implode(' | ', $parts);
+        return [
+            'description' => implode(' | ', $parts),
+            'metadata' => $metadata,
+        ];
     }
 
     private function getLoginLocationAttemptData(): array {

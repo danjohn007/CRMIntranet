@@ -164,6 +164,32 @@ function getAdminControlUnreadCount() {
 }
 
 /**
+ * Check whether audit_trail has the metadata_json column.
+ *
+ * @param PDO|null $db
+ * @return bool
+ */
+function auditTrailMetadataColumnExists($db = null) {
+    static $exists = null;
+
+    if ($exists !== null) {
+        return $exists;
+    }
+
+    try {
+        if ($db === null) {
+            $db = Database::getInstance()->getConnection();
+        }
+        $stmt = $db->query("SHOW COLUMNS FROM audit_trail LIKE 'metadata_json'");
+        $exists = $stmt && $stmt->fetch() !== false;
+    } catch (Exception $e) {
+        $exists = false;
+    }
+
+    return $exists;
+}
+
+/**
  * Log audit trail event
  * @param string $action Action performed (login, logout, create, update, delete, etc)
  * @param string $module Module name (usuarios, solicitudes, formularios, etc)
@@ -183,15 +209,11 @@ function logAudit($action, $module, $description, $metadata = []) {
         // Get IP and User Agent
         $ipAddress = $_SERVER['REMOTE_ADDR'] ?? null;
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? null;
-        
-        // Prepare statement
-        $stmt = $db->prepare("
-            INSERT INTO audit_trail 
-            (user_id, user_name, user_email, action, module, description, ip_address, user_agent)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-        ");
-        
-        $stmt->execute([
+        $metadataJson = !empty($metadata) ? json_encode($metadata, JSON_UNESCAPED_UNICODE) : null;
+
+        $columns = "user_id, user_name, user_email, action, module, description, ip_address, user_agent";
+        $placeholders = "?, ?, ?, ?, ?, ?, ?, ?";
+        $values = [
             $userId,
             $userName,
             $userEmail,
@@ -200,7 +222,21 @@ function logAudit($action, $module, $description, $metadata = []) {
             $description,
             $ipAddress,
             $userAgent
-        ]);
+        ];
+
+        if (auditTrailMetadataColumnExists($db)) {
+            $columns .= ", metadata_json";
+            $placeholders .= ", ?";
+            $values[] = $metadataJson;
+        }
+
+        $stmt = $db->prepare("
+            INSERT INTO audit_trail
+            ($columns)
+            VALUES ($placeholders)
+        ");
+
+        $stmt->execute($values);
         
         return true;
     } catch (PDOException $e) {

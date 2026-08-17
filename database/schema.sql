@@ -334,6 +334,7 @@ CREATE TABLE `audit_trail` (
   `description` text NOT NULL,
   `ip_address` varchar(45) DEFAULT NULL,
   `user_agent` text,
+  `metadata_json` text DEFAULT NULL,
   `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
   PRIMARY KEY (`id`),
   KEY `user_id` (`user_id`),
