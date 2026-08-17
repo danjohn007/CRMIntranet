@@ -4,6 +4,8 @@ require_once ROOT_PATH . '/app/controllers/BaseController.php';
 class TestController extends BaseController {
     
     public function connection() {
+        $this->requireRole([ROLE_ADMIN]);
+
         $results = [];
         
         // Test 1: URL Base

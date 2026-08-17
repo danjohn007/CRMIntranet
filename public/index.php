@@ -8,8 +8,8 @@ $router = new Router();
 
 // Obtener la URI solicitada
 $uri = parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH);
-$basePath = dirname($_SERVER['SCRIPT_NAME']);
-if ($basePath !== '/') {
+$basePath = rtrim(BASE_PATH, '/');
+if ($basePath !== '' && ($uri === $basePath || strpos($uri, $basePath . '/') === 0)) {
     $uri = substr($uri, strlen($basePath));
 }
 $uri = '/' . trim($uri, '/');

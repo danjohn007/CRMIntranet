@@ -1,23 +1,34 @@
 <?php
 // Configuración automática de URL Base
 function getBaseUrl() {
-    $protocol = isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http';
-    $host = $_SERVER['HTTP_HOST'];
-    $script = $_SERVER['SCRIPT_NAME'];
-    $dir = str_replace('\\', '/', dirname($script));
-    $dir = $dir === '/' ? '' : $dir;
-    return $protocol . '://' . $host . $dir;
+    $configuredUrl = trim((string) getenv('APP_URL'));
+    if ($configuredUrl !== '') {
+        return rtrim($configuredUrl, '/');
+    }
+
+    $https = !empty($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) !== 'off';
+    $protocol = $https ? 'https' : 'http';
+    $host = $_SERVER['HTTP_HOST'] ?? 'localhost';
+    $script = str_replace('\\', '/', $_SERVER['SCRIPT_NAME'] ?? '/index.php');
+    $dir = rtrim(str_replace('\\', '/', dirname($script)), '/');
+
+    if (substr($dir, -7) === '/public') {
+        $dir = substr($dir, 0, -7);
+    }
+
+    return $protocol . '://' . $host . ($dir === '' || $dir === '/' ? '' : $dir);
 }
 
 define('BASE_URL', getBaseUrl());
+define('BASE_PATH', (string) (parse_url(BASE_URL, PHP_URL_PATH) ?? ''));
 define('ROOT_PATH', dirname(__DIR__));
 
 // Configuración de Base de Datos
-define('DB_HOST', 'localhost');
-define('DB_NAME', 'tramitev_crmvisas');
-define('DB_USER', 'tramitev_crmvisasadmin');
-define('DB_PASS', '+svewHaWjf;u');
-define('DB_CHARSET', 'utf8mb4');
+define('DB_HOST', getenv('DB_HOST') ?: 'localhost');
+define('DB_NAME', getenv('DB_NAME') ?: 'tramitev_crmvisas');
+define('DB_USER', getenv('DB_USER') ?: 'tramitev_crmvisasadmin');
+define('DB_PASS', getenv('DB_PASS') ?: '+svewHaWjf;u');
+define('DB_CHARSET', getenv('DB_CHARSET') ?: 'utf8mb4');
 
 
 // Configuración de Timezone
@@ -26,11 +37,15 @@ date_default_timezone_set('America/Mexico_City');
 // Configuración de Sesión
 ini_set('session.cookie_httponly', 1);
 ini_set('session.use_only_cookies', 1);
+ini_set('session.cookie_samesite', 'Lax');
+ini_set('session.cookie_secure', parse_url(BASE_URL, PHP_URL_SCHEME) === 'https' ? '1' : '0');
+ini_set('session.cookie_path', BASE_PATH !== '' ? rtrim(BASE_PATH, '/') . '/' : '/');
 session_start();
 
 // Error Reporting (Solo en desarrollo)
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+$isDevelopment = strtolower((string) (getenv('APP_ENV') ?: 'production')) === 'development';
+ini_set('display_errors', $isDevelopment ? '1' : '0');
 ini_set('log_errors', 1);
 ini_set('error_log', ROOT_PATH . '/error.log');
 

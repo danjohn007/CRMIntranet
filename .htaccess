@@ -3,7 +3,14 @@
     RewriteEngine On
     
     # Establecer el directorio base
-    RewriteBase /
+    RewriteBase /intranet/
+
+    RewriteRule ^(?:app|config|database|vendor)(?:/|$) - [F,L,NC]
+    RewriteRule ^(?:composer\.(?:json|lock)|error\.log|test_connection\.php|.*\.md)$ - [F,L,NC]
+
+    RewriteCond %{DOCUMENT_ROOT}/intranet/public/$1 -f [OR]
+    RewriteCond %{DOCUMENT_ROOT}/intranet/public/$1 -d
+    RewriteRule ^(.+)$ public/$1 [L]
     
     # Si el archivo o directorio existe, mostrarlo directamente
     RewriteCond %{REQUEST_FILENAME} !-f
@@ -15,6 +22,7 @@
 
 # Prevenir listado de directorios
 Options -Indexes
+DirectoryIndex public/index.php
 
 # Deshabilitar el acceso a archivos sensibles
 <FilesMatch "^\.">
@@ -34,6 +42,12 @@ AddType application/x-httpd-php .php
 # Habilitar compresión
 <IfModule mod_deflate.c>
     AddOutputFilterByType DEFLATE text/html text/plain text/xml text/css text/javascript application/javascript
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options nosniff
+    Header always set X-Frame-Options SAMEORIGIN
+    Header always set Referrer-Policy strict-origin-when-cross-origin
 </IfModule>
 
 # Cache para archivos estáticos
