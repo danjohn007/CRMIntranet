@@ -400,14 +400,17 @@ $canadianStatusLabels = [
                     <p class="text-sm text-gray-700"><i class="fas fa-file mr-1"></i><?= htmlspecialchars($fileItem['value']) ?></p>
                     <?php if (!empty($responseDoc['id']) && !$docFileExists($responseDoc)): ?>
                     <p class="text-gray-400 text-xs mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Vista previa no disponible</p>
-                    <?php elseif (!empty($responseDoc['id']) && $isResponseImage): ?>
+                    <?php elseif (!empty($responseDoc['id'])): ?>
+                    <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $responseDoc['id'] ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
+                    <?php if ($isResponseImage): ?>
                     <div class="mt-2">
                         <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $responseDoc['id'] ?>" alt="<?= htmlspecialchars($fileItem['value']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
                     </div>
-                    <?php elseif (!empty($responseDoc['id']) && $responseExt === 'pdf'): ?>
+                    <?php elseif ($responseExt === 'pdf'): ?>
                     <div class="mt-2">
                         <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $responseDoc['id'] ?>" type="application/pdf" title="<?= htmlspecialchars($fileItem['value']) ?>" class="w-full rounded border border-gray-200" style="height:260px;">
                     </div>
+                    <?php endif; ?>
                     <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
@@ -1030,7 +1033,9 @@ $canadianStatusLabels = [
                         <?php $isPasaporteImage = in_array(strtolower($pasaporteDoc['file_type'] ?? ''), $inlinePreviewImageTypes); ?>
                         <?php if (!$docFileExists($pasaporteDoc)): ?>
                         <p class="text-gray-400 text-xs mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Vista previa no disponible</p>
-                        <?php elseif ($isPasaporteImage): ?>
+                        <?php else: ?>
+                        <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $pasaporteDoc['id'] ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
+                        <?php if ($isPasaporteImage): ?>
                         <div class="mt-2">
                             <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $pasaporteDoc['id'] ?>" alt="<?= htmlspecialchars($pasaporteDoc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
                         </div>
@@ -1038,6 +1043,7 @@ $canadianStatusLabels = [
                         <div class="mt-2">
                             <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $pasaporteDoc['id'] ?>" type="application/pdf" title="<?= htmlspecialchars($pasaporteDoc['name']) ?>" class="w-full rounded border border-gray-200" style="height:260px;">
                         </div>
+                        <?php endif; ?>
                         <?php endif; ?>
                         <?php endif; ?>
                     <?php else: ?>
@@ -1063,7 +1069,9 @@ $canadianStatusLabels = [
                         <?php $isVisaCanadiensPrevImage = in_array(strtolower($visaCanadiensPrevDoc['file_type'] ?? ''), $inlinePreviewImageTypes); ?>
                         <?php if (!$docFileExists($visaCanadiensPrevDoc)): ?>
                         <p class="text-gray-400 text-xs mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Vista previa no disponible</p>
-                        <?php elseif ($isVisaCanadiensPrevImage): ?>
+                        <?php else: ?>
+                        <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaCanadiensPrevDoc['id'] ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
+                        <?php if ($isVisaCanadiensPrevImage): ?>
                         <div class="mt-2">
                             <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaCanadiensPrevDoc['id'] ?>" alt="<?= htmlspecialchars($visaCanadiensPrevDoc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
                         </div>
@@ -1071,6 +1079,7 @@ $canadianStatusLabels = [
                         <div class="mt-2">
                             <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaCanadiensPrevDoc['id'] ?>" type="application/pdf" title="<?= htmlspecialchars($visaCanadiensPrevDoc['name']) ?>" class="w-full rounded border border-gray-200" style="height:260px;">
                         </div>
+                        <?php endif; ?>
                         <?php endif; ?>
                         <?php endif; ?>
                     <?php else: ?>
@@ -1096,7 +1105,9 @@ $canadianStatusLabels = [
                         <?php $isEtaAnteriorImage = in_array(strtolower($etaAnteriorDoc['file_type'] ?? ''), $inlinePreviewImageTypes); ?>
                         <?php if (!$docFileExists($etaAnteriorDoc)): ?>
                         <p class="text-gray-400 text-xs mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Vista previa no disponible</p>
-                        <?php elseif ($isEtaAnteriorImage): ?>
+                        <?php else: ?>
+                        <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $etaAnteriorDoc['id'] ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
+                        <?php if ($isEtaAnteriorImage): ?>
                         <div class="mt-2">
                             <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $etaAnteriorDoc['id'] ?>" alt="<?= htmlspecialchars($etaAnteriorDoc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
                         </div>
@@ -1104,6 +1115,7 @@ $canadianStatusLabels = [
                         <div class="mt-2">
                             <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $etaAnteriorDoc['id'] ?>" type="application/pdf" title="<?= htmlspecialchars($etaAnteriorDoc['name']) ?>" class="w-full rounded border border-gray-200" style="height:260px;">
                         </div>
+                        <?php endif; ?>
                         <?php endif; ?>
                         <?php endif; ?>
                     <?php else: ?>
@@ -1130,7 +1142,9 @@ $canadianStatusLabels = [
                         <?php $isVisaAnteriorImage = in_array(strtolower($visaAnteriorDoc['file_type'] ?? ''), $inlinePreviewImageTypes); ?>
                         <?php if (!$docFileExists($visaAnteriorDoc)): ?>
                         <p class="text-gray-400 text-xs mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Vista previa no disponible</p>
-                        <?php elseif ($isVisaAnteriorImage): ?>
+                        <?php else: ?>
+                        <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaAnteriorDoc['id'] ?>" target="_blank" class="text-blue-600 text-sm"><i class="fas fa-eye mr-1"></i>Ver</a>
+                        <?php if ($isVisaAnteriorImage): ?>
                         <div class="mt-2">
                             <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaAnteriorDoc['id'] ?>" alt="<?= htmlspecialchars($visaAnteriorDoc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
                         </div>
@@ -1138,6 +1152,7 @@ $canadianStatusLabels = [
                         <div class="mt-2">
                             <embed src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaAnteriorDoc['id'] ?>" type="application/pdf" title="<?= htmlspecialchars($visaAnteriorDoc['name']) ?>" class="w-full rounded border border-gray-200" style="height:260px;">
                         </div>
+                        <?php endif; ?>
                         <?php endif; ?>
                         <?php endif; ?>
                     <?php else: ?>
@@ -1182,6 +1197,8 @@ $canadianStatusLabels = [
                             <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" target="_blank" class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></a>
                             <a href="<?= BASE_URL ?>/solicitudes/descargar-documento/<?= $doc['id'] ?>" class="text-primary hover:underline"><i class="fas fa-download"></i></a>
                         </div>
+                        <?php elseif ($docFileExists($doc)): ?>
+                        <a href="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" target="_blank" class="text-blue-600 hover:text-blue-800"><i class="fas fa-eye"></i></a>
                         <?php endif; ?>
                     </div>
                     <?php if ($isAdmin && !$docFileExists($doc)): ?>
