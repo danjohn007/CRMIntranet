@@ -916,28 +916,23 @@ class ApplicationController extends BaseController {
         
         // Verificar que la solicitud existe y el usuario tiene acceso
         $role = $this->getUserRole();
+
+        // REGLA: Asesor tiene acceso de solo lectura a documentos, no puede subir archivos
+        if ($role === ROLE_ASESOR) {
+            $_SESSION['error'] = 'No tiene permisos para subir documentos';
+            $this->redirect('/solicitudes/ver/' . $id);
+        }
+
         try {
             $stmt = $this->db->prepare("SELECT * FROM applications WHERE id = ?");
             $stmt->execute([$id]);
             $application = $stmt->fetch();
-            
+
             if (!$application) {
                 $_SESSION['error'] = 'Solicitud no encontrada';
                 $this->redirect('/solicitudes');
             }
-            
-            // REGLA: Asesor solo puede acceder a sus propias solicitudes y no las cerradas
-            if ($role === ROLE_ASESOR) {
-                if ($application['status'] === STATUS_TRAMITE_CERRADO || $application['status'] === STATUS_FINALIZADO) {
-                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                    $this->redirect('/solicitudes');
-                }
-                if (intval($application['created_by']) !== intval($_SESSION['user_id'])) {
-                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                    $this->redirect('/solicitudes');
-                }
-            }
-            
+
             // Procesar archivo
             if (!isset($_FILES['document']) || $_FILES['document']['error'] !== UPLOAD_ERR_OK) {
                 $_SESSION['error'] = 'Error al subir el archivo';
@@ -2192,6 +2187,16 @@ class ApplicationController extends BaseController {
     /**
      * Visualizar un documento por su ID.
      */
+    // Esta ruta se usa como src de <img>/<embed> para previsualizar documentos inline;
+    // en caso de error debe responder con texto plano y no redirigir a una página HTML
+    // completa, que quedaría anidada (y navegable) dentro del visor.
+    private function denyDocumentView($message, $status = 403) {
+        http_response_code($status);
+        header('Content-Type: text/plain; charset=utf-8');
+        echo $message;
+        exit;
+    }
+
     public function viewDocument($docId) {
         $this->requireLogin();
         $role = $this->getUserRole();
@@ -2207,8 +2212,7 @@ class ApplicationController extends BaseController {
             $doc = $stmt->fetch();
 
             if (!$doc) {
-                $_SESSION['error'] = 'Documento no encontrado';
-                $this->redirect('/solicitudes');
+                $this->denyDocumentView('Documento no encontrado', 404);
             }
 
             $docStatus = $doc['status'] ?? '';
@@ -2216,22 +2220,18 @@ class ApplicationController extends BaseController {
 
             if ($role === ROLE_ASESOR) {
                 if ($docStatus === STATUS_TRAMITE_CERRADO || $docStatus === STATUS_FINALIZADO) {
-                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                    $this->redirect('/solicitudes');
+                    $this->denyDocumentView('No tiene permisos para esta solicitud');
                 }
                 if ($docCreatorId !== intval($_SESSION['user_id'])) {
-                    $_SESSION['error'] = 'No tiene permisos para esta solicitud';
-                    $this->redirect('/solicitudes');
+                    $this->denyDocumentView('No tiene permisos para esta solicitud');
                 }
             } elseif (!in_array($role, [ROLE_ADMIN, ROLE_GERENTE])) {
-                $_SESSION['error'] = 'No tiene permisos para visualizar documentos';
-                $this->redirect('/solicitudes');
+                $this->denyDocumentView('No tiene permisos para visualizar documentos');
             }
 
             $filePath = ROOT_PATH . '/public' . $doc['file_path'];
             if (!file_exists($filePath)) {
-                $_SESSION['error'] = 'El archivo no existe en el servidor';
-                $this->redirect('/solicitudes/ver/' . $doc['app_id']);
+                $this->denyDocumentView('El archivo no existe en el servidor', 404);
             }
 
             logAudit('view', 'documentos', "Visualización de documento #$docId ({$doc['name']})");

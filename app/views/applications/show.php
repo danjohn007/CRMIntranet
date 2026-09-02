@@ -41,6 +41,9 @@ $canadianIsRenovacion = $isCanadianVisa && stripos($application['canadian_modali
 $canadianIsETA        = $isCanadianVisa && stripos($application['canadian_tipo'] ?? '', 'ETA') !== false;
 $isClosedStatus       = $status === STATUS_TRAMITE_CERRADO || $status === STATUS_FINALIZADO;
 $inlinePreviewImageTypes = ['jpg','jpeg','png','gif','webp'];
+$docFileExists = function($d) {
+    return !empty($d['file_path']) && file_exists(ROOT_PATH . '/public' . $d['file_path']);
+};
 
 // Human-readable labels for each status in the Canadian visa flow
 $canadianStatusLabels = [
@@ -395,7 +398,9 @@ $canadianStatusLabels = [
                 <div class="border-l-4 border-green-500 pl-4">
                     <p class="text-sm text-gray-600 capitalize"><?= htmlspecialchars($fileItem['label']) ?></p>
                     <p class="text-sm text-gray-700"><i class="fas fa-file mr-1"></i><?= htmlspecialchars($fileItem['value']) ?></p>
-                    <?php if (!empty($responseDoc['id']) && $isResponseImage): ?>
+                    <?php if (!empty($responseDoc['id']) && !$docFileExists($responseDoc)): ?>
+                    <p class="text-gray-400 text-xs mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Vista previa no disponible</p>
+                    <?php elseif (!empty($responseDoc['id']) && $isResponseImage): ?>
                     <div class="mt-2">
                         <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $responseDoc['id'] ?>" alt="<?= htmlspecialchars($fileItem['value']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
                     </div>
@@ -1023,7 +1028,9 @@ $canadianStatusLabels = [
                         <?php else: ?>
                         <p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($pasaporteDoc['name']) ?></p>
                         <?php $isPasaporteImage = in_array(strtolower($pasaporteDoc['file_type'] ?? ''), $inlinePreviewImageTypes); ?>
-                        <?php if ($isPasaporteImage): ?>
+                        <?php if (!$docFileExists($pasaporteDoc)): ?>
+                        <p class="text-gray-400 text-xs mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Vista previa no disponible</p>
+                        <?php elseif ($isPasaporteImage): ?>
                         <div class="mt-2">
                             <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $pasaporteDoc['id'] ?>" alt="<?= htmlspecialchars($pasaporteDoc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
                         </div>
@@ -1034,7 +1041,7 @@ $canadianStatusLabels = [
                         <?php endif; ?>
                         <?php endif; ?>
                     <?php else: ?>
-                        <?php if (($isAsesor || $isAdmin) && !$isClosedStatus): ?>
+                        <?php if ($isAdmin && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('pasaporte_vigente')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
                         <?php else: ?><p class="text-red-500 text-sm"><i class="fas fa-times-circle mr-1"></i>No subido</p><?php endif; ?>
                     <?php endif; ?>
@@ -1054,7 +1061,9 @@ $canadianStatusLabels = [
                         <?php else: ?>
                         <p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($visaCanadiensPrevDoc['name']) ?></p>
                         <?php $isVisaCanadiensPrevImage = in_array(strtolower($visaCanadiensPrevDoc['file_type'] ?? ''), $inlinePreviewImageTypes); ?>
-                        <?php if ($isVisaCanadiensPrevImage): ?>
+                        <?php if (!$docFileExists($visaCanadiensPrevDoc)): ?>
+                        <p class="text-gray-400 text-xs mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Vista previa no disponible</p>
+                        <?php elseif ($isVisaCanadiensPrevImage): ?>
                         <div class="mt-2">
                             <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaCanadiensPrevDoc['id'] ?>" alt="<?= htmlspecialchars($visaCanadiensPrevDoc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
                         </div>
@@ -1065,7 +1074,7 @@ $canadianStatusLabels = [
                         <?php endif; ?>
                         <?php endif; ?>
                     <?php else: ?>
-                        <?php if (($isAsesor || $isAdmin) && !$isClosedStatus): ?>
+                        <?php if ($isAdmin && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('visa_canadiense_anterior')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
                         <?php else: ?><p class="text-red-500 text-sm"><i class="fas fa-times-circle mr-1"></i>No subido</p><?php endif; ?>
                     <?php endif; ?>
@@ -1085,7 +1094,9 @@ $canadianStatusLabels = [
                         <?php else: ?>
                         <p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($etaAnteriorDoc['name']) ?></p>
                         <?php $isEtaAnteriorImage = in_array(strtolower($etaAnteriorDoc['file_type'] ?? ''), $inlinePreviewImageTypes); ?>
-                        <?php if ($isEtaAnteriorImage): ?>
+                        <?php if (!$docFileExists($etaAnteriorDoc)): ?>
+                        <p class="text-gray-400 text-xs mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Vista previa no disponible</p>
+                        <?php elseif ($isEtaAnteriorImage): ?>
                         <div class="mt-2">
                             <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $etaAnteriorDoc['id'] ?>" alt="<?= htmlspecialchars($etaAnteriorDoc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
                         </div>
@@ -1096,7 +1107,7 @@ $canadianStatusLabels = [
                         <?php endif; ?>
                         <?php endif; ?>
                     <?php else: ?>
-                        <?php if (($isAsesor || $isAdmin) && !$isClosedStatus): ?>
+                        <?php if ($isAdmin && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('eta_anterior')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
                         <?php else: ?><p class="text-red-500 text-sm"><i class="fas fa-times-circle mr-1"></i>No subido</p><?php endif; ?>
                     <?php endif; ?>
@@ -1117,7 +1128,9 @@ $canadianStatusLabels = [
                         <?php else: ?>
                         <p class="text-green-600 text-sm"><i class="fas fa-check-circle mr-1"></i><?= htmlspecialchars($visaAnteriorDoc['name']) ?></p>
                         <?php $isVisaAnteriorImage = in_array(strtolower($visaAnteriorDoc['file_type'] ?? ''), $inlinePreviewImageTypes); ?>
-                        <?php if ($isVisaAnteriorImage): ?>
+                        <?php if (!$docFileExists($visaAnteriorDoc)): ?>
+                        <p class="text-gray-400 text-xs mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Vista previa no disponible</p>
+                        <?php elseif ($isVisaAnteriorImage): ?>
                         <div class="mt-2">
                             <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $visaAnteriorDoc['id'] ?>" alt="<?= htmlspecialchars($visaAnteriorDoc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:260px;">
                         </div>
@@ -1128,7 +1141,7 @@ $canadianStatusLabels = [
                         <?php endif; ?>
                         <?php endif; ?>
                     <?php else: ?>
-                        <?php if (($isAsesor || $isAdmin) && !$isClosedStatus): ?>
+                        <?php if ($isAdmin && !$isClosedStatus): ?>
                         <button onclick="openDocUpload('visa_anterior')" class="text-sm bg-blue-600 text-white px-3 py-1 rounded hover:bg-blue-700"><i class="fas fa-upload mr-1"></i>Subir</button>
                         <?php else: ?><p class="text-red-500 text-sm"><i class="fas fa-times-circle mr-1"></i>No subido</p><?php endif; ?>
                     <?php endif; ?>
@@ -1144,7 +1157,7 @@ $canadianStatusLabels = [
         <div class="bg-white rounded-lg shadow p-6">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-xl font-bold text-gray-800">Documentos</h3>
-                <?php if (!$isClosedStatus): ?>
+                <?php if ($isAdmin && !$isClosedStatus): ?>
                 <button onclick="openDocUpload('adicional')"
                         class="btn-primary text-white px-4 py-2 rounded-lg hover:opacity-90 transition">
                     <i class="fas fa-upload mr-2"></i>Subir
@@ -1171,7 +1184,9 @@ $canadianStatusLabels = [
                         </div>
                         <?php endif; ?>
                     </div>
-                    <?php if ($isAdmin && $isImage): ?>
+                    <?php if ($isAdmin && !$docFileExists($doc)): ?>
+                    <p class="text-gray-400 text-xs mt-1"><i class="fas fa-exclamation-triangle mr-1"></i>Vista previa no disponible</p>
+                    <?php elseif ($isAdmin && $isImage): ?>
                     <div class="mt-2">
                         <img src="<?= BASE_URL ?>/solicitudes/ver-documento/<?= $doc['id'] ?>" alt="<?= htmlspecialchars($doc['name']) ?>" class="max-w-full rounded border border-gray-200" style="max-height:400px;">
                     </div>

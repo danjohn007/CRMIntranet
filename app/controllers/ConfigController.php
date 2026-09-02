@@ -77,6 +77,8 @@ class ConfigController extends BaseController {
                         ON DUPLICATE KEY UPDATE config_value = ?
                     ");
                     $stmt->execute([$relativePath, $relativePath]);
+                } else {
+                    throw new Exception('No se pudo guardar el logo');
                 }
             }
 

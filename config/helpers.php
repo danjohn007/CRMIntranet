@@ -29,12 +29,25 @@ function getConfig($key, $default = null) {
  * @return string|null Logo path or null if not configured
  */
 function getSiteLogo() {
-    $logo = getConfig('site_logo', null);
+    $logo = trim((string) getConfig('site_logo', ''));
     // Validate logo path is relative and doesn't contain protocols
-    if ($logo && (strpos($logo, '://') !== false || strpos($logo, 'javascript:') === 0)) {
+    if ($logo === '') {
+        return null;
+    }
+    if (strpos($logo, '://') !== false || strpos($logo, 'javascript:') === 0) {
         error_log("Invalid logo path detected: $logo");
         return null;
     }
+    $logo = '/' . ltrim(str_replace('\\', '/', $logo), '/');
+    if (strpos($logo, '/uploads/') !== 0 || strpos($logo, '..') !== false) {
+        return null;
+    }
+
+    $absolutePath = ROOT_PATH . '/public' . $logo;
+    if (!is_file($absolutePath) || !is_readable($absolutePath)) {
+        return null;
+    }
+
     return $logo;
 }
 
