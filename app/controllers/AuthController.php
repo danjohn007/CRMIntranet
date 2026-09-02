@@ -299,7 +299,7 @@ class AuthController extends BaseController {
         if ($locationData['allowed_latitude'] !== null && $locationData['allowed_longitude'] !== null) {
             $allowedLat = number_format((float) $locationData['allowed_latitude'], 8, '.', '');
             $allowedLng = number_format((float) $locationData['allowed_longitude'], 8, '.', '');
-            $parts[] = "Ubicacion permitida registrada: $allowedLat, $allowedLng";
+            $parts[] = "Sucursal mas cercana registrada: $allowedLat, $allowedLng";
             $metadata['allowed_location'] = [
                 'latitude' => (float) $allowedLat,
                 'longitude' => (float) $allowedLng,
@@ -307,10 +307,29 @@ class AuthController extends BaseController {
             ];
         }
 
+        if ($locationData['nearest_sucursal_nombre'] !== null) {
+            $parts[] = "Sucursal mas cercana: {$locationData['nearest_sucursal_nombre']}";
+            $metadata['nearest_sucursal'] = $locationData['nearest_sucursal_nombre'];
+        }
+
         return [
             'description' => implode(' | ', $parts),
             'metadata' => $metadata,
         ];
+    }
+
+    /**
+     * Sucursales activas para el login geolocalizado. El acceso es valido si el
+     * usuario esta dentro del radio de CUALQUIERA de ellas (no de una sola ubicacion).
+     */
+    private function getActiveSucursales(): array {
+        try {
+            $stmt = $this->db->query("SELECT * FROM sucursales WHERE activo = 1");
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            error_log("Error al cargar sucursales para geolocalizacion: " . $e->getMessage());
+            return [];
+        }
     }
 
     private function getLoginLocationAttemptData(): array {
@@ -321,13 +340,11 @@ class AuthController extends BaseController {
             'allowed_longitude' => null,
             'distance_meters' => null,
             'location_status' => getConfig('geo_login_enabled', '0') === '1' ? 'missing' : 'not_required',
+            'nearest_sucursal_nombre' => null,
         ];
 
         $userLat = $_POST['latitude'] ?? null;
         $userLng = $_POST['longitude'] ?? null;
-        $allowedLat = getConfig('geo_login_latitude', '');
-        $allowedLng = getConfig('geo_login_longitude', '');
-        $radiusMeters = (float) getConfig('geo_login_radius_meters', 100);
 
         if ($this->isValidLatitude($userLat) && $this->isValidLongitude($userLng)) {
             $data['latitude'] = round((float) $userLat, 8);
@@ -336,21 +353,31 @@ class AuthController extends BaseController {
             $data['location_status'] = 'invalid';
         }
 
-        if ($this->isValidLatitude($allowedLat) && $this->isValidLongitude($allowedLng)) {
-            $data['allowed_latitude'] = round((float) $allowedLat, 8);
-            $data['allowed_longitude'] = round((float) $allowedLng, 8);
-        }
+        if ($data['latitude'] !== null && $data['longitude'] !== null) {
+            $nearest = null;
+            $nearestDistance = null;
 
-        if ($data['latitude'] !== null && $data['longitude'] !== null && $data['allowed_latitude'] !== null && $data['allowed_longitude'] !== null) {
-            $distance = $this->distanceInMeters(
-                (float) $data['allowed_latitude'],
-                (float) $data['allowed_longitude'],
-                (float) $data['latitude'],
-                (float) $data['longitude']
-            );
+            foreach ($this->getActiveSucursales() as $sucursal) {
+                $distance = $this->distanceInMeters(
+                    (float) $sucursal['latitud'],
+                    (float) $sucursal['longitud'],
+                    (float) $data['latitude'],
+                    (float) $data['longitude']
+                );
 
-            $data['distance_meters'] = round($distance, 2);
-            $data['location_status'] = $distance <= $radiusMeters ? 'inside_range' : 'outside_range';
+                if ($nearestDistance === null || $distance < $nearestDistance) {
+                    $nearestDistance = $distance;
+                    $nearest = $sucursal;
+                }
+            }
+
+            if ($nearest !== null) {
+                $data['allowed_latitude'] = round((float) $nearest['latitud'], 8);
+                $data['allowed_longitude'] = round((float) $nearest['longitud'], 8);
+                $data['distance_meters'] = round($nearestDistance, 2);
+                $data['nearest_sucursal_nombre'] = $nearest['nombre'];
+                $data['location_status'] = $nearestDistance <= (float) $nearest['radio_metros'] ? 'inside_range' : 'outside_range';
+            }
         }
 
         return $data;
@@ -365,21 +392,32 @@ class AuthController extends BaseController {
             return true;
         }
 
-        $allowedLat = getConfig('geo_login_latitude', '');
-        $allowedLng = getConfig('geo_login_longitude', '');
-        $radiusMeters = (float) getConfig('geo_login_radius_meters', 100);
         $userLat = $_POST['latitude'] ?? null;
         $userLng = $_POST['longitude'] ?? null;
-
-        if (!$this->isValidLatitude($allowedLat) || !$this->isValidLongitude($allowedLng) || $radiusMeters <= 0) {
-            return false;
-        }
 
         if (!$this->isValidLatitude($userLat) || !$this->isValidLongitude($userLng)) {
             return false;
         }
 
-        return $this->distanceInMeters((float) $allowedLat, (float) $allowedLng, (float) $userLat, (float) $userLng) <= $radiusMeters;
+        foreach ($this->getActiveSucursales() as $sucursal) {
+            $radiusMeters = (float) $sucursal['radio_metros'];
+            if ($radiusMeters <= 0) {
+                continue;
+            }
+
+            $distance = $this->distanceInMeters(
+                (float) $sucursal['latitud'],
+                (float) $sucursal['longitud'],
+                (float) $userLat,
+                (float) $userLng
+            );
+
+            if ($distance <= $radiusMeters) {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     private function isValidLatitude($value): bool {

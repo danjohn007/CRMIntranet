@@ -1,7 +1,7 @@
 <?php
 $title = 'Configuracion Global';
 $geoEnabled = trim((string)($configs['geo_login_enabled']['config_value'] ?? '0')) === '1';
-$geoAddress = $configs['geo_login_address']['config_value'] ?? '';
+$sucursales = $sucursales ?? [];
 ob_start();
 ?>
 
@@ -356,52 +356,21 @@ ob_start();
                     </span>
                 </label>
             </div>
-            <div id="geo_login_fields" class="md:col-span-2 grid grid-cols-1 md:grid-cols-2 gap-6 <?= $geoEnabled ? '' : 'hidden' ?>">
-                <div class="md:col-span-2 relative">
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Direccion permitida</label>
-                    <input type="text" name="config_geo_login_address" id="geo_login_address"
-                           value="<?= htmlspecialchars($geoAddress) ?>"
-                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
-                           placeholder="Escribe una direccion para buscarla en el mapa"
-                           autocomplete="off">
-                    <div id="geo_address_suggestions"
-                         class="hidden absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto"></div>
-                    <p class="text-xs text-gray-500 mt-1">Selecciona una sugerencia para completar coordenadas automaticamente.</p>
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Latitud permitida</label>
-                    <input type="text" name="config_geo_login_latitude" id="geo_login_latitude"
-                           value="<?= htmlspecialchars($configs['geo_login_latitude']['config_value'] ?? '') ?>"
-                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
-                           placeholder="20.5888">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Longitud permitida</label>
-                    <input type="text" name="config_geo_login_longitude" id="geo_login_longitude"
-                           value="<?= htmlspecialchars($configs['geo_login_longitude']['config_value'] ?? '') ?>"
-                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
-                           placeholder="-100.3899">
-                </div>
-                <div>
-                    <label class="block text-sm font-medium text-gray-700 mb-2">Radio permitido (metros)</label>
-                    <input type="number" name="config_geo_login_radius_meters"
-                           value="<?= htmlspecialchars($configs['geo_login_radius_meters']['config_value'] ?? '100') ?>"
-                           class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
-                           min="1" max="100000">
-                </div>
-                <div class="flex items-end">
-                    <button type="button" onclick="useCurrentLocation()"
-                            class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition text-sm">
-                        <i class="fas fa-location-crosshairs mr-2"></i>Usar mi ubicacion actual
+            <div id="geo_login_fields" class="md:col-span-2 <?= $geoEnabled ? '' : 'hidden' ?>">
+                <div class="flex items-center justify-between mb-3">
+                    <h4 class="text-sm font-semibold text-gray-700">Sucursales</h4>
+                    <button type="button" onclick="addSucursalTab()"
+                            class="bg-blue-600 text-white px-3 py-1.5 rounded-lg hover:bg-blue-700 transition text-sm">
+                        <i class="fas fa-plus mr-1"></i>Agregar sucursal
                     </button>
                 </div>
-                <div class="md:col-span-2">
-                    <p id="location_status" class="text-sm text-gray-500"></p>
-                </div>
-                <div class="md:col-span-2">
-                    <div id="geo_login_map" class="h-80 w-full rounded-lg border border-gray-300"></div>
-                    <p class="text-xs text-gray-500 mt-2">Puedes hacer clic en el mapa o arrastrar el marcador para ajustar la ubicacion permitida.</p>
-                </div>
+                <p class="text-xs text-gray-500 mb-3">El acceso se permite si el asesor esta dentro del radio de <strong>cualquier</strong> sucursal activa.</p>
+
+                <div id="sucursal_tabs" class="flex flex-wrap gap-2 mb-4"></div>
+                <div id="sucursal_panels"></div>
+                <?php if (empty($sucursales)): ?>
+                <p id="sucursal_empty_hint" class="text-sm text-gray-500">No hay sucursales configuradas. Agrega al menos una para que el login geolocalizado funcione.</p>
+                <?php endif; ?>
             </div>
             <div>
                 <label class="block text-sm font-medium text-gray-700 mb-2">Intentos maximos</label>
@@ -480,10 +449,7 @@ ob_start();
             <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Seguridad</p>
             <ul class="space-y-1 text-sm text-gray-600">
                 <li><span class="font-medium text-gray-700">Geo login:</span> <?= $geoEnabled ? 'Activo' : 'Inactivo' ?></li>
-                <li><span class="font-medium text-gray-700">Direccion:</span> <?= htmlspecialchars($geoAddress ?: '-') ?></li>
-                <li><span class="font-medium text-gray-700">Latitud:</span> <?= htmlspecialchars($configs['geo_login_latitude']['config_value'] ?? '-') ?></li>
-                <li><span class="font-medium text-gray-700">Longitud:</span> <?= htmlspecialchars($configs['geo_login_longitude']['config_value'] ?? '-') ?></li>
-                <li><span class="font-medium text-gray-700">Radio:</span> <?= htmlspecialchars($configs['geo_login_radius_meters']['config_value'] ?? '100') ?> m</li>
+                <li><span class="font-medium text-gray-700">Sucursales:</span> <?= count($sucursales) ?> (<?= count(array_filter($sucursales, function ($s) { return (int) $s['activo'] === 1; })) ?> activas)</li>
                 <li><span class="font-medium text-gray-700">Intentos:</span> <?= htmlspecialchars($configs['login_max_attempts']['config_value'] ?? '5') ?></li>
                 <li><span class="font-medium text-gray-700">Inactividad:</span> <?= htmlspecialchars($configs['session_idle_timeout_minutes']['config_value'] ?? '30') ?> min</li>
             </ul>
@@ -493,10 +459,13 @@ ob_start();
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
-let geoMap = null;
-let geoMarker = null;
-let addressSearchTimer = null;
-let reverseGeocodeTimer = null;
+const BASE_URL_JS = <?= json_encode(BASE_URL, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+const SUCURSALES_INICIALES = <?= json_encode($sucursales, JSON_HEX_TAG | JSON_HEX_APOS | JSON_HEX_QUOT | JSON_HEX_AMP) ?>;
+const branchMaps = {};
+const branchTimers = {};
+const sucursalKeys = [];
+let sucursalCounter = 0;
+let sucursalsInitialized = false;
 
 function showSection(sectionId) {
     const el = document.getElementById('section-' + sectionId);
@@ -549,7 +518,7 @@ function updateGeoLoginFields() {
     }
 
     if (toggle.checked) {
-        setTimeout(ensureGeoMap, 100);
+        setTimeout(initSucursales, 100);
     }
 }
 
@@ -559,45 +528,358 @@ document.addEventListener('DOMContentLoaded', function() {
         toggle.addEventListener('change', updateGeoLoginFields);
         updateGeoLoginFields();
     }
-
-    const addressInput = document.getElementById('geo_login_address');
-    if (addressInput) {
-        addressInput.addEventListener('input', handleAddressInput);
-        addressInput.addEventListener('blur', function() {
-            setTimeout(hideAddressSuggestions, 200);
-        });
-    }
-
-    const latInput = document.getElementById('geo_login_latitude');
-    const lngInput = document.getElementById('geo_login_longitude');
-    if (latInput && lngInput) {
-        latInput.addEventListener('change', syncMapFromCoordinateInputs);
-        lngInput.addEventListener('change', syncMapFromCoordinateInputs);
-    }
 });
 
-function useCurrentLocation() {
-    const status = document.getElementById('location_status');
+function initSucursales() {
+    if (sucursalsInitialized) {
+        if (sucursalKeys.length > 0) {
+            showSucursalTab(sucursalKeys[0]);
+        }
+        return;
+    }
+    sucursalsInitialized = true;
 
-    if (!navigator.geolocation) {
-        status.textContent = 'Este navegador no permite obtener ubicacion.';
-        status.className = 'text-sm text-red-600';
+    if (Array.isArray(SUCURSALES_INICIALES) && SUCURSALES_INICIALES.length > 0) {
+        SUCURSALES_INICIALES.forEach(function(item) {
+            addSucursalTab(item);
+        });
+        showSucursalTab(sucursalKeys[0]);
+    }
+}
+
+function escapeHtmlAttr(str) {
+    return String(str == null ? '' : str)
+        .replace(/&/g, '&amp;')
+        .replace(/"/g, '&quot;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;');
+}
+
+function addSucursalTab(existing) {
+    sucursalCounter++;
+    const data = existing || { id: null, nombre: '', direccion: '', latitud: '', longitud: '', radio_metros: 100, activo: 1 };
+    const key = data.id ? ('s' + data.id) : ('new' + sucursalCounter);
+
+    sucursalKeys.push(key);
+
+    const form = document.createElement('form');
+    form.method = 'POST';
+    form.action = BASE_URL_JS + '/configuracion/sucursales/guardar';
+    form.id = 'sucursal-form-' + key;
+    form.style.display = 'none';
+    document.body.appendChild(form);
+
+    const tabsContainer = document.getElementById('sucursal_tabs');
+    const pill = document.createElement('button');
+    pill.type = 'button';
+    pill.id = 'sucursal_tab_btn_' + key;
+    pill.textContent = data.nombre || 'Nueva sucursal';
+    pill.onclick = function() { showSucursalTab(key); };
+    tabsContainer.appendChild(pill);
+
+    const panelsContainer = document.getElementById('sucursal_panels');
+    const panel = document.createElement('div');
+    panel.id = 'sucursal_panel_' + key;
+    panel.className = 'hidden border border-gray-200 rounded-lg p-4 mb-4 bg-gray-50';
+    panel.innerHTML = buildSucursalPanelHTML(key, data);
+    panelsContainer.appendChild(panel);
+
+    const emptyHint = document.getElementById('sucursal_empty_hint');
+    if (emptyHint) {
+        emptyHint.remove();
+    }
+
+    showSucursalTab(key);
+    return key;
+}
+
+function buildSucursalPanelHTML(key, data) {
+    const nombre = escapeHtmlAttr(data.nombre);
+    const direccion = escapeHtmlAttr(data.direccion);
+    const lat = (data.latitud === null || data.latitud === undefined) ? '' : escapeHtmlAttr(data.latitud);
+    const lng = (data.longitud === null || data.longitud === undefined) ? '' : escapeHtmlAttr(data.longitud);
+    const radio = data.radio_metros || 100;
+    const activo = data.activo === undefined || data.activo === null || Number(data.activo) === 1;
+    const id = data.id || '';
+    const formId = 'sucursal-form-' + key;
+
+    return `
+        <input type="hidden" name="sucursal_id" value="${id}" form="${formId}">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Nombre de la sucursal</label>
+                <input type="text" id="suc_${key}_nombre" name="nombre" value="${nombre}" required
+                       form="${formId}" oninput="onSucursalNameInput('${key}', this.value)"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                       placeholder="Ej. Sucursal Centro">
+            </div>
+            <div class="flex items-end">
+                <label class="inline-flex items-center cursor-pointer select-none">
+                    <input type="checkbox" id="suc_${key}_activo" name="activo" value="1" form="${formId}" ${activo ? 'checked' : ''}
+                           class="w-4 h-4 rounded border-gray-300 text-green-600 focus:ring-green-500">
+                    <span class="ml-2 text-sm text-gray-700">Sucursal activa (aplica para el login geolocalizado)</span>
+                </label>
+            </div>
+            <div class="md:col-span-2 relative">
+                <label class="block text-sm font-medium text-gray-700 mb-2">Direccion</label>
+                <input type="text" id="suc_${key}_direccion" name="direccion" value="${direccion}" form="${formId}"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500"
+                       placeholder="Escribe una direccion para buscarla en el mapa" autocomplete="off"
+                       oninput="handleAddressInputFor('${key}', event)"
+                       onblur="setTimeout(function() { hideAddressSuggestionsFor('${key}'); }, 200)">
+                <div id="suc_${key}_suggestions" class="hidden absolute z-50 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-lg max-h-64 overflow-y-auto"></div>
+                <p class="text-xs text-gray-500 mt-1">Selecciona una sugerencia para completar coordenadas automaticamente.</p>
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Latitud</label>
+                <input type="text" id="suc_${key}_lat" name="latitud" value="${lat}" form="${formId}"
+                       onchange="syncMapFromCoordinateInputsFor('${key}')"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500" placeholder="20.5888">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Longitud</label>
+                <input type="text" id="suc_${key}_lng" name="longitud" value="${lng}" form="${formId}"
+                       onchange="syncMapFromCoordinateInputsFor('${key}')"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500" placeholder="-100.3899">
+            </div>
+            <div>
+                <label class="block text-sm font-medium text-gray-700 mb-2">Radio permitido (metros)</label>
+                <input type="number" id="suc_${key}_radio" name="radio_metros" value="${radio}" form="${formId}"
+                       class="w-full border border-gray-300 rounded-lg px-4 py-2 focus:ring-2 focus:ring-blue-500" min="1" max="100000">
+            </div>
+            <div class="flex items-end">
+                <button type="button" onclick="useCurrentLocationFor('${key}')"
+                        class="w-full bg-gray-700 text-white px-4 py-2 rounded-lg hover:bg-gray-800 transition text-sm">
+                    <i class="fas fa-location-crosshairs mr-2"></i>Usar mi ubicacion actual
+                </button>
+            </div>
+            <div class="md:col-span-2">
+                <p id="suc_${key}_status" class="text-sm text-gray-500"></p>
+            </div>
+            <div class="md:col-span-2">
+                <div id="suc_${key}_map" class="h-72 w-full rounded-lg border border-gray-300"></div>
+                <p class="text-xs text-gray-500 mt-2">Puedes hacer clic en el mapa o arrastrar el marcador para ajustar la ubicacion de esta sucursal.</p>
+            </div>
+        </div>
+        <div class="mt-4 flex justify-between items-center">
+            <button type="button" onclick="removeSucursalTab('${key}', ${id ? id : 'null'})" class="text-red-600 hover:text-red-800 text-sm">
+                <i class="fas fa-trash mr-1"></i>${id ? 'Eliminar sucursal' : 'Quitar'}
+            </button>
+            <button type="submit" form="${formId}" class="btn-primary text-white px-6 py-2 rounded-lg hover:opacity-90 transition text-sm">
+                <i class="fas fa-save mr-2"></i>Guardar sucursal
+            </button>
+        </div>
+    `;
+}
+
+function onSucursalNameInput(key, value) {
+    const pill = document.getElementById('sucursal_tab_btn_' + key);
+    if (pill) {
+        pill.textContent = value || 'Nueva sucursal';
+    }
+}
+
+function showSucursalTab(key) {
+    sucursalKeys.forEach(function(k) {
+        const panel = document.getElementById('sucursal_panel_' + k);
+        const pill = document.getElementById('sucursal_tab_btn_' + k);
+        const isActive = k === key;
+
+        if (panel) {
+            panel.classList.toggle('hidden', !isActive);
+        }
+        if (pill) {
+            pill.className = 'px-3 py-1.5 rounded-full text-sm border transition ' +
+                (isActive ? 'bg-blue-600 text-white border-blue-600' : 'bg-white text-gray-700 border-gray-300 hover:border-blue-400');
+        }
+    });
+
+    setTimeout(function() { ensureBranchMap(key); }, 100);
+}
+
+function removeSucursalTab(key, id) {
+    if (id) {
+        if (!confirm('¿Eliminar esta sucursal? Esta accion no se puede deshacer.')) {
+            return;
+        }
+        const delForm = document.createElement('form');
+        delForm.method = 'POST';
+        delForm.action = BASE_URL_JS + '/configuracion/sucursales/eliminar/' + id;
+        document.body.appendChild(delForm);
+        delForm.submit();
         return;
     }
 
-    status.textContent = 'Obteniendo ubicacion...';
-    status.className = 'text-sm text-gray-500';
+    if (!confirm('¿Quitar esta sucursal sin guardar?')) {
+        return;
+    }
+
+    const panel = document.getElementById('sucursal_panel_' + key);
+    const pill = document.getElementById('sucursal_tab_btn_' + key);
+    const form = document.getElementById('sucursal-form-' + key);
+    if (panel) panel.remove();
+    if (pill) pill.remove();
+    if (form) form.remove();
+    delete branchMaps[key];
+    delete branchTimers[key];
+
+    const idx = sucursalKeys.indexOf(key);
+    if (idx >= 0) {
+        sucursalKeys.splice(idx, 1);
+    }
+
+    if (sucursalKeys.length > 0) {
+        showSucursalTab(sucursalKeys[sucursalKeys.length - 1]);
+    } else {
+        const panelsContainer = document.getElementById('sucursal_panels');
+        if (panelsContainer && !document.getElementById('sucursal_empty_hint')) {
+            const hint = document.createElement('p');
+            hint.id = 'sucursal_empty_hint';
+            hint.className = 'text-sm text-gray-500';
+            hint.textContent = 'No hay sucursales configuradas. Agrega al menos una para que el login geolocalizado funcione.';
+            panelsContainer.insertAdjacentElement('afterend', hint);
+        }
+    }
+}
+
+function getBranchLatLng(key) {
+    const latEl = document.getElementById('suc_' + key + '_lat');
+    const lngEl = document.getElementById('suc_' + key + '_lng');
+    const lat = parseFloat((latEl && latEl.value) || '');
+    const lng = parseFloat((lngEl && lngEl.value) || '');
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        return [lat, lng];
+    }
+
+    return [20.5888, -100.3899];
+}
+
+function ensureBranchMap(key) {
+    const mapEl = document.getElementById('suc_' + key + '_map');
+    if (!mapEl || mapEl.offsetParent === null) {
+        return;
+    }
+
+    if (!window.L) {
+        const status = document.getElementById('suc_' + key + '_status');
+        if (status) {
+            status.textContent = 'No se pudo cargar el mapa. Revisa la conexion a OpenStreetMap.';
+            status.className = 'text-sm text-red-600';
+        }
+        return;
+    }
+
+    const initialLatLng = getBranchLatLng(key);
+    let entry = branchMaps[key];
+
+    if (!entry) {
+        const map = L.map(mapEl).setView(initialLatLng, 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+            maxZoom: 19,
+            attribution: '&copy; OpenStreetMap contributors'
+        }).addTo(map);
+
+        const marker = L.marker(initialLatLng, { draggable: true }).addTo(map);
+        marker.on('dragend', function(event) {
+            const position = event.target.getLatLng();
+            setLatLngFor(key, position.lat, position.lng, false);
+            reverseGeocodeFor(key, position.lat, position.lng);
+        });
+
+        map.on('click', function(event) {
+            setLatLngFor(key, event.latlng.lat, event.latlng.lng, true);
+            reverseGeocodeFor(key, event.latlng.lat, event.latlng.lng);
+        });
+
+        entry = { map: map, marker: marker };
+        branchMaps[key] = entry;
+    } else {
+        entry.map.invalidateSize();
+    }
+
+    setTimeout(function() { entry.map.invalidateSize(); }, 150);
+}
+
+function setLatLngFor(key, lat, lng, updateMap) {
+    const latEl = document.getElementById('suc_' + key + '_lat');
+    const lngEl = document.getElementById('suc_' + key + '_lng');
+
+    if (latEl) {
+        latEl.value = Number(lat).toFixed(8);
+    }
+    if (lngEl) {
+        lngEl.value = Number(lng).toFixed(8);
+    }
+
+    if (updateMap) {
+        setMapMarkerFor(key, Number(lat), Number(lng), true);
+    }
+}
+
+function setMapMarkerFor(key, lat, lng, centerMap) {
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
+        return;
+    }
+
+    if (!branchMaps[key]) {
+        ensureBranchMap(key);
+    }
+
+    const entry = branchMaps[key];
+    if (!entry) {
+        return;
+    }
+
+    const latLng = [lat, lng];
+    entry.marker.setLatLng(latLng);
+
+    if (centerMap) {
+        entry.map.setView(latLng, Math.max(entry.map.getZoom(), 16));
+    }
+}
+
+function syncMapFromCoordinateInputsFor(key) {
+    const latEl = document.getElementById('suc_' + key + '_lat');
+    const lngEl = document.getElementById('suc_' + key + '_lng');
+    const lat = parseFloat((latEl && latEl.value) || '');
+    const lng = parseFloat((lngEl && lngEl.value) || '');
+
+    if (Number.isFinite(lat) && Number.isFinite(lng)) {
+        setMapMarkerFor(key, lat, lng, true);
+    }
+}
+
+function useCurrentLocationFor(key) {
+    const status = document.getElementById('suc_' + key + '_status');
+
+    if (!navigator.geolocation) {
+        if (status) {
+            status.textContent = 'Este navegador no permite obtener ubicacion.';
+            status.className = 'text-sm text-red-600';
+        }
+        return;
+    }
+
+    if (status) {
+        status.textContent = 'Obteniendo ubicacion...';
+        status.className = 'text-sm text-gray-500';
+    }
 
     navigator.geolocation.getCurrentPosition(
         function(position) {
-            setLatLngInputs(position.coords.latitude, position.coords.longitude, true);
-            reverseGeocodeLatLng(position.coords.latitude, position.coords.longitude);
-            status.textContent = 'Ubicacion capturada.';
-            status.className = 'text-sm text-green-600';
+            setLatLngFor(key, position.coords.latitude, position.coords.longitude, true);
+            reverseGeocodeFor(key, position.coords.latitude, position.coords.longitude);
+            if (status) {
+                status.textContent = 'Ubicacion capturada.';
+                status.className = 'text-sm text-green-600';
+            }
         },
         function() {
-            status.textContent = 'No se pudo obtener la ubicacion. Revise permisos del navegador.';
-            status.className = 'text-sm text-red-600';
+            if (status) {
+                status.textContent = 'No se pudo obtener la ubicacion. Revise permisos del navegador.';
+                status.className = 'text-sm text-red-600';
+            }
         },
         {
             enableHighAccuracy: true,
@@ -607,125 +889,24 @@ function useCurrentLocation() {
     );
 }
 
-function getConfiguredLatLng() {
-    const lat = parseFloat(document.getElementById('geo_login_latitude')?.value || '');
-    const lng = parseFloat(document.getElementById('geo_login_longitude')?.value || '');
-
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        return [lat, lng];
-    }
-
-    return [20.5888, -100.3899];
-}
-
-function ensureGeoMap() {
-    const mapEl = document.getElementById('geo_login_map');
-    if (!mapEl || mapEl.offsetParent === null) {
-        return;
-    }
-
-    if (!window.L) {
-        const status = document.getElementById('location_status');
-        if (status) {
-            status.textContent = 'No se pudo cargar el mapa. Revisa la conexion a OpenStreetMap.';
-            status.className = 'text-sm text-red-600';
-        }
-        return;
-    }
-
-    const initialLatLng = getConfiguredLatLng();
-
-    if (!geoMap) {
-        geoMap = L.map('geo_login_map').setView(initialLatLng, 16);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19,
-            attribution: '&copy; OpenStreetMap contributors'
-        }).addTo(geoMap);
-
-        geoMarker = L.marker(initialLatLng, { draggable: true }).addTo(geoMap);
-        geoMarker.on('dragend', function(event) {
-            const position = event.target.getLatLng();
-            setLatLngInputs(position.lat, position.lng, false);
-            reverseGeocodeLatLng(position.lat, position.lng);
-        });
-
-        geoMap.on('click', function(event) {
-            setLatLngInputs(event.latlng.lat, event.latlng.lng, true);
-            reverseGeocodeLatLng(event.latlng.lat, event.latlng.lng);
-        });
-    } else {
-        geoMap.invalidateSize();
-    }
-
-    setTimeout(function() {
-        geoMap.invalidateSize();
-    }, 150);
-}
-
-function setLatLngInputs(lat, lng, updateMap) {
-    const latInput = document.getElementById('geo_login_latitude');
-    const lngInput = document.getElementById('geo_login_longitude');
-
-    if (latInput) {
-        latInput.value = Number(lat).toFixed(8);
-    }
-
-    if (lngInput) {
-        lngInput.value = Number(lng).toFixed(8);
-    }
-
-    if (updateMap) {
-        setMapMarker(Number(lat), Number(lng), true);
-    }
-}
-
-function setMapMarker(lat, lng, centerMap) {
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) {
-        return;
-    }
-
-    if (!geoMap) {
-        ensureGeoMap();
-    }
-
-    if (!geoMap || !geoMarker) {
-        return;
-    }
-
-    const latLng = [lat, lng];
-    geoMarker.setLatLng(latLng);
-
-    if (centerMap) {
-        geoMap.setView(latLng, Math.max(geoMap.getZoom(), 16));
-    }
-}
-
-function syncMapFromCoordinateInputs() {
-    const lat = parseFloat(document.getElementById('geo_login_latitude')?.value || '');
-    const lng = parseFloat(document.getElementById('geo_login_longitude')?.value || '');
-
-    if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        setMapMarker(lat, lng, true);
-    }
-}
-
-function handleAddressInput(event) {
+function handleAddressInputFor(key, event) {
     const query = event.target.value.trim();
 
-    clearTimeout(addressSearchTimer);
+    branchTimers[key] = branchTimers[key] || {};
+    clearTimeout(branchTimers[key].address);
 
     if (query.length < 3) {
-        hideAddressSuggestions();
+        hideAddressSuggestionsFor(key);
         return;
     }
 
-    addressSearchTimer = setTimeout(function() {
-        searchAddress(query);
+    branchTimers[key].address = setTimeout(function() {
+        searchAddressFor(key, query);
     }, 350);
 }
 
-function searchAddress(query) {
-    const suggestions = document.getElementById('geo_address_suggestions');
+function searchAddressFor(key, query) {
+    const suggestions = document.getElementById('suc_' + key + '_suggestions');
     if (!suggestions) {
         return;
     }
@@ -747,14 +928,14 @@ function searchAddress(query) {
             }
             return response.json();
         })
-        .then(renderAddressSuggestions)
+        .then(function(results) { renderAddressSuggestionsFor(key, results); })
         .catch(function() {
             suggestions.innerHTML = '<div class="px-4 py-3 text-sm text-red-600">No se pudieron cargar sugerencias.</div>';
         });
 }
 
-function renderAddressSuggestions(results) {
-    const suggestions = document.getElementById('geo_address_suggestions');
+function renderAddressSuggestionsFor(key, results) {
+    const suggestions = document.getElementById('suc_' + key + '_suggestions');
     if (!suggestions) {
         return;
     }
@@ -771,17 +952,11 @@ function renderAddressSuggestions(results) {
         button.type = 'button';
         button.className = 'block w-full px-4 py-3 text-left text-sm hover:bg-blue-50 focus:bg-blue-50 focus:outline-none border-b border-gray-100 last:border-b-0';
         button.textContent = result.display_name;
-        button.addEventListener('pointerdown', function(event) {
-            event.preventDefault();
-            selectAddressSuggestion(result);
-        });
-        button.addEventListener('mousedown', function(event) {
-            event.preventDefault();
-            selectAddressSuggestion(result);
-        });
-        button.addEventListener('click', function(event) {
-            event.preventDefault();
-            selectAddressSuggestion(result);
+        ['pointerdown', 'mousedown', 'click'].forEach(function(evtName) {
+            button.addEventListener(evtName, function(event) {
+                event.preventDefault();
+                selectAddressSuggestionFor(key, result);
+            });
         });
         suggestions.appendChild(button);
     });
@@ -789,9 +964,9 @@ function renderAddressSuggestions(results) {
     suggestions.classList.remove('hidden');
 }
 
-function selectAddressSuggestion(result) {
-    const addressInput = document.getElementById('geo_login_address');
-    const status = document.getElementById('location_status');
+function selectAddressSuggestionFor(key, result) {
+    const addressInput = document.getElementById('suc_' + key + '_direccion');
+    const status = document.getElementById('suc_' + key + '_status');
     const lat = parseFloat(result.lat);
     const lng = parseFloat(result.lon);
     const displayName = String(result.display_name || '');
@@ -801,19 +976,19 @@ function selectAddressSuggestion(result) {
     }
 
     if (Number.isFinite(lat) && Number.isFinite(lng)) {
-        setLatLngInputs(lat, lng, true);
+        setLatLngFor(key, lat, lng, true);
         if (status) {
             status.textContent = 'Direccion seleccionada y coordenadas actualizadas.';
             status.className = 'text-sm text-green-600';
         }
     }
 
-    hideAddressSuggestions();
+    hideAddressSuggestionsFor(key);
 }
 
-function reverseGeocodeLatLng(lat, lng) {
-    const addressInput = document.getElementById('geo_login_address');
-    const status = document.getElementById('location_status');
+function reverseGeocodeFor(key, lat, lng) {
+    const addressInput = document.getElementById('suc_' + key + '_direccion');
+    const status = document.getElementById('suc_' + key + '_status');
     const parsedLat = Number(lat);
     const parsedLng = Number(lng);
 
@@ -821,9 +996,10 @@ function reverseGeocodeLatLng(lat, lng) {
         return;
     }
 
-    clearTimeout(reverseGeocodeTimer);
+    branchTimers[key] = branchTimers[key] || {};
+    clearTimeout(branchTimers[key].reverse);
 
-    reverseGeocodeTimer = setTimeout(function() {
+    branchTimers[key].reverse = setTimeout(function() {
         if (status) {
             status.textContent = 'Buscando direccion del punto seleccionado...';
             status.className = 'text-sm text-gray-500';
@@ -868,8 +1044,8 @@ function reverseGeocodeLatLng(lat, lng) {
     }, 300);
 }
 
-function hideAddressSuggestions() {
-    const suggestions = document.getElementById('geo_address_suggestions');
+function hideAddressSuggestionsFor(key) {
+    const suggestions = document.getElementById('suc_' + key + '_suggestions');
     if (suggestions) {
         suggestions.classList.add('hidden');
     }

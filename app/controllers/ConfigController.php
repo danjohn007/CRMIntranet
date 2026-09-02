@@ -13,12 +13,94 @@ class ConfigController extends BaseController {
                 $configArray[$config['config_key']] = $config;
             }
 
-            $this->view('config/index', ['configs' => $configArray]);
+            $this->view('config/index', ['configs' => $configArray, 'sucursales' => $this->getSucursales()]);
         } catch (PDOException $e) {
             error_log("Error al cargar configuracion: " . $e->getMessage());
             $_SESSION['error'] = 'Error al cargar configuracion';
-            $this->view('config/index', ['configs' => []]);
+            $this->view('config/index', ['configs' => [], 'sucursales' => []]);
         }
+    }
+
+    private function getSucursales(): array {
+        try {
+            $stmt = $this->db->query("SELECT * FROM sucursales ORDER BY id ASC");
+            return $stmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (PDOException $e) {
+            // La tabla puede no existir todavia si no se aplico la migracion
+            // database/migrations/create_sucursales_table.sql
+            error_log("Error al cargar sucursales: " . $e->getMessage());
+            return [];
+        }
+    }
+
+    public function saveSucursal() {
+        $this->requireRole([ROLE_ADMIN]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/configuracion');
+        }
+
+        $id = (isset($_POST['sucursal_id']) && $_POST['sucursal_id'] !== '') ? (int) $_POST['sucursal_id'] : null;
+        $nombre = trim((string) ($_POST['nombre'] ?? ''));
+        $direccion = trim((string) ($_POST['direccion'] ?? ''));
+        $latitud = trim((string) ($_POST['latitud'] ?? ''));
+        $longitud = trim((string) ($_POST['longitud'] ?? ''));
+        $radio = trim((string) ($_POST['radio_metros'] ?? ''));
+        $activo = isset($_POST['activo']) ? 1 : 0;
+
+        try {
+            if ($nombre === '') {
+                throw new Exception('El nombre de la sucursal es obligatorio');
+            }
+            if (!is_numeric($latitud) || (float) $latitud < -90 || (float) $latitud > 90) {
+                throw new Exception('La latitud de la sucursal no es valida');
+            }
+            if (!is_numeric($longitud) || (float) $longitud < -180 || (float) $longitud > 180) {
+                throw new Exception('La longitud de la sucursal no es valida');
+            }
+            $radioInt = $this->validateIntegerRange($radio, 1, 100000, 'El radio permitido debe estar entre 1 y 100000 metros');
+
+            if ($id) {
+                $stmt = $this->db->prepare("
+                    UPDATE sucursales
+                    SET nombre = ?, direccion = ?, latitud = ?, longitud = ?, radio_metros = ?, activo = ?
+                    WHERE id = ?
+                ");
+                $stmt->execute([$nombre, $direccion, $latitud, $longitud, $radioInt, $activo, $id]);
+            } else {
+                $stmt = $this->db->prepare("
+                    INSERT INTO sucursales (nombre, direccion, latitud, longitud, radio_metros, activo)
+                    VALUES (?, ?, ?, ?, ?, ?)
+                ");
+                $stmt->execute([$nombre, $direccion, $latitud, $longitud, $radioInt, $activo]);
+            }
+
+            $_SESSION['success'] = 'Sucursal guardada exitosamente';
+        } catch (Exception $e) {
+            error_log("Error al guardar sucursal: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al guardar sucursal: ' . $e->getMessage();
+        }
+
+        $this->redirect('/configuracion#section-seguridad');
+    }
+
+    public function deleteSucursal($id) {
+        $this->requireRole([ROLE_ADMIN]);
+
+        if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
+            $this->redirect('/configuracion');
+        }
+
+        try {
+            $stmt = $this->db->prepare("DELETE FROM sucursales WHERE id = ?");
+            $stmt->execute([(int) $id]);
+            $_SESSION['success'] = 'Sucursal eliminada';
+        } catch (PDOException $e) {
+            error_log("Error al eliminar sucursal: " . $e->getMessage());
+            $_SESSION['error'] = 'Error al eliminar sucursal';
+        }
+
+        $this->redirect('/configuracion#section-seguridad');
     }
 
     public function save() {

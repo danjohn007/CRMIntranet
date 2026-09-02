@@ -289,6 +289,21 @@ CREATE TABLE `login_attempts` (
   KEY `idx_login_attempts_attempted_at` (`attempted_at`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
 
+-- Tabla de Sucursales (ubicaciones permitidas para el login geolocalizado de asesores)
+DROP TABLE IF EXISTS `sucursales`;
+CREATE TABLE `sucursales` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `nombre` varchar(150) NOT NULL,
+  `direccion` varchar(255) DEFAULT NULL,
+  `latitud` decimal(10,8) NOT NULL,
+  `longitud` decimal(11,8) NOT NULL,
+  `radio_metros` int(11) NOT NULL DEFAULT 100,
+  `activo` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` timestamp NOT NULL DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
 -- Tabla de Dispositivos HikVision
 DROP TABLE IF EXISTS `hikvision_devices`;
 CREATE TABLE `hikvision_devices` (

@@ -82,6 +82,8 @@ class Router {
         // Configuración
         $this->routes['GET']['/configuracion'] = ['ConfigController', 'index'];
         $this->routes['POST']['/configuracion/guardar'] = ['ConfigController', 'save'];
+        $this->routes['POST']['/configuracion/sucursales/guardar'] = ['ConfigController', 'saveSucursal'];
+        $this->routes['POST']['/configuracion/sucursales/eliminar/{id}'] = ['ConfigController', 'deleteSucursal'];
         
         // Logs de Errores
         $this->routes['GET']['/logs'] = ['LogController', 'index'];
