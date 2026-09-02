@@ -76,6 +76,11 @@
             #sidebar {
                 width: 256px;
                 flex-shrink: 0;
+                position: sticky;
+                top: 0;
+                align-self: flex-start;
+                height: 100vh;
+                overflow-y: auto;
             }
         }
         
